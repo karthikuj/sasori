@@ -3,11 +3,15 @@
         "headless": false,
         "maximize": true,
         "proxy": {
-            "enabled": false,
+            "enabled": true,
             "host": "127.0.0.1",
             "port": 8081
         },
         "profile": {}
     },
-    "crawler": {}
+    "crawler": {
+        "elements": [
+            "a"
+        ]
+    }
 }

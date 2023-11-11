@@ -1,8 +1,7 @@
 class CrawlState {
-    constructor(url, dom, interactableElements, parentState) {
+    constructor(url, dom, parentState) {
         this.url = url;
         this.dom = dom;
-        this.interactableElements = interactableElements || [];
         this.parentState = parentState;
     }
 }
