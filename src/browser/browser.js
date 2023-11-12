@@ -21,7 +21,7 @@ class Browser {
             console.error("Error reading/parsing JSON file:", error.message);
         }
 
-        browserConfig.headless = configJson.headless;
+        browserConfig.headless = configJson.headless ? "new" : false;
         if (configJson.maximize) {
             args.push("--start-maximized")
         }
