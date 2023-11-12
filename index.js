@@ -9,24 +9,13 @@ const DomPath = require('./src/crawler/domPath');
 
     await page.goto('https://security-crawl-maze.app/', { waitUntil: 'networkidle0' });
     const domPath = new DomPath(page);
-    const xPaths = await domPath.getXPaths();
+    const cssPaths = await domPath.getCssPaths();
     const rootState = new CrawlState(page.url(), await page.content(), null);
-    for (const xPath of xPaths) {
-        const allNodes = await page.$x(xPath);
-        const node = allNodes[0];
+    for (const cssPath of cssPaths) {
+        const node = await page.$(cssPath);
         node.click();
         await page.waitForNavigation();
         page.goBack();
         await page.waitForNavigation();
     }
-
-    // const els = await page.$$eval('a', (nodes) => {
-    //     return nodes.map(node => node.href);
-    // });
-
-    // const allLinks = new Set(els);
-    // for (const link of allLinks) {
-    //     await page.goto(link, { waitUntil: 'networkidle0' });
-    // }
-
 })();

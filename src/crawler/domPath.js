@@ -5,6 +5,155 @@ class DomPath {
         this.page = page;
     }
 
+    async getCssPaths() {
+        return await this.page.$$eval('a', (nodes) => {
+            return nodes.map((node) => {
+                const Step = class {
+                    /**
+                     * @param {string} value
+                     * @param {boolean} optimized
+                     */
+                    constructor(value, optimized) {
+                        this.value = value;
+                        this.optimized = optimized || false;
+                    }
+
+                    /**
+                     * @override
+                     * @return {string}
+                     */
+                    toString() {
+                        return this.value;
+                    }
+                };
+
+                const _cssPathStep = function (node, optimized, isTargetNode) {
+                    if (node.nodeType !== Node.ELEMENT_NODE)
+                        return null;
+
+                    const id = node.getAttribute('id');
+                    if (optimized) {
+                        if (id)
+                            return new Step(idSelector(id), true);
+                        const nodeNameLower = node.nodeName.toLowerCase();
+                        if (nodeNameLower === 'body' || nodeNameLower === 'head' || nodeNameLower === 'html')
+                            return new Step(node.nodeName, true);
+                    }
+                    const nodeName = node.nodeName;
+
+                    if (id)
+                        return new Step(nodeName + idSelector(id), true);
+                    const parent = node.parentNode;
+                    if (!parent || parent.nodeType === Node.DOCUMENT_NODE)
+                        return new Step(nodeName, true);
+
+                    /**
+                     * @param {!SDK.DOMNode} node
+                     * @return {!Array.<string>}
+                     */
+                    function prefixedElementClassNames(node) {
+                        const classAttribute = node.getAttribute('class');
+                        if (!classAttribute)
+                            return [];
+
+                        return classAttribute.split(/\s+/g).filter(Boolean).map(function (name) {
+                            // The prefix is required to store "__proto__" in a object-based map.
+                            return '$' + name;
+                        });
+                    }
+
+                    /**
+                     * @param {string} id
+                     * @return {string}
+                     */
+                    function idSelector(id) {
+                        return '#' + CSS.escape(id);
+                    }
+
+                    const prefixedOwnClassNamesArray = prefixedElementClassNames(node);
+                    let needsClassNames = false;
+                    let needsNthChild = false;
+                    let ownIndex = -1;
+                    let elementIndex = -1;
+                    const siblings = parent.children;
+                    for (let i = 0; (ownIndex === -1 || !needsNthChild) && i < siblings.length; ++i) {
+                        const sibling = siblings[i];
+                        if (sibling.nodeType !== Node.ELEMENT_NODE)
+                            continue;
+                        elementIndex += 1;
+                        if (sibling === node) {
+                            ownIndex = elementIndex;
+                            continue;
+                        }
+                        if (needsNthChild)
+                            continue;
+                        if (sibling.nodeName !== nodeName)
+                            continue;
+
+                        needsClassNames = true;
+                        const ownClassNames = new Set(prefixedOwnClassNamesArray);
+                        if (!ownClassNames.size) {
+                            needsNthChild = true;
+                            continue;
+                        }
+                        const siblingClassNamesArray = prefixedElementClassNames(sibling);
+                        for (let j = 0; j < siblingClassNamesArray.length; ++j) {
+                            const siblingClass = siblingClassNamesArray[j];
+                            if (!ownClassNames.has(siblingClass))
+                                continue;
+                            ownClassNames.delete(siblingClass);
+                            if (!ownClassNames.size) {
+                                needsNthChild = true;
+                                break;
+                            }
+                        }
+                    }
+
+                    let result = nodeName;
+                    if (isTargetNode && nodeName.toLowerCase() === 'input' && node.getAttribute('type') && !node.getAttribute('id') &&
+                        !node.getAttribute('class'))
+                        result += '[type=' + CSS.escape(node.getAttribute('type')) + ']';
+                    if (needsNthChild) {
+                        result += ':nth-child(' + (ownIndex + 1) + ')';
+                    } else if (needsClassNames) {
+                        for (const prefixedName of prefixedOwnClassNamesArray)
+                            result += '.' + CSS.escape(prefixedName.slice(1));
+                    }
+
+                    return new Step(result, false);
+                };
+
+                const cssPath = function (node, optimized) {
+                    if (node.nodeType !== Node.ELEMENT_NODE)
+                        return '';
+
+                    const steps = [];
+                    let contextNode = node;
+                    while (contextNode) {
+                        const step = _cssPathStep(contextNode, !!optimized, contextNode === node);
+                        if (!step)
+                            break;  // Error - bail out early.
+                        steps.push(step);
+                        if (step.optimized)
+                            break;
+                        contextNode = contextNode.parentNode;
+                    }
+
+                    steps.reverse();
+                    return steps.join(' > ');
+                };
+
+                const fullQualifiedSelector = function (node, justSelector) {
+                    if (node.nodeType !== Node.ELEMENT_NODE)
+                        return node.localName || node.nodeName.toLowerCase();
+                    return cssPath(node, justSelector);
+                };
+
+                return fullQualifiedSelector(node, true);
+            });
+        });
+    }
+
     /**
      * This function returns an Array of XPaths of the elements in context in the given page.
      * @returns {Array<String>}
@@ -86,7 +235,7 @@ class DomPath {
                             ownValue = node.localName;
                             break;
                         case Node.ATTRIBUTE_NODE:
-                            ownValue = '@' + node.nodeName();
+                            ownValue = '@' + node.nodeName;
                             break;
                         case Node.TEXT_NODE:
                         case Node.CDATA_SECTION_NODE:
@@ -132,7 +281,7 @@ class DomPath {
                     return (steps.length && steps[0].optimized ? '' : '/') + steps.join('/');
                 };
 
-                return xPath(node, true);;
+                return xPath(node, true);
             });
         });
     }
