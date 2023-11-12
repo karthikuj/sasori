@@ -5,8 +5,8 @@ class DomPath {
         this.page = page;
     }
 
-    async getCssPaths() {
-        return await this.page.$$eval('a', (nodes) => {
+    async getCssPaths(cssPath) {
+        return await this.page.$$eval(cssPath, (nodes) => {
             return nodes.map((node) => {
                 const Step = class {
                     /**
@@ -158,8 +158,8 @@ class DomPath {
      * This function returns an Array of XPaths of the elements in context in the given page.
      * @returns {Array<String>}
      */
-    async getXPaths() {
-        return await this.page.$$eval('a', (nodes) => {
+    async getXPaths(cssPath) {
+        return await this.page.$$eval(cssPath, (nodes) => {
             return nodes.map((node) => {
 
                 const Step = class {
