@@ -1,10 +1,14 @@
-const fs = require('fs');
-
 class DomPath {
     constructor(page) {
         this.page = page;
     }
 
+
+    /**
+     * This function returns an Array of CssPaths of the elements in context of the given page.
+     * @param {String} cssPath 
+     * @returns {Array<String>}
+     */
     async getCssPaths(cssPath) {
         return await this.page.$$eval(cssPath, (nodes) => {
             return nodes.map((node) => {
@@ -48,7 +52,7 @@ class DomPath {
                         return new Step(nodeName, true);
 
                     /**
-                     * @param {!SDK.DOMNode} node
+                     * @param {Node} node
                      * @return {!Array.<string>}
                      */
                     function prefixedElementClassNames(node) {
@@ -155,7 +159,7 @@ class DomPath {
     }
 
     /**
-     * This function returns an Array of XPaths of the elements in context in the given page.
+     * This function returns an Array of XPaths of the elements in context of the given page.
      * @returns {Array<String>}
      */
     async getXPaths(cssPath) {

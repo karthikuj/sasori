@@ -5,6 +5,11 @@ class CrawlState {
         this.parentState = parentState;
         this.crawlActions = crawlActions;
     }
+
+    // TODO:
+    //     1. Add equals method to compare CrawlStates.
+    //     2. Add getStrippedDom method.
+    //     3. Add depth property.
 }
 
 module.exports = CrawlState;
