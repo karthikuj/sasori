@@ -3,7 +3,6 @@ class DomPath {
         this.page = page;
     }
 
-
     /**
      * This function returns an Array of CssPaths of the elements in context of the given page.
      * @param {String} cssPath 
