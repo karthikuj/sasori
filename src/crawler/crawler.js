@@ -24,6 +24,8 @@ class Crawler {
         const browser = await Browser.getBrowserInstance();
         const allPages = await browser.pages();
         const page = allPages[0];
+        page.setDefaultTimeout(10000);
+        page.setDefaultNavigationTimeout(10000);
         const screen = await page.evaluate(() => { return { width: window.screen.availWidth, height: window.screen.availHeight } });
         await page.setViewport({ width: screen.width, height: screen.height });
 
@@ -35,7 +37,7 @@ class Crawler {
         let parentState = rootState;
         let currentState = rootState;
         while (currentState.crawlActions != null) {
-            const currentAction = currentState.crawlActions[currentState.crawlActions.length - 1];
+            const currentAction = currentState.crawlActions[0];
             await page.waitForSelector(currentAction.cssPath);
             const node = await page.$(currentAction.cssPath);
             try {
@@ -47,8 +49,8 @@ class Crawler {
                     console.error(message);
                 }
             }
-            await page.waitForNavigation({ waitUntil: 'domcontentloaded' });
-            // page.goto(rootState.url, { waitUntil: 'domcontentloaded' });
+
+            await page.waitForNetworkIdle({idleTime: 1000})
             currentState = new CrawlState(page.url(), await page.content(), parentState.crawlDepth + 1, null);
             currentAction.childState = currentState;
             currentState.crawlActions = await this.getCrawlActions(page, currentState);
