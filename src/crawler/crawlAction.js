@@ -1,4 +1,5 @@
 class CrawlAction {
+
     constructor(element, action, cssPath, parentState) {
         this.element = element;
         this.action = action;
@@ -6,6 +7,30 @@ class CrawlAction {
         this.parentState = parentState;
         this.childState = null;
 
+    }
+
+    getElement() {
+        return this.element;
+    }
+
+    getAction() {
+        return this.action;
+    }
+
+    getCssPath() {
+        return this.cssPath;
+    }
+
+    getParentState() {
+        return this.parentState;
+    }
+
+    getChildState() {
+        return this.childState;
+    }
+
+    setChildState(childState) {
+        this.childState = childState;
     }
 }
 

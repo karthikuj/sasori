@@ -51,16 +51,16 @@ class Crawler {
 
         await page.goto('https://security-crawl-maze.app/', { waitUntil: 'domcontentloaded' });
 
-        const rootState = new CrawlState(page.url(), await page.content(), 0, null);
+        const rootState = new CrawlState(page.url(), await page.content(), 0);
         rootState.crawlActions = await this.getCrawlActions(page);
 
         let parentState = rootState;
         let currentState = rootState;
         while (currentState.crawlActions != null) {
-            const currentAction = currentState.crawlActions[0];
+            const currentAction = currentState.crawlActions[currentState.crawlActions.length - 1];
             await this.performAction(currentAction, page);
-            currentState = new CrawlState(page.url(), await page.content(), parentState.crawlDepth + 1, null);
-            currentAction.childState = currentState;
+            currentState = new CrawlState(page.url(), await page.content(), parentState.crawlDepth + 1);
+            currentAction.setChildState(currentState);
             currentState.crawlActions = await this.getCrawlActions(page, currentState);
         }
 

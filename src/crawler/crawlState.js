@@ -1,11 +1,38 @@
+const { log } = require('console');
 const crypto = require('crypto');
 
 class CrawlState {
-    constructor(url, dom, crawlDepth, crawlActions) {
-        this.stateId = crypto.randomUUID();
+    #stateId;
+
+    constructor(url, dom, crawlDepth) {
+        this.#stateId = crypto.randomUUID();
         this.url = url;
         this.dom = dom;
         this.crawlDepth = crawlDepth;
+        this.crawlActions = [];
+    }
+
+    getStateId() {
+        return this.#stateId;
+    }
+
+    getUrl() {
+        return this.url;
+    }
+
+    getDom() {
+        return this.dom;
+    }
+
+    getCrawlDepth() {
+        return this.crawlDepth;
+    }
+
+    getCrawlActions() {
+        return this.crawlActions;
+    }
+
+    setCrawlActions(crawlActions) {
         this.crawlActions = crawlActions;
     }
 
