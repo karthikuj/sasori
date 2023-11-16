@@ -35,7 +35,7 @@ class Crawler {
 
         try {
             await page.waitForNavigation({ waitUntil: 'domcontentloaded' });
-        } catch ({name, message}) {
+        } catch ({ name, message }) {
             if (name === "TimeoutError" && message.includes("Navigation timeout")) {
                 await page.waitForNetworkIdle({ idleTime: 1000 });
             }
@@ -56,12 +56,12 @@ class Crawler {
 
         let parentState = rootState;
         let currentState = rootState;
-        while (currentState.crawlActions != null) {
-            const currentAction = currentState.crawlActions[currentState.crawlActions.length - 1];
+        while (currentState.getCrawlActions() != null) {
+            const currentAction = currentState.getCrawlActions()[currentState.getCrawlActions().length - 1];
             await this.performAction(currentAction, page);
-            currentState = new CrawlState(page.url(), await page.content(), parentState.crawlDepth + 1);
+            currentState = new CrawlState(page.url(), await page.content(), parentState.getCrawlDepth() + 1);
             currentAction.setChildState(currentState);
-            currentState.crawlActions = await this.getCrawlActions(page, currentState);
+            currentState.setCrawlActions(await this.getCrawlActions(page, currentState));
         }
 
         console.log("Scan completed");
