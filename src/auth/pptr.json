@@ -1,0 +1,140 @@
+{
+    "title": "hypejab-login",
+    "steps": [
+        {
+            "type": "setViewport",
+            "width": 1920,
+            "height": 398,
+            "deviceScaleFactor": 1,
+            "isMobile": false,
+            "hasTouch": false,
+            "isLandscape": false
+        },
+        {
+            "type": "navigate",
+            "url": "https://hypejabbed.getastra.dev/",
+            "assertedEvents": [
+                {
+                    "type": "navigation",
+                    "url": "https://hypejabbed.getastra.dev/",
+                    "title": "Hypejab"
+                }
+            ]
+        },
+        {
+            "type": "click",
+            "target": "main",
+            "selectors": [
+                [
+                    "aria/ Login"
+                ],
+                [
+                    "ul.navbar-right > li:nth-of-type(1) > a"
+                ],
+                [
+                    "xpath//html/body/nav/div/ul[2]/li[1]/a"
+                ],
+                [
+                    "pierce/ul.navbar-right > li:nth-of-type(1) > a"
+                ]
+            ],
+            "offsetY": 33,
+            "offsetX": 44.984375,
+            "assertedEvents": [
+                {
+                    "type": "navigation",
+                    "url": "https://hypejabbed.getastra.dev/hypejablogin",
+                    "title": ""
+                }
+            ]
+        },
+        {
+            "type": "change",
+            "value": "say+my+name@bb.com",
+            "selectors": [
+                [
+                    "aria/email"
+                ],
+                [
+                    "#inputUsername"
+                ],
+                [
+                    "xpath///*[@id=\"inputUsername\"]"
+                ],
+                [
+                    "pierce/#inputUsername"
+                ]
+            ],
+            "target": "main"
+        },
+        {
+            "type": "click",
+            "target": "main",
+            "selectors": [
+                [
+                    "aria/password"
+                ],
+                [
+                    "#inputPassword"
+                ],
+                [
+                    "xpath///*[@id=\"inputPassword\"]"
+                ],
+                [
+                    "pierce/#inputPassword"
+                ]
+            ],
+            "offsetY": 20,
+            "offsetX": 173.5
+        },
+        {
+            "type": "change",
+            "value": "heisenberg",
+            "selectors": [
+                [
+                    "aria/password"
+                ],
+                [
+                    "#inputPassword"
+                ],
+                [
+                    "xpath///*[@id=\"inputPassword\"]"
+                ],
+                [
+                    "pierce/#inputPassword"
+                ]
+            ],
+            "target": "main"
+        },
+        {
+            "type": "click",
+            "target": "main",
+            "selectors": [
+                [
+                    "aria/enter"
+                ],
+                [
+                    "button"
+                ],
+                [
+                    "xpath//html/body/div/div/div/div/form/button"
+                ],
+                [
+                    "pierce/button"
+                ],
+                [
+                    "text/enter"
+                ]
+            ],
+            "offsetY": 42,
+            "offsetX": 138.5,
+            "assertedEvents": [
+                {
+                    "type": "navigation",
+                    "url": "https://hypejabbed.getastra.dev/loginPoll",
+                    "title": ""
+                }
+            ]
+        }
+    ]
+}

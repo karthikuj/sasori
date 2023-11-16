@@ -6,6 +6,7 @@
   "directories": {
     "test": "tests"
   },
+  "type": "module",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
@@ -13,6 +14,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@puppeteer/replay": "^2.13.4",
     "puppeteer": "^21.5.1"
   }
 }
