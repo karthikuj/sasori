@@ -8,8 +8,6 @@ import DomPath from './domPath.js';
 import CrawlAction from './crawlAction.js';
 import authenticate from '../auth/authenticator.js';
 
-import { dirname, resolve } from "path";
-
 class Crawler {
     constructor() {
     }
