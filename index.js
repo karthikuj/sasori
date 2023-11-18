@@ -1,4 +1,4 @@
-const Crawler = require('./src/crawler/crawler');
+import Crawler from './src/crawler/crawler.js';
 
 const crawler = new Crawler();
 crawler.startCrawling();

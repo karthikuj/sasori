@@ -1,6 +1,5 @@
-const fs = require("fs");
-const path = require("path");
-const puppeteer = require("puppeteer");
+import { readFileSync } from "fs";
+import { launch } from "puppeteer";
 
 class Browser {
 
@@ -10,13 +9,13 @@ class Browser {
      * @returns {Object}
      */
     static getBrowserConfig() {
-        const configFilePath = path.resolve(__dirname, "../../config/config.json");
+        const configFilePath = new URL("../../config/config.json", import.meta.url);
         const browserConfig = { headless: "new" };
         const args = [];
         let configJson = {};
 
         try {
-            configJson = JSON.parse(fs.readFileSync(configFilePath, "utf-8"))["browser"];
+            configJson = JSON.parse(readFileSync(configFilePath, "utf-8"))["browser"];
         } catch (error) {
             console.error("Error reading/parsing JSON file:", error.message);
         }
@@ -39,9 +38,9 @@ class Browser {
      */
     static async getBrowserInstance() {
         const browserConfig = this.getBrowserConfig();
-        const browser = await puppeteer.launch(browserConfig)
+        const browser = await launch(browserConfig)
         return browser;
     }
 }
 
-module.exports = Browser;
+export default Browser;
