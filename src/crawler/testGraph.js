@@ -1,5 +1,5 @@
-const CrawlState = require('./crawlState');
-const CrawlAction = require('./crawlAction');
+import CrawlState from './crawlState.js';
+import CrawlAction from './crawlAction.js';
 
 class TestGraph {
     constructor() {
@@ -58,4 +58,4 @@ class TestGraph {
     }
 }
 
-module.exports = TestGraph;
+export default TestGraph;

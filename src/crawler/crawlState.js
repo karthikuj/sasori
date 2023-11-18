@@ -1,11 +1,9 @@
-const { log } = require('console');
-const crypto = require('crypto');
-
+import { randomUUID } from 'crypto';
 class CrawlState {
     #stateId;
 
     constructor(url, dom, crawlDepth) {
-        this.#stateId = crypto.randomUUID();
+        this.#stateId = randomUUID();
         this.url = url;
         this.dom = dom;
         this.crawlDepth = crawlDepth;
@@ -41,4 +39,4 @@ class CrawlState {
     //     2. Add getStrippedDom method.
 }
 
-module.exports = CrawlState;
+export default CrawlState;

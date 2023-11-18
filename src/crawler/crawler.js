@@ -2,10 +2,11 @@
 // 1. Crawl only if URL is in scope.
 // 2. Constructor will require scope, make a getConfig() method to fetch it.
 
-const Browser = require('../browser/browser');
-const CrawlState = require('./crawlState');
-const DomPath = require('./domPath');
-const CrawlAction = require('./crawlAction');
+import Browser from '../browser/browser.js';
+import CrawlState from './crawlState.js';
+import DomPath from './domPath.js';
+import CrawlAction from './crawlAction.js';
+import authenticate from '../auth/authenticator.js';
 
 class Crawler {
     constructor() {
@@ -49,6 +50,8 @@ class Crawler {
         const screen = await page.evaluate(() => { return { width: window.screen.availWidth, height: window.screen.availHeight } });
         await page.setViewport({ width: screen.width, height: screen.height });
 
+        await authenticate(browser, page, new URL("file:///home/astra/Downloads/pptr.json"));
+
         await page.goto('https://security-crawl-maze.app/', { waitUntil: 'domcontentloaded' });
 
         const rootState = new CrawlState(page.url(), await page.content(), 0);
@@ -70,4 +73,4 @@ class Crawler {
     stopCrawling() { }
 }
 
-module.exports = Crawler;
+export default Crawler;

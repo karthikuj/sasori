@@ -38,4 +38,4 @@ class CrawlAction {
 //      1. Check if it is interactable. If not don't add it or remove it. Error:  Node is either not clickable or not an Element
 //      2. Add getters and setters for properties.
 
-module.exports = CrawlAction;
+export default CrawlAction;

@@ -1,14 +1,14 @@
 // Keep a count of all states and vertices in the graph 
 // by creating class static properties and incrementing them 
 // every time a new one is added to the graph.
-const TestGraph = require('./testGraph');
+import TestGraph from './testGraph.js';
 
 class CrawlStateManager {
     constructor(rootState) {
         this.rootState = rootState;
     }
 
-    traverse(rootState, visited) {        
+    traverse(rootState, visited) {
         for (const action of rootState.getCrawlActions()) {
             const childState = action.getChildState();
 

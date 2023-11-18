@@ -13,6 +13,9 @@
         "elements": [
             "a"
         ],
-        "maxDepth": 10
+        "maxDepth": 10,
+        "authentication": {
+            "pptrRecording": "/home/astra/Downloads/pptr.json"
+        }
     }
 }
