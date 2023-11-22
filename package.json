@@ -1,20 +1,54 @@
 {
   "name": "sasori",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "author": "Karthik UJ (@5up3r541y4n)",
+  "description": "Sasori is a dynamic web crawler built on Puppeteer, designed for efficient and automated crawling of web applications. It supports authentication, proxy integration, and state-based navigation, providing a flexible solution for security testing and endpoint coverage.",
+  "main": "main.cjs",
   "directories": {
     "test": "tests"
   },
   "type": "module",
   "scripts": {
+    "build:electron": "webpack build && tailwindcss -i ./src/electron/index.css -o ./dist/electron/index.css",
+    "start:electron": "npm run build:electron && electron dist/electron/main.bundle.cjs",
+    "forge:start": "electron-forge start",
+    "package": "electron-forge package",
+    "make": "electron-forge make",
+    "build": "tsc",
+    "watch": "tsc -w",
+    "lint": "eslint -c .eslintrc --ext .ts ./src",
+    "start": "npm run build && electron ./dist/main.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "keywords": [],
-  "author": "",
+  "keywords": [
+    "dynamic",
+    "crawler",
+    "electron",
+    "puppeteer"
+  ],
   "license": "ISC",
   "dependencies": {
     "@puppeteer/replay": "^2.13.4",
+    "electron-squirrel-startup": "^1.0.0",
     "puppeteer": "^21.5.1"
+  },
+  "devDependencies": {
+    "@angular/cli": "^17.0.2",
+    "@electron-forge/cli": "^7.1.0",
+    "@electron-forge/maker-deb": "^7.1.0",
+    "@electron-forge/maker-rpm": "^7.1.0",
+    "@electron-forge/maker-squirrel": "^7.1.0",
+    "@electron-forge/maker-zip": "^7.1.0",
+    "@electron-forge/plugin-auto-unpack-natives": "^7.1.0",
+    "@typescript-eslint/eslint-plugin": "^6.12.0",
+    "@typescript-eslint/parser": "^6.12.0",
+    "electron": "^27.1.0",
+    "eslint": "^8.54.0",
+    "html-webpack-plugin": "^5.5.3",
+    "tailwindcss": "^3.3.5",
+    "ts-loader": "^9.5.1",
+    "typescript": "^5.3.2",
+    "webpack": "^5.89.0",
+    "webpack-cli": "^5.1.4"
   }
 }
