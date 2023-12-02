@@ -2,11 +2,11 @@
 // 1. Crawl only if URL is in scope.
 // 2. Constructor will require scope, make a getConfig() method to fetch it.
 
-import Browser from '../browser/browser.js';
+import Browser from '../pptr/browser/browser.js';
 import CrawlState from './crawlState.js';
 import DomPath from './domPath.js';
 import CrawlAction from './crawlAction.js';
-import authenticate from '../auth/authenticator.js';
+import authenticate from '../pptr/auth/authenticator.js';
 
 class Crawler {
     constructor() {

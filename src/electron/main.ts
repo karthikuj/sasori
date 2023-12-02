@@ -9,7 +9,7 @@ const createWindow = () => {
             preload: path.join(__dirname, "preload.bundle.js")
         }
     });
-    win.loadFile("index.html");
+    win.loadFile(path.join(__dirname, "..", "sasori", "browser", "index.html"));
 };
 
 app.whenReady().then(() => {
