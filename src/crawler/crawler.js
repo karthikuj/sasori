@@ -7,9 +7,25 @@ import CrawlState from './crawlState.js';
 import DomPath from './domPath.js';
 import CrawlAction from './crawlAction.js';
 import authenticate from '../auth/authenticator.js';
+import { readFileSync } from "fs";
 
 class Crawler {
     constructor() {
+        this.crawlerConfig = this.getCrawlerConfig();
+        this.authInProgress = false;
+    }
+
+    getCrawlerConfig() {
+        const configFilePath = new URL("../../config/config.json", import.meta.url);
+        let crawlerConfig = {};
+
+        try {
+            crawlerConfig = JSON.parse(readFileSync(configFilePath, "utf-8"))["crawler"];
+        } catch (error) {
+            console.error("Error reading/parsing JSON file:", error.message);
+        }
+
+        return crawlerConfig;
     }
 
     async getCrawlActions(page, currentState) {
@@ -36,11 +52,28 @@ class Crawler {
 
         try {
             await page.waitForNavigation({ waitUntil: 'domcontentloaded' });
-        } catch ({name, message}) {
+        } catch ({ name, message }) {
             if (name === "TimeoutError" && message.includes("Navigation timeout")) {
                 await page.waitForNetworkIdle({ idleTime: 1000 });
             }
         }
+    }
+
+    inContext(url) {
+        for (const regex of this.crawlerConfig.includeRegexes) {
+            let urlRegex = new RegExp(regex);
+            if (url.match(urlRegex)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    async startAuthentication(browser, page) {
+        this.authInProgress = true;
+        await authenticate(browser, page, new URL("/home/astra/Downloads/pptr.json", import.meta.url));
+        this.authInProgress = false;
     }
 
     async startCrawling() {
@@ -49,9 +82,19 @@ class Crawler {
         const page = allPages[0];
         const screen = await page.evaluate(() => { return { width: window.screen.availWidth, height: window.screen.availHeight } });
         await page.setViewport({ width: screen.width, height: screen.height });
-
-        await authenticate(browser, page, new URL("../auth/pptr.json", import.meta.url));
-
+        await page.setRequestInterception(true);
+        page.on('request', interceptedRequest => {
+            if (interceptedRequest.isInterceptResolutionHandled()) return;
+            if (this.authInProgress == false && !this.inContext(interceptedRequest.url())) {
+                console.log(interceptedRequest.url());
+                interceptedRequest.respond({
+                    status: 200,
+                    contentType: 'text/plain',
+                    body: 'Out of Sasori\'s scope'
+                });
+            } else interceptedRequest.continue();
+        });
+        await this.startAuthentication(browser, page)
         await page.goto('https://security-crawl-maze.app/', { waitUntil: 'domcontentloaded' });
 
         const rootState = new CrawlState(page.url(), await page.content(), 0, null);
