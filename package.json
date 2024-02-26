@@ -8,7 +8,7 @@
     "build": "ng build",
     "watch": "ng build --watch --configuration development",
     "test": "ng test",
-    "estart": "npm run build && webpack && electron ./dist/electron/main.bundle.cjs"
+    "electron": "npm run build && webpack && electron ./dist/electron/main.bundle.cjs"
   },
   "private": true,
   "type": "module",
