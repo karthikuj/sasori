@@ -3,8 +3,8 @@ import { JSDOM } from 'jsdom';
 import crypto from 'crypto'
 
 function stripDOM(node) {
-    // If the node is a text node, remove its content
-    if (node.nodeType === node.TEXT_NODE) {
+    // If the node is a text node or comment node, remove its content
+    if (node.nodeType === node.TEXT_NODE || node.nodeType === node.COMMENT_NODE) {
         node.nodeValue = '';
     }
 
@@ -31,10 +31,9 @@ const sampleTwoDom = new JSDOM(sampleTwo);
 
 stripDOM(sampleOneDom.window.document.documentElement);
 stripDOM(sampleTwoDom.window.document.documentElement);
-sampleOneDom.window.document.documentElement.attributes[0].name
 
-const sampleOneStrippedHtml = sampleOneDom.serialize().replaceAll(' ', '')
-const sampleTwoStrippedHtml = sampleTwoDom.serialize().replaceAll(' ', '');
+const sampleOneStrippedHtml = sampleOneDom.serialize();
+const sampleTwoStrippedHtml = sampleTwoDom.serialize();
 
 writeFileSync('/home/astra/Dev/foss/sasori/tests/1-stripped.html', sampleOneStrippedHtml);
 writeFileSync('/home/astra/Dev/foss/sasori/tests/2-stripped.html', sampleTwoStrippedHtml);
