@@ -1,7 +1,7 @@
 // TODO:
     // 1. Create a scopeInsepector interceptor which will intercept requests 
         // and see if it is out-of-scope, if it is actually out-of-scope then
-        // respond with something like "Out of Sasori's scope".
+        // respond with something likt "Out of Sasori's scope".
     // 2. Create a JS file where all plugins will be registered, and then export an array
         // of JSON with the event name, handler and priority (for request/response events).
         // Priority should not clash, throw an error if it does.

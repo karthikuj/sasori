@@ -15,6 +15,8 @@
   "license": "ISC",
   "dependencies": {
     "@puppeteer/replay": "^2.13.4",
+    "crypto": "^1.0.1",
+    "jsdom": "^24.0.0",
     "puppeteer": "^21.5.1"
   }
 }
