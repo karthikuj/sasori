@@ -4,10 +4,10 @@ class DomPath {
   }
 
   /**
-     * This function returns an Array of CssPaths of the elements in context of the given page.
-     * @param {String} cssPath
-     * @return {Array<String>}
-     */
+   * This function returns an Array of CssPaths of the elements in context of the given page.
+   * @param {String} cssPath
+   * @return {Array<String>}
+   */
   async getCssPaths(cssPath) {
     return await this.page.$$eval(cssPath, (nodes) => {
       return nodes.map((node) => {

@@ -11,17 +11,17 @@ import {readFileSync} from 'fs';
  */
 class Crawler {
   /**
-      * Crawler class contructor.
-      */
+   * Crawler class contructor.
+   */
   constructor() {
     this.crawlerConfig = this.getCrawlerConfig();
     this.authInProgress = false;
   }
 
   /**
-     * Strips DOM by removing useless attributes, comments and all text.
-     * @param {Object} node
-     */
+   * Strips DOM by removing useless attributes, comments and all text.
+   * @param {Object} node
+   */
   stripDOM(node) {
     // If the node is a text node or comment node, remove its content
     if (node.nodeType === node.TEXT_NODE ||
@@ -119,25 +119,43 @@ class Crawler {
     return false;
   }
 
+  /**
+   * Starts authentication on the given browser instance.
+   * @param {Browser} browser
+   * @param {Page} page
+   */
   async startAuthentication(browser, page) {
     this.authInProgress = true;
-    await authenticate(browser, page, new URL('/home/astra/Downloads/pptr.json', import.meta.url));
+    await authenticate(
+        browser,
+        page,
+        new URL('/home/astra/Downloads/pptr.json', import.meta.url),
+    );
     this.authInProgress = false;
   }
 
+  /**
+   * Starts the crawling process.
+   */
   async startCrawling() {
     const browser = await Browser.getBrowserInstance();
     const allPages = await browser.pages();
     const page = allPages[0];
     const screen = await page.evaluate(() => {
-      return {width: window.screen.availWidth, height: window.screen.availHeight};
+      return {
+        width: window.screen.availWidth,
+        height: window.screen.availHeight,
+      };
     });
     await page.setViewport({width: screen.width, height: screen.height});
     await page.setRequestInterception(true);
     page.on('request', (interceptedRequest) => {
       if (interceptedRequest.isInterceptResolutionHandled()) return;
-      if (this.authInProgress == false && !this.inContext(interceptedRequest.url())) {
-        console.log(interceptedRequest.url());
+
+      if (
+        this.authInProgress == false &&
+        !this.inContext(interceptedRequest.url())
+      ) {
         interceptedRequest.respond({
           status: 200,
           contentType: 'text/plain',
@@ -154,20 +172,32 @@ class Crawler {
     const parentState = rootState;
     let currentState = rootState;
 
-    // const sampleOneHashDigest = crypto.createHash(algorithm).update(sampleOneStrippedHtml).digest('hex');
+    // const sampleOneHashDigest =
+    // crypto.createHash(algorithm).update(sampleOneStrippedHtml).digest('hex');
     // stripDOM(sampleOneDom.window.document.documentElement);
 
     while (currentState.crawlActions != null) {
       const currentAction = currentState.crawlActions[0];
       await this.performAction(currentAction, page);
-      currentState = new CrawlState(page.url(), await page.content(), parentState.crawlDepth + 1, null);
+      currentState = new CrawlState(
+          page.url(),
+          await page.content(),
+          parentState.crawlDepth + 1,
+          null,
+      );
       currentAction.childState = currentState;
-      currentState.crawlActions = await this.getCrawlActions(page, currentState);
+      currentState.crawlActions = await this.getCrawlActions(
+          page,
+          currentState,
+      );
     }
 
     console.log('Scan completed');
   }
 
+  /**
+   * Stop the crawling process.
+   */
   stopCrawling() { }
 }
 
