@@ -1,20 +1,31 @@
 import Browser from '../browser/browser.js';
+import CrawlAction from './crawlAction.js';
 import CrawlState from './crawlState.js';
 import DomPath from './domPath.js';
-import {JSDOM} from 'jsdom';
-import CrawlAction from './crawlAction.js';
 import authenticate from '../auth/authenticator.js';
 import {readFileSync} from 'fs';
+// import {JSDOM} from 'jsdom';
 
+/**
+ * The Crawler class is responsible for creating and managing the crawler.
+ */
 class Crawler {
+  /**
+      * Crawler class contructor.
+      */
   constructor() {
     this.crawlerConfig = this.getCrawlerConfig();
     this.authInProgress = false;
   }
 
+  /**
+     * Strips DOM by removing useless attributes, comments and all text.
+     * @param {Object} node
+     */
   stripDOM(node) {
     // If the node is a text node or comment node, remove its content
-    if (node.nodeType === node.TEXT_NODE || node.nodeType === node.COMMENT_NODE) {
+    if (node.nodeType === node.TEXT_NODE ||
+        node.nodeType === node.COMMENT_NODE) {
       node.nodeValue = '';
     }
 
@@ -31,12 +42,18 @@ class Crawler {
     node.childNodes.forEach((child) => stripDOM(child));
   }
 
+  /**
+   * Fetches and returns crawlConfig
+   * @return {Object} crawlConfig
+   */
   getCrawlerConfig() {
     const configFilePath = new URL('../../config/config.json', import.meta.url);
     let crawlerConfig = {};
 
     try {
-      crawlerConfig = JSON.parse(readFileSync(configFilePath, 'utf-8'))['crawler'];
+      crawlerConfig = JSON.parse(
+          readFileSync(configFilePath, 'utf-8'),
+      )['crawler'];
     } catch (error) {
       console.error('Error reading/parsing JSON file:', error.message);
     }
@@ -44,6 +61,12 @@ class Crawler {
     return crawlerConfig;
   }
 
+  /**
+   * Fetches all possible CrawlActions on a CrawlState and returns them.
+   * @param {Page} page
+   * @param {CrawlState} currentState
+   * @return {(CrawlAction[] | null)}
+   */
   async getCrawlActions(page, currentState) {
     const domPath = new DomPath(page);
     const cssPaths = await domPath.getCssPaths('a');
@@ -53,6 +76,11 @@ class Crawler {
     return (crawlActions.length !== 0) ? crawlActions : null;
   }
 
+  /**
+   * Performs the given crawlaction on page.
+   * @param {CrawlAction} crawlerAction
+   * @param {Page} page
+   */
   async performAction(crawlerAction, page) {
     await page.waitForSelector(crawlerAction.cssPath);
     const node = await page.$(crawlerAction.cssPath);
@@ -75,6 +103,11 @@ class Crawler {
     }
   }
 
+  /**
+   * Checks if the given URL is in context or not.
+   * @param {string} url
+   * @return {boolean}
+   */
   inContext(url) {
     for (const regex of this.crawlerConfig.includeRegexes) {
       const urlRegex = new RegExp(regex);
