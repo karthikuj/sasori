@@ -1,5 +1,5 @@
 class CrawlStateManager {
-    constructor(rootState) {
-        this.rootState = rootState;
-    }
+  constructor(rootState) {
+    this.rootState = rootState;
+  }
 }

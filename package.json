@@ -11,12 +11,27 @@
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
-  "author": "",
+  "author": "Karthik UJ / Peeyush Tyagi",
+  "contributors": [
+    {
+      "name": "Karthik UJ",
+      "email": "karthikuj2001@gmail.com",
+      "url": "https://www.5up3r541y4n.tech/"
+    },
+    {
+      "name": "Peeyush Tyagi",
+      "email": "mastermind12210@gmail.com",
+      "url": "https://github.com/killshotrevival"
+    }
+  ],
   "license": "ISC",
   "dependencies": {
     "@puppeteer/replay": "^2.13.4",
-    "crypto": "^1.0.1",
     "jsdom": "^24.0.0",
     "puppeteer": "^21.5.1"
+  },
+  "devDependencies": {
+    "eslint": "^8.57.0",
+    "eslint-config-google": "^0.14.0"
   }
 }
