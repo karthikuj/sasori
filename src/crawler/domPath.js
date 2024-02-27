@@ -1,21 +1,29 @@
+/**
+ * The DomPath class is responsible for calculating all css paths and xpaths
+ */
 class DomPath {
+  /**
+   * DomPath object constructor.
+   * @param {Page} page
+   */
   constructor(page) {
     this.page = page;
   }
 
   /**
-   * This function returns an Array of CssPaths of the elements in context of the given page.
-   * @param {String} cssPath
+   * This function returns an Array of CssPaths of the elements
+   * in context of the given page.
+   * @param {String} element
    * @return {Array<String>}
    */
-  async getCssPaths(cssPath) {
-    return await this.page.$$eval(cssPath, (nodes) => {
+  async getCssPaths(element) {
+    return await this.page.$$eval(element, (nodes) => {
       return nodes.map((node) => {
         const Step = class {
           /**
-                     * @param {string} value
-                     * @param {boolean} optimized
-                     */
+           * @param {string} value
+           * @param {boolean} optimized
+           */
           constructor(value, optimized) {
             this.value = value;
             this.optimized = optimized || false;
@@ -56,9 +64,9 @@ class DomPath {
           }
 
           /**
-                     * @param {Node} node
-                     * @return {!Array.<string>}
-                     */
+           * @param {Node} node
+           * @return {!Array.<string>}
+           */
           function prefixedElementClassNames(node) {
             const classAttribute = node.getAttribute('class');
             if (!classAttribute) {
@@ -72,9 +80,9 @@ class DomPath {
           }
 
           /**
-                     * @param {string} id
-                     * @return {string}
-                     */
+           * @param {string} id
+           * @return {string}
+           */
           function idSelector(id) {
             return '#' + CSS.escape(id);
           }
@@ -174,11 +182,13 @@ class DomPath {
   }
 
   /**
-     * This function returns an Array of XPaths of the elements in context of the given page.
+     * This function returns an Array of XPaths of the elements
+     * in context of the given page.
+     * @param {string} element
      * @return {Array<String>}
      */
-  async getXPaths(cssPath) {
-    return await this.page.$$eval(cssPath, (nodes) => {
+  async getXPaths(element) {
+    return await this.page.$$eval(element, (nodes) => {
       return nodes.map((node) => {
         const Step = class {
           /**
@@ -201,6 +211,12 @@ class DomPath {
 
         const _xPathIndex = function(node) {
           // Returns -1 in case of error, 0 if no siblings matching the same expression, <XPath index among the same expression-matching sibling nodes> otherwise.
+          /**
+           * Checks if the given Nodes are similar.
+           * @param {Node} left
+           * @param {Node} right
+           * @return {boolean}
+           */
           function areNodesSimilar(left, right) {
             if (left === right) {
               return true;

@@ -16,6 +16,26 @@ class Crawler {
   constructor() {
     this.crawlerConfig = this.getCrawlerConfig();
     this.authInProgress = false;
+    this.banner = `
+                              :.            :   
+                             .+              =. 
+                             ++.            .-= 
+                            :++==   .  .   :===:
+                            -+++.   :  :    =++-
+                              ==    .--.   .-=. 
+                               :+: .-:.-. :=:   
+                             .-::--:-::::--:::. 
+                            -: .:-..::::..::. :-
+                            - ::  ..:::: :  :: -
+                              -  -. :--: .-  -  
+                              :  -   --.  :. :  
+                                 :   ..   :     
+
+
+                                    SASORI
+                                    v1.0.0
+
+    `;
   }
 
   /**
@@ -25,7 +45,7 @@ class Crawler {
   stripDOM(node) {
     // If the node is a text node or comment node, remove its content
     if (node.nodeType === node.TEXT_NODE ||
-        node.nodeType === node.COMMENT_NODE) {
+      node.nodeType === node.COMMENT_NODE) {
       node.nodeValue = '';
     }
 
@@ -51,9 +71,7 @@ class Crawler {
     let crawlerConfig = {};
 
     try {
-      crawlerConfig = JSON.parse(
-          readFileSync(configFilePath, 'utf-8'),
-      )['crawler'];
+      crawlerConfig = JSON.parse(readFileSync(configFilePath, 'utf-8'))['crawler'];
     } catch (error) {
       console.error('Error reading/parsing JSON file:', error.message);
     }
@@ -126,11 +144,7 @@ class Crawler {
    */
   async startAuthentication(browser, page) {
     this.authInProgress = true;
-    await authenticate(
-        browser,
-        page,
-        new URL('/home/astra/Downloads/pptr.json', import.meta.url),
-    );
+    await authenticate(browser, page, new URL('/home/astra/Downloads/pptr.json', import.meta.url));
     this.authInProgress = false;
   }
 
@@ -138,6 +152,7 @@ class Crawler {
    * Starts the crawling process.
    */
   async startCrawling() {
+    console.log(this.banner);
     const browser = await Browser.getBrowserInstance();
     const allPages = await browser.pages();
     const page = allPages[0];
@@ -172,24 +187,15 @@ class Crawler {
     const parentState = rootState;
     let currentState = rootState;
 
-    // const sampleOneHashDigest =
-    // crypto.createHash(algorithm).update(sampleOneStrippedHtml).digest('hex');
+    // const sampleOneHashDigest = crypto.createHash(algorithm).update(sampleOneStrippedHtml).digest('hex');
     // stripDOM(sampleOneDom.window.document.documentElement);
 
     while (currentState.crawlActions != null) {
       const currentAction = currentState.crawlActions[0];
       await this.performAction(currentAction, page);
-      currentState = new CrawlState(
-          page.url(),
-          await page.content(),
-          parentState.crawlDepth + 1,
-          null,
-      );
+      currentState = new CrawlState(page.url(), await page.content(), parentState.crawlDepth + 1, null);
       currentAction.childState = currentState;
-      currentState.crawlActions = await this.getCrawlActions(
-          page,
-          currentState,
-      );
+      currentState.crawlActions = await this.getCrawlActions(page, currentState);
     }
 
     console.log('Scan completed');
