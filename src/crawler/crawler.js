@@ -16,7 +16,7 @@ class Crawler {
   constructor() {
     this.crawlerConfig = this.getCrawlerConfig();
     this.authInProgress = false;
-    this.banner = `
+    this.banner = `\x1b[32m
                               :.            :   
                              .+              =. 
                              ++.            .-= 

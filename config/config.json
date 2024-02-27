@@ -18,8 +18,7 @@
             "pptrRecording": "/home/astra/Downloads/pptr.json"
         },
         "includeRegexes": [
-            "https?://security-crawl-maze.app(?:/.*|)",
-            "https?://hypejabbedv2.getastra.dev(?:/.*|)"
+            "https?://security-crawl-maze.app(?:/.*|)"
         ]
     }
 }
