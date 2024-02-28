@@ -6,23 +6,27 @@ import {randomUUID} from 'crypto';
  */
 class CrawlState {
   /**
-   *
+   * CrawlState object constructor.
    * @param {string} url
-   * @param {string} dom
+   * @param {string} stateHash
    * @param {int} crawlDepth
    * @param {CrawlAction[]} crawlActions
    */
-  constructor(url, dom, crawlDepth, crawlActions) {
+  constructor(url, stateHash, crawlDepth, crawlActions) {
     this.stateId = randomUUID();
     this.url = url;
-    this.dom = dom;
+    this.stateHash = stateHash;
     this.crawlDepth = crawlDepth;
     this.crawlActions = crawlActions;
   }
 
-  // TODO:
-  //     1. Add equals method to compare CrawlStates.
-  //     2. Add getStrippedDom method.
+  /**
+   * Returns the list of CrawlActions associated with the CrawlState.
+   * @return {CrawlAction[]}
+   */
+  getCrawlActions() {
+    return this.crawlActions;
+  }
 }
 
 export default CrawlState;

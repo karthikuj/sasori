@@ -1,7 +1,7 @@
 # Sasori - Dynamic Web Crawler
 
 <p align="center">
-  <img src="./resources/sasori-logo.png" alt="Sasori Logo" width="300" />
+  <img src="./resources/sasori-logo3.png" alt="Sasori Logo" width="300" />
 </p>
 
 Sasori is a powerful and flexible dynamic web crawler built on Puppeteer. It allows you to automate the crawling of web applications, even those behind authentication, and offers seamless integration with security testing tools like ZAP or Burp Suite.
