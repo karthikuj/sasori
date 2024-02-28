@@ -103,22 +103,27 @@ class Crawler {
    * @param {Page} page
    */
   async performAction(crawlManager, crawlerAction, page) {
-    const shortestPath = crawlManager.getShortestPath(crawlerAction.parentState);
-    console.log(shortestPath);
-    if (shortestPath.length) {
-      for (const crawlAction of shortestPath) {
-        await page.waitForSelector(crawlAction.cssPath);
-        const node = await page.$(crawlAction.cssPath);
+    const currentStateHash = await this.getPageHash(page);
+    if (currentStateHash !== crawlerAction.parentState.stateHash) {
+      const shortestPath = crawlManager.getShortestPath(crawlerAction.parentState);
+      console.log(shortestPath);
+      if (shortestPath.length) {
+        for (const crawlAction of shortestPath) {
+          await page.waitForSelector(crawlAction.cssPath);
+          const node = await page.$(crawlAction.cssPath);
 
-        try {
-          await node.click();
-        } catch ({name, message}) {
-          if (message === 'Node is either not clickable or not an Element') {
-            await node.evaluate((n) => n.click());
-          } else {
-            console.error(message);
+          try {
+            await node.click();
+          } catch ({name, message}) {
+            if (message === 'Node is either not clickable or not an Element') {
+              await node.evaluate((n) => n.click());
+            } else {
+              console.error(message);
+            }
           }
         }
+      } else {
+        await page.goto('https://security-crawl-maze.app/', {waitUntil: 'domcontentloaded'});
       }
     }
 
@@ -187,7 +192,7 @@ class Crawler {
    * Starts the crawling process.
    */
   async startCrawling() {
-    console.log(this.banner);
+    // console.log(this.banner);
     const browser = await Browser.getBrowserInstance();
     const allPages = await browser.pages();
     const page = allPages[0];
@@ -246,7 +251,6 @@ class Crawler {
       }
     } while ((nextCrawlAction = crawlManager.getNextCrawlAction(crawlManager.rootState, nextCrawlAction, false, [crawlManager.rootState])));
 
-    console.log(nextCrawlAction);
     console.log('Scan completed');
     await browser.close();
     crawlManager.traverse(crawlManager.rootState, [crawlManager.rootState]);
