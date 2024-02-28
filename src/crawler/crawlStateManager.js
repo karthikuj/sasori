@@ -65,7 +65,7 @@ class CrawlStateManager {
       const currentState = stack.pop();
 
       for (const action of currentState.getCrawlActions()) {
-        console.log(action);
+        // console.log(action);
         if (lastActionFound) {
           return action;
         }

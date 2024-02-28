@@ -106,7 +106,7 @@ class Crawler {
     const currentStateHash = await this.getPageHash(page);
     if (currentStateHash !== crawlerAction.parentState.stateHash) {
       const shortestPath = crawlManager.getShortestPath(crawlerAction.parentState);
-      console.log(shortestPath);
+      // console.log(shortestPath);
       await page.goto('https://security-crawl-maze.app/', {waitUntil: 'domcontentloaded'});
       for (const crawlAction of shortestPath) {
         await page.waitForSelector(crawlAction.cssPath);
@@ -189,7 +189,7 @@ class Crawler {
    * Starts the crawling process.
    */
   async startCrawling() {
-    // console.log(this.banner);
+    console.log(this.banner);
     const browser = await Browser.getBrowserInstance();
     const allPages = await browser.pages();
     const page = allPages[0];
