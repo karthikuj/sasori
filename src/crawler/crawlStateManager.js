@@ -11,6 +11,23 @@ class CrawlStateManager {
   }
 
   /**
+   * Traverse the state graph.
+   * @param {CrawlState} rootState
+   * @param {CrawlState[]} visited
+   */
+  traverse(rootState, visited) {
+    console.log(rootState.url);
+    for (const action of rootState.getCrawlActions()) {
+      const childState = action.getChildState();
+
+      if (childState && !visited.includes(childState)) {
+        visited.push(childState);
+        this.traverse(childState, visited);
+      }
+    }
+  }
+
+  /**
    * Returns CrawlState with the given stateHash if found else null.
    * @param {CrawlState} rootState
    * @param {CrawlState[]} visited
@@ -24,7 +41,7 @@ class CrawlStateManager {
     for (const action of rootState.getCrawlActions()) {
       const childState = action.getChildState();
 
-      if (!visited.includes(childState)) {
+      if (childState && !visited.includes(childState)) {
         visited.push(childState);
         return this.getStateByHash(childState, visited, stateHash);
       }
@@ -46,18 +63,59 @@ class CrawlStateManager {
       if (lastAction === null || lastActionFound) {
         return action;
       }
-      if (action === lastAction) {
+      if (action.actionId === lastAction.actionId) {
         lastActionFound = true;
       }
       const childState = action.getChildState();
 
-      if (!visited.includes(childState)) {
+      if (childState && !visited.includes(childState)) {
         visited.push(childState);
         return this.getNextCrawlAction(childState, lastAction, lastActionFound, visited);
       }
     }
 
     return null;
+  }
+
+  /**
+   * Returns the shortest path to a CrawlState from the root state.
+   * @param {CrawlState} destinationState
+   * @return {CrawlAction[]}
+   */
+  getShortestPath(destinationState) {
+    const queue = [[this.rootState]];
+    const visited = new Set();
+
+    while (queue.length > 0) {
+      const path = queue.shift();
+      const currentState = path[path.length - 1];
+
+      if (currentState === destinationState) {
+        // Convert crawl states to crawl actions
+        const crawlActionsPath = [];
+        for (let i = 0; i < path.length - 1; i++) {
+          const currentState = path[i];
+          const nextState = path[i + 1];
+          const action = currentState.crawlActions.find((action) => action.childState === nextState);
+          crawlActionsPath.push(action);
+        }
+        return crawlActionsPath;
+      }
+
+      if (!visited.has(currentState.stateId)) {
+        visited.add(currentState.stateId);
+
+        for (const action of currentState.crawlActions) {
+          const childState = action.childState;
+          if (childState && !visited.has(childState.stateId)) {
+            const newPath = [...path, childState];
+            queue.push(newPath);
+          }
+        }
+      }
+    }
+
+    return null; // No path found
   }
 }
 

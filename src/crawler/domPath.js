@@ -30,9 +30,9 @@ class DomPath {
           }
 
           /**
-                     * @override
-                     * @return {string}
-                     */
+           * @override
+           * @return {string}
+           */
           toString() {
             return this.value;
           }
@@ -182,28 +182,28 @@ class DomPath {
   }
 
   /**
-     * This function returns an Array of XPaths of the elements
-     * in context of the given page.
-     * @param {string} element
-     * @return {Array<String>}
-     */
+   * This function returns an Array of XPaths of the elements
+   * in context of the given page.
+   * @param {string} element
+   * @return {Array<String>}
+   */
   async getXPaths(element) {
     return await this.page.$$eval(element, (nodes) => {
       return nodes.map((node) => {
         const Step = class {
           /**
-                     * @param {string} value
-                     * @param {boolean} optimized
-                     */
+           * @param {string} value
+           * @param {boolean} optimized
+           */
           constructor(value, optimized) {
             this.value = value;
             this.optimized = optimized || false;
           }
 
           /**
-                     * @override
-                     * @return {string}
-                     */
+           * @override
+           * @return {string}
+           */
           toString() {
             return this.value;
           }

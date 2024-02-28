@@ -17,7 +17,7 @@ class CrawlState {
     this.url = url;
     this.stateHash = stateHash;
     this.crawlDepth = crawlDepth;
-    this.crawlActions = crawlActions;
+    this.crawlActions = crawlActions ? crawlActions : [];
   }
 
   /**

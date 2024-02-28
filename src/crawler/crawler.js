@@ -85,7 +85,7 @@ class Crawler {
    * Fetches all possible CrawlActions on a CrawlState and returns them.
    * @param {Page} page
    * @param {CrawlState} currentState
-   * @return {(CrawlAction[] | null)}
+   * @return {CrawlAction[]}
    */
   async getCrawlActions(page, currentState) {
     const domPath = new DomPath(page);
@@ -93,15 +93,35 @@ class Crawler {
     const crawlActions = cssPaths.map((cssPath) => {
       return new CrawlAction('a', 'click', cssPath, currentState);
     });
-    return (crawlActions.length !== 0) ? crawlActions : null;
+    return (crawlActions.length !== 0) ? crawlActions : [];
   }
 
   /**
    * Performs the given crawlaction on page.
+   * @param {CrawlStateManager} crawlManager
    * @param {CrawlAction} crawlerAction
    * @param {Page} page
    */
-  async performAction(crawlerAction, page) {
+  async performAction(crawlManager, crawlerAction, page) {
+    const shortestPath = crawlManager.getShortestPath(crawlerAction.parentState);
+    console.log(shortestPath);
+    if (shortestPath.length) {
+      for (const crawlAction of shortestPath) {
+        await page.waitForSelector(crawlAction.cssPath);
+        const node = await page.$(crawlAction.cssPath);
+
+        try {
+          await node.click();
+        } catch ({name, message}) {
+          if (message === 'Node is either not clickable or not an Element') {
+            await node.evaluate((n) => n.click());
+          } else {
+            console.error(message);
+          }
+        }
+      }
+    }
+
     await page.waitForSelector(crawlerAction.cssPath);
     const node = await page.$(crawlerAction.cssPath);
     try {
@@ -209,21 +229,27 @@ class Crawler {
     do {
       const currentAction = nextCrawlAction;
       console.log(currentAction);
-      // await this.performAction(currentAction, page);
+      await this.performAction(crawlManager, currentAction, page);
       const currentStateHash = await this.getPageHash(page);
       const existingState = crawlManager.getStateByHash(crawlManager.rootState, [crawlManager.rootState], currentStateHash);
       if (existingState) {
+        console.log(`State exists: ${existingState.url}`);
         currentAction.childState = existingState;
       } else {
-        const currentState = new CrawlState(page.url(), currentStateHash, parentState.crawlDepth + 1, null);
-        currentAction.childState = currentState;
-        currentState.crawlActions = await this.getCrawlActions(page, currentState);
-        parentState = currentState;
+        if (this.inContext(page.url())) {
+          const currentState = new CrawlState(page.url(), currentStateHash, parentState.crawlDepth + 1, null);
+          console.log(`Adding new state: ${currentState.url}`);
+          currentAction.childState = currentState;
+          currentState.crawlActions = await this.getCrawlActions(page, currentState);
+          parentState = currentState;
+        }
       }
     } while ((nextCrawlAction = crawlManager.getNextCrawlAction(crawlManager.rootState, nextCrawlAction, false, [crawlManager.rootState])));
 
+    console.log(nextCrawlAction);
     console.log('Scan completed');
     await browser.close();
+    crawlManager.traverse(crawlManager.rootState, [crawlManager.rootState]);
   }
 
   /**
