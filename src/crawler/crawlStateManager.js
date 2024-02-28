@@ -54,23 +54,30 @@ class CrawlStateManager {
    * Return the next crawlAction to be performed.
    * @param {CrawlState} rootState
    * @param {CrawlAction} lastAction
-   * @param {boolean} lastActionFound
-   * @param {CrawlAction[]} visited
    * @return {CrawlAction}
    */
-  getNextCrawlAction(rootState, lastAction, lastActionFound, visited) {
-    for (const action of rootState.getCrawlActions()) {
-      if (lastAction === null || lastActionFound) {
-        return action;
-      }
-      if (action.actionId === lastAction.actionId) {
-        lastActionFound = true;
-      }
-      const childState = action.getChildState();
+  getNextCrawlAction(rootState, lastAction) {
+    const stack = [rootState];
+    const visited = new Set();
+    let lastActionFound = !lastAction;
 
-      if (childState && !visited.includes(childState)) {
-        visited.push(childState);
-        return this.getNextCrawlAction(childState, lastAction, lastActionFound, visited);
+    while (stack.length > 0) {
+      const currentState = stack.pop();
+
+      for (const action of currentState.getCrawlActions()) {
+        console.log(action);
+        if (lastActionFound) {
+          return action;
+        }
+        if (action.actionId === lastAction.actionId) {
+          console.log(`Last action found: ${action.actionId}`);
+          lastActionFound = true;
+        }
+        const childState = action.getChildState();
+        if (childState && !visited.has(childState.stateId)) {
+          visited.add(childState.stateId);
+          stack.push(childState);
+        }
       }
     }
 

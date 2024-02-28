@@ -107,23 +107,20 @@ class Crawler {
     if (currentStateHash !== crawlerAction.parentState.stateHash) {
       const shortestPath = crawlManager.getShortestPath(crawlerAction.parentState);
       console.log(shortestPath);
-      if (shortestPath.length) {
-        for (const crawlAction of shortestPath) {
-          await page.waitForSelector(crawlAction.cssPath);
-          const node = await page.$(crawlAction.cssPath);
+      await page.goto('https://security-crawl-maze.app/', {waitUntil: 'domcontentloaded'});
+      for (const crawlAction of shortestPath) {
+        await page.waitForSelector(crawlAction.cssPath);
+        const node = await page.$(crawlAction.cssPath);
 
-          try {
-            await node.click();
-          } catch ({name, message}) {
-            if (message === 'Node is either not clickable or not an Element') {
-              await node.evaluate((n) => n.click());
-            } else {
-              console.error(message);
-            }
+        try {
+          await node.click();
+        } catch ({name, message}) {
+          if (message === 'Node is either not clickable or not an Element') {
+            await node.evaluate((n) => n.click());
+          } else {
+            console.error(message);
           }
         }
-      } else {
-        await page.goto('https://security-crawl-maze.app/', {waitUntil: 'domcontentloaded'});
       }
     }
 
@@ -229,11 +226,12 @@ class Crawler {
     let parentState = rootState;
 
     const crawlManager = new CrawlStateManager(rootState);
-    let nextCrawlAction = crawlManager.getNextCrawlAction(crawlManager.rootState, null, false, [crawlManager.rootState]);
+    let nextCrawlAction = crawlManager.getNextCrawlAction(crawlManager.rootState, null);
 
     do {
       const currentAction = nextCrawlAction;
-      console.log(currentAction);
+      // console.log(currentAction);
+      console.log(`-----------------------------------------------------------`);
       await this.performAction(crawlManager, currentAction, page);
       const currentStateHash = await this.getPageHash(page);
       const existingState = crawlManager.getStateByHash(crawlManager.rootState, [crawlManager.rootState], currentStateHash);
@@ -249,8 +247,9 @@ class Crawler {
           parentState = currentState;
         }
       }
-    } while ((nextCrawlAction = crawlManager.getNextCrawlAction(crawlManager.rootState, nextCrawlAction, false, [crawlManager.rootState])));
+    } while ((nextCrawlAction = crawlManager.getNextCrawlAction(crawlManager.rootState, nextCrawlAction)));
 
+    console.log(nextCrawlAction);
     console.log('Scan completed');
     await browser.close();
     crawlManager.traverse(crawlManager.rootState, [crawlManager.rootState]);
