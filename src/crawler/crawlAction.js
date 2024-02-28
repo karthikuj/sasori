@@ -1,6 +1,8 @@
+import {randomUUID} from 'crypto';
+
 /**
- * The CrawlAction class specifies the action to take
- * on an element in the DOM (it is an edge in the crawl graph).
+ * The CrawlAction class specifies the action to take on an element
+ * in the DOM (it is an edge in the crawl graph).
  */
 class CrawlAction {
   /**
@@ -11,11 +13,20 @@ class CrawlAction {
    * @param {CrawlState} parentState
    */
   constructor(element, action, cssPath, parentState) {
+    this.actionId = randomUUID();
     this.element = element;
     this.action = action;
     this.cssPath = cssPath;
     this.parentState = parentState;
     this.childState = null;
+  }
+
+  /**
+   * Returns the ChildState associated with the CrawlAction.
+   * @return {CrawlState}
+   */
+  getChildState() {
+    return this.childState;
   }
 }
 

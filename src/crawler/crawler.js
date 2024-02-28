@@ -1,10 +1,12 @@
 import Browser from '../browser/browser.js';
 import CrawlAction from './crawlAction.js';
 import CrawlState from './crawlState.js';
+import CrawlStateManager from './crawlStateManager.js';
 import DomPath from './domPath.js';
+import {JSDOM} from 'jsdom';
 import authenticate from '../auth/authenticator.js';
+import {createHash} from 'crypto';
 import {readFileSync} from 'fs';
-// import {JSDOM} from 'jsdom';
 
 /**
  * The Crawler class is responsible for creating and managing the crawler.
@@ -59,7 +61,7 @@ class Crawler {
     }
 
     // Recursively strip child nodes
-    node.childNodes.forEach((child) => stripDOM(child));
+    node.childNodes.forEach((child) => this.stripDOM(child));
   }
 
   /**
@@ -149,6 +151,19 @@ class Crawler {
   }
 
   /**
+   * Returns the SHA256 hash of the stripped DOM of the given page.
+   * @param {Page} page
+   * @return {string}
+   */
+  async getPageHash(page) {
+    const rootStateDom = new JSDOM(await page.content());
+    this.stripDOM(rootStateDom.window.document.documentElement);
+    const rootStateHash = createHash('sha256').update(rootStateDom.serialize()).digest('hex');
+
+    return rootStateHash;
+  }
+
+  /**
    * Starts the crawling process.
    */
   async startCrawling() {
@@ -164,6 +179,8 @@ class Crawler {
     });
     await page.setViewport({width: screen.width, height: screen.height});
     await page.setRequestInterception(true);
+
+    // Statically response to out-of-scope requests.
     page.on('request', (interceptedRequest) => {
       if (interceptedRequest.isInterceptResolutionHandled()) return;
 
@@ -178,27 +195,35 @@ class Crawler {
         });
       } else interceptedRequest.continue();
     });
+
     await this.startAuthentication(browser, page);
     await page.goto('https://security-crawl-maze.app/', {waitUntil: 'domcontentloaded'});
 
-    const rootState = new CrawlState(page.url(), await page.content(), 0, null);
-    rootState.crawlActions = await this.getCrawlActions(page);
+    const rootState = new CrawlState(page.url(), await this.getPageHash(page), 0, null);
+    rootState.crawlActions = await this.getCrawlActions(page, rootState);
+    let parentState = rootState;
 
-    const parentState = rootState;
-    let currentState = rootState;
+    const crawlManager = new CrawlStateManager(rootState);
+    let nextCrawlAction = crawlManager.getNextCrawlAction(crawlManager.rootState, null, false, [crawlManager.rootState]);
 
-    // const sampleOneHashDigest = crypto.createHash(algorithm).update(sampleOneStrippedHtml).digest('hex');
-    // stripDOM(sampleOneDom.window.document.documentElement);
-
-    while (currentState.crawlActions != null) {
-      const currentAction = currentState.crawlActions[0];
-      await this.performAction(currentAction, page);
-      currentState = new CrawlState(page.url(), await page.content(), parentState.crawlDepth + 1, null);
-      currentAction.childState = currentState;
-      currentState.crawlActions = await this.getCrawlActions(page, currentState);
-    }
+    do {
+      const currentAction = nextCrawlAction;
+      console.log(currentAction);
+      // await this.performAction(currentAction, page);
+      const currentStateHash = await this.getPageHash(page);
+      const existingState = crawlManager.getStateByHash(crawlManager.rootState, [crawlManager.rootState], currentStateHash);
+      if (existingState) {
+        currentAction.childState = existingState;
+      } else {
+        const currentState = new CrawlState(page.url(), currentStateHash, parentState.crawlDepth + 1, null);
+        currentAction.childState = currentState;
+        currentState.crawlActions = await this.getCrawlActions(page, currentState);
+        parentState = currentState;
+      }
+    } while ((nextCrawlAction = crawlManager.getNextCrawlAction(crawlManager.rootState, nextCrawlAction, false, [crawlManager.rootState])));
 
     console.log('Scan completed');
+    await browser.close();
   }
 
   /**
