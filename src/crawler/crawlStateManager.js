@@ -61,24 +61,43 @@ class CrawlStateManager {
     const visited = new Set();
     let lastActionFound = !lastAction;
 
-    while (stack.length > 0) {
+    while (stack.length) {
       const currentState = stack.pop();
 
-      for (const action of currentState.getCrawlActions()) {
-        // console.log(action);
-        if (lastActionFound) {
-          return action;
-        }
-        if (action.actionId === lastAction.actionId) {
-          console.log(`Last action found: ${action.actionId}`);
-          lastActionFound = true;
-        }
-        const childState = action.getChildState();
-        if (childState && !visited.has(childState.stateId)) {
-          visited.add(childState.stateId);
-          stack.push(childState);
+      if (!visited.has(currentState.stateId)) {
+        visited.add(currentState);
+
+        for (const action of currentState.getCrawlActions()) {
+          const childState = action.getChildState();
+          if (lastActionFound) {
+            return action;
+          }
+          if (action.actionId === lastAction.actionId) {
+            console.log(`Last action found: ${action.actionId}`);
+            lastActionFound = true;
+          }
+          if (childState) {
+            stack.push(childState);
+          }
         }
       }
+
+      // for (const action of currentState.getCrawlActions()) {
+      //   // console.log(action);
+      //   if (lastActionFound) {
+      //     return action;
+      //   }
+      //   if (action.actionId === lastAction.actionId) {
+      //     console.log(`Last action found: ${action.actionId}`);
+      //     lastActionFound = true;
+      //   }
+      //   const childState = action.getChildState();
+      //   console.log(childState);
+      //   if (childState && !visited.has(childState.stateId)) {
+      //     visited.add(childState.stateId);
+      //     stack.push(childState);
+      //   }
+      // }
     }
 
     return null;

@@ -32,6 +32,9 @@ class Browser {
           `--proxy-server=${configJson.proxy.host}:${configJson.proxy.port}`,
       );
     }
+    if (configJson.slowMo) {
+      browserConfig.slowMo = configJson.slowMo;
+    }
     browserConfig.args = args;
 
     return browserConfig;

@@ -103,14 +103,16 @@ class Crawler {
    * @param {Page} page
    */
   async performAction(crawlManager, crawlerAction, page) {
+    console.log(crawlerAction);
     const currentStateHash = await this.getPageHash(page);
     if (currentStateHash !== crawlerAction.parentState.stateHash) {
       const shortestPath = crawlManager.getShortestPath(crawlerAction.parentState);
-      // console.log(shortestPath);
+      console.log(shortestPath);
       await page.goto('https://security-crawl-maze.app/', {waitUntil: 'domcontentloaded'});
       for (const crawlAction of shortestPath) {
         await page.waitForSelector(crawlAction.cssPath);
         const node = await page.$(crawlAction.cssPath);
+        console.log(crawlAction.actionId);
 
         try {
           await node.click();
@@ -135,12 +137,17 @@ class Crawler {
         console.error(message);
       }
     }
+    console.log(`Action performed`);
 
     try {
       await page.waitForNavigation({waitUntil: 'domcontentloaded'});
     } catch ({name, message}) {
-      if (name === 'TimeoutError' && message.includes('Navigation timeout')) {
-        await page.waitForNetworkIdle({idleTime: 1000});
+      try {
+        if (name === 'TimeoutError' && message.includes('Navigation timeout')) {
+          await page.waitForNetworkIdle({idleTime: 500});
+        }
+      } catch (err) {
+        // Do nothing
       }
     }
   }
