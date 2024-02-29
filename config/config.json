@@ -7,9 +7,11 @@
             "host": "127.0.0.1",
             "port": 8081
         },
+        "slowMo": 100,
         "profile": {}
     },
     "crawler": {
+        "entryPoint": "https://hypejabbedv2.getastra.dev/",
         "elements": [
             "a"
         ],
@@ -18,7 +20,7 @@
             "pptrRecording": "/home/astra/Downloads/pptr.json"
         },
         "includeRegexes": [
-            "https?://security-crawl-maze.app(?:/.*|)"
+            "https?://hypejabbedv2.getastra.dev(?:/.*|)"
         ]
     }
 }

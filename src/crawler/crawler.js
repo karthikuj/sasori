@@ -108,7 +108,7 @@ class Crawler {
     if (currentStateHash !== crawlerAction.parentState.stateHash) {
       const shortestPath = crawlManager.getShortestPath(crawlerAction.parentState);
       console.log(shortestPath);
-      await page.goto('https://security-crawl-maze.app/', {waitUntil: 'domcontentloaded'});
+      await page.goto(this.crawlerConfig.entryPoint, {waitUntil: 'domcontentloaded'});
       for (const crawlAction of shortestPath) {
         await page.waitForSelector(crawlAction.cssPath);
         const node = await page.$(crawlAction.cssPath);
@@ -225,8 +225,12 @@ class Crawler {
       } else interceptedRequest.continue();
     });
 
+    page.on('dialog', async (dialog) => {
+      await dialog.dismiss();
+    });
+
     await this.startAuthentication(browser, page);
-    await page.goto('https://security-crawl-maze.app/', {waitUntil: 'domcontentloaded'});
+    await page.goto(this.crawlerConfig.entryPoint, {waitUntil: 'domcontentloaded'});
 
     const rootState = new CrawlState(page.url(), await this.getPageHash(page), 0, null);
     rootState.crawlActions = await this.getCrawlActions(page, rootState);
@@ -242,7 +246,7 @@ class Crawler {
       console.log(`-----------------------------------------------------------`);
       await this.performAction(crawlManager, currentAction, page);
       const currentStateHash = await this.getPageHash(page);
-      const existingState = crawlManager.getStateByHash(crawlManager.rootState, [crawlManager.rootState], currentStateHash);
+      const existingState = crawlManager.getStateByHash(currentStateHash);
       if (existingState) {
         console.log(`State exists: ${existingState.url}`);
         currentState = existingState;
@@ -250,7 +254,7 @@ class Crawler {
       } else {
         if (this.inContext(page.url())) {
           currentState = new CrawlState(page.url(), currentStateHash, parentState.crawlDepth + 1, null);
-          console.log(`Adding new state: ${currentState.url}`);
+          console.log(`Adding new state: ${currentState.url} with hash: ${currentStateHash}`);
           currentAction.childState = currentState;
           currentState.crawlActions = await this.getCrawlActions(page, currentState);
           parentState = currentState;

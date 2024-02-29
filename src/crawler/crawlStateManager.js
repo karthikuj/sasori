@@ -29,21 +29,26 @@ class CrawlStateManager {
 
   /**
    * Returns CrawlState with the given stateHash if found else null.
-   * @param {CrawlState} rootState
-   * @param {CrawlState[]} visited
    * @param {string} stateHash
    * @return {CrawlState}
    */
-  getStateByHash(rootState, visited, stateHash) {
-    if (rootState.stateHash === stateHash) {
-      return rootState;
-    }
-    for (const action of rootState.getCrawlActions()) {
-      const childState = action.getChildState();
+  getStateByHash(stateHash) {
+    const stack = [this.rootState];
+    const visited = new Set();
 
-      if (childState && !visited.includes(childState)) {
-        visited.push(childState);
-        return this.getStateByHash(childState, visited, stateHash);
+    while (stack.length) {
+      const currentState = stack.pop();
+      if (!visited.has(currentState.stateId)) {
+        visited.add(currentState.stateId);
+        if (currentState.stateHash === stateHash) {
+          return currentState;
+        }
+        for (const action of currentState.getCrawlActions()) {
+          const childState = action.getChildState();
+          if (childState) {
+            stack.push(childState);
+          }
+        }
       }
     }
 
@@ -64,13 +69,17 @@ class CrawlStateManager {
       const currentState = stack.pop();
 
       if (!visited.has(currentState.stateId)) {
-        visited.add(currentState);
+        visited.add(currentState.stateId);
+        console.log(`Current state url: ${currentState.url}`);
 
         for (const action of currentState.getCrawlActions()) {
+          console.log(`Current action: ${action.cssPath}`);
           const childState = action.getChildState();
           if (childState) {
+            console.log(`Child state found: ${childState.url}`);
             stack.push(childState);
           } else {
+            console.log(`Child state not found.`);
             return action;
           }
         }
