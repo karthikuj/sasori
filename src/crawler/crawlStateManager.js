@@ -56,10 +56,9 @@ class CrawlStateManager {
    * @param {CrawlAction} lastAction
    * @return {CrawlAction}
    */
-  getNextCrawlAction(rootState, lastAction) {
+  getNextCrawlAction(rootState) {
     const stack = [rootState];
     const visited = new Set();
-    let lastActionFound = !lastAction;
 
     while (stack.length) {
       const currentState = stack.pop();
@@ -69,15 +68,10 @@ class CrawlStateManager {
 
         for (const action of currentState.getCrawlActions()) {
           const childState = action.getChildState();
-          if (lastActionFound) {
-            return action;
-          }
-          if (action.actionId === lastAction.actionId) {
-            console.log(`Last action found: ${action.actionId}`);
-            lastActionFound = true;
-          }
           if (childState) {
             stack.push(childState);
+          } else {
+            return action;
           }
         }
       }

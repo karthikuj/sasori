@@ -231,9 +231,10 @@ class Crawler {
     const rootState = new CrawlState(page.url(), await this.getPageHash(page), 0, null);
     rootState.crawlActions = await this.getCrawlActions(page, rootState);
     let parentState = rootState;
+    let currentState = rootState;
 
     const crawlManager = new CrawlStateManager(rootState);
-    let nextCrawlAction = crawlManager.getNextCrawlAction(crawlManager.rootState, null);
+    let nextCrawlAction = crawlManager.getNextCrawlAction(crawlManager.rootState);
 
     do {
       const currentAction = nextCrawlAction;
@@ -244,17 +245,20 @@ class Crawler {
       const existingState = crawlManager.getStateByHash(crawlManager.rootState, [crawlManager.rootState], currentStateHash);
       if (existingState) {
         console.log(`State exists: ${existingState.url}`);
+        currentState = existingState;
         currentAction.childState = existingState;
       } else {
         if (this.inContext(page.url())) {
-          const currentState = new CrawlState(page.url(), currentStateHash, parentState.crawlDepth + 1, null);
+          currentState = new CrawlState(page.url(), currentStateHash, parentState.crawlDepth + 1, null);
           console.log(`Adding new state: ${currentState.url}`);
           currentAction.childState = currentState;
           currentState.crawlActions = await this.getCrawlActions(page, currentState);
           parentState = currentState;
+        } else {
+          currentState.crawlActions = currentState.crawlActions.filter((value)=>currentAction.actionId !== value.actionId);
         }
       }
-    } while ((nextCrawlAction = crawlManager.getNextCrawlAction(crawlManager.rootState, nextCrawlAction)));
+    } while ((nextCrawlAction = crawlManager.getNextCrawlAction(crawlManager.rootState)));
 
     console.log(nextCrawlAction);
     console.log('Scan completed');
