@@ -84,23 +84,6 @@ class CrawlStateManager {
           }
         }
       }
-
-      // for (const action of currentState.getCrawlActions()) {
-      //   // console.log(action);
-      //   if (lastActionFound) {
-      //     return action;
-      //   }
-      //   if (action.actionId === lastAction.actionId) {
-      //     console.log(`Last action found: ${action.actionId}`);
-      //     lastActionFound = true;
-      //   }
-      //   const childState = action.getChildState();
-      //   console.log(childState);
-      //   if (childState && !visited.has(childState.stateId)) {
-      //     visited.add(childState.stateId);
-      //     stack.push(childState);
-      //   }
-      // }
     }
 
     return null;
@@ -144,7 +127,7 @@ class CrawlStateManager {
       }
     }
 
-    return null; // No path found
+    return null;
   }
 }
 
