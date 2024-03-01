@@ -181,11 +181,12 @@ class Crawler {
    * @return {string}
    */
   async getPageHash(page) {
-    const rootStateDom = new JSDOM(await page.content());
-    this.stripDOM(rootStateDom.window.document.documentElement);
-    const rootStateHash = createHash('sha256').update(rootStateDom.serialize()).digest('hex');
+    await page.waitForFunction(()=>document.readyState === 'complete', {timeout: this.crawlerConfig.eventTimeout});
+    const pageDom = new JSDOM(await page.content());
+    this.stripDOM(pageDom.window.document.documentElement);
+    const pageHash = createHash('sha256').update(pageDom.serialize()).digest('hex');
 
-    return rootStateHash;
+    return pageHash;
   }
 
   /**
