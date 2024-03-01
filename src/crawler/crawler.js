@@ -103,16 +103,13 @@ class Crawler {
    * @param {Page} page
    */
   async performAction(crawlManager, crawlerAction, page) {
-    console.log(crawlerAction);
     const currentStateHash = await this.getPageHash(page);
     if (currentStateHash !== crawlerAction.parentState.stateHash) {
       const shortestPath = crawlManager.getShortestPath(crawlerAction.parentState);
-      console.log(shortestPath);
       await page.goto(this.crawlerConfig.entryPoint, {waitUntil: 'domcontentloaded'});
       for (const crawlAction of shortestPath) {
         await page.waitForSelector(crawlAction.cssPath);
         const node = await page.$(crawlAction.cssPath);
-        console.log(crawlAction.actionId);
 
         try {
           await node.click();
@@ -137,28 +134,17 @@ class Crawler {
         console.error(message);
       }
     }
-    console.log(`Action performed`);
-
-    try {
-      await page.evaluate(()=>{
-        window.addEventListener('DOMContentLoaded', function() {
-          window.navWait();
-        });
-      });
-    } catch (error) {
-      console.error(error);
-    }
 
     // try {
     //   await page.waitForNavigation({waitUntil: 'domcontentloaded', timeout: this.crawlerConfig.eventTimeout});
     // } catch ({name, message}) {
-    //   // try {
-    //   //   if (name === 'TimeoutError' && message.includes('Navigation timeout')) {
-    //   //     page.waitForFunction(document.readyState === 'complete', {timeout: this.crawlerConfig.eventTimeout});
-    //   //   }
-    //   // } catch (err) {
-    //   //   console.error(err);
-    //   // }
+    //   try {
+    //     if (name === 'TimeoutError' && message.includes('Navigation timeout')) {
+    //       await page.waitForFunction(()=>document.readyState === 'complete', {timeout: this.crawlerConfig.eventTimeout});
+    //     }
+    //   } catch (err) {
+    //     console.error(err);
+    //   }
     // }
   }
 
@@ -195,7 +181,6 @@ class Crawler {
    * @return {string}
    */
   async getPageHash(page) {
-    console.log(await page.content());
     const rootStateDom = new JSDOM(await page.content());
     this.stripDOM(rootStateDom.window.document.documentElement);
     const rootStateHash = createHash('sha256').update(rootStateDom.serialize()).digest('hex');
@@ -219,9 +204,6 @@ class Crawler {
     });
     await page.setViewport({width: screen.width, height: screen.height});
     await page.setRequestInterception(true);
-    await page.exposeFunction('navWait', async ()=>{
-      await page.waitForFunction(() => document.readyState === 'complete', {timeout: this.crawlerConfig.eventTimeout});
-    });
 
     // Statically response to out-of-scope requests.
     page.on('request', (interceptedRequest) => {
@@ -256,19 +238,15 @@ class Crawler {
 
     do {
       const currentAction = nextCrawlAction;
-      // console.log(currentAction);
-      console.log(`-----------------------------------------------------------`);
       await this.performAction(crawlManager, currentAction, page);
       const currentStateHash = await this.getPageHash(page);
       const existingState = crawlManager.getStateByHash(currentStateHash);
       if (existingState) {
-        console.log(`State exists: ${existingState.url}`);
         currentState = existingState;
         currentAction.childState = existingState;
       } else {
         if (this.inContext(page.url())) {
           currentState = new CrawlState(page.url(), currentStateHash, parentState.crawlDepth + 1, null);
-          console.log(`Adding new state: ${currentState.url} with hash: ${currentStateHash}`);
           currentAction.childState = currentState;
           currentState.crawlActions = await this.getCrawlActions(page, currentState);
           parentState = currentState;
@@ -278,7 +256,6 @@ class Crawler {
       }
     } while ((nextCrawlAction = crawlManager.getNextCrawlAction(crawlManager.rootState)));
 
-    console.log(nextCrawlAction);
     console.log('Scan completed');
     await browser.close();
     crawlManager.traverse(crawlManager.rootState, [crawlManager.rootState]);

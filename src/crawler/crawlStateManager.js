@@ -70,16 +70,12 @@ class CrawlStateManager {
 
       if (!visited.has(currentState.stateId)) {
         visited.add(currentState.stateId);
-        console.log(`Current state url: ${currentState.url}`);
 
         for (const action of currentState.getCrawlActions()) {
-          console.log(`Current action: ${action.cssPath}`);
           const childState = action.getChildState();
           if (childState) {
-            console.log(`Child state found: ${childState.url}`);
             stack.push(childState);
           } else {
-            console.log(`Child state not found.`);
             return action;
           }
         }
