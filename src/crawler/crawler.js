@@ -85,7 +85,7 @@ class Crawler {
    * Fetches all possible CrawlActions on a CrawlState and returns them.
    * @param {Page} page
    * @param {CrawlState} currentState
-   * @return {(CrawlAction[] | null)}
+   * @return {CrawlAction[]}
    */
   async getCrawlActions(page, currentState) {
     const domPath = new DomPath(page);
@@ -93,15 +93,36 @@ class Crawler {
     const crawlActions = cssPaths.map((cssPath) => {
       return new CrawlAction('a', 'click', cssPath, currentState);
     });
-    return (crawlActions.length !== 0) ? crawlActions : null;
+    return (crawlActions.length !== 0) ? crawlActions : [];
   }
 
   /**
    * Performs the given crawlaction on page.
+   * @param {CrawlStateManager} crawlManager
    * @param {CrawlAction} crawlerAction
    * @param {Page} page
    */
-  async performAction(crawlerAction, page) {
+  async performAction(crawlManager, crawlerAction, page) {
+    const currentStateHash = await this.getPageHash(page);
+    if (currentStateHash !== crawlerAction.parentState.stateHash) {
+      const shortestPath = crawlManager.getShortestPath(crawlerAction.parentState);
+      await page.goto(this.crawlerConfig.entryPoint, {waitUntil: 'domcontentloaded'});
+      for (const crawlAction of shortestPath) {
+        await page.waitForSelector(crawlAction.cssPath);
+        const node = await page.$(crawlAction.cssPath);
+
+        try {
+          await node.click();
+        } catch ({name, message}) {
+          if (message === 'Node is either not clickable or not an Element') {
+            await node.evaluate((n) => n.click());
+          } else {
+            console.error(message);
+          }
+        }
+      }
+    }
+
     await page.waitForSelector(crawlerAction.cssPath);
     const node = await page.$(crawlerAction.cssPath);
     try {
@@ -111,14 +132,6 @@ class Crawler {
         await node.evaluate((n) => n.click());
       } else {
         console.error(message);
-      }
-    }
-
-    try {
-      await page.waitForNavigation({waitUntil: 'domcontentloaded'});
-    } catch ({name, message}) {
-      if (name === 'TimeoutError' && message.includes('Navigation timeout')) {
-        await page.waitForNetworkIdle({idleTime: 1000});
       }
     }
   }
@@ -156,11 +169,12 @@ class Crawler {
    * @return {string}
    */
   async getPageHash(page) {
-    const rootStateDom = new JSDOM(await page.content());
-    this.stripDOM(rootStateDom.window.document.documentElement);
-    const rootStateHash = createHash('sha256').update(rootStateDom.serialize()).digest('hex');
+    await page.waitForFunction(()=>document.readyState === 'complete', {timeout: this.crawlerConfig.eventTimeout});
+    const pageDom = new JSDOM(await page.content());
+    this.stripDOM(pageDom.window.document.documentElement);
+    const pageHash = createHash('sha256').update(pageDom.serialize()).digest('hex');
 
-    return rootStateHash;
+    return pageHash;
   }
 
   /**
@@ -168,6 +182,7 @@ class Crawler {
    */
   async startCrawling() {
     console.log(this.banner);
+    console.log(`\nSasori will now start crawling from ${this.crawlerConfig.entryPoint}`);
     const browser = await Browser.getBrowserInstance();
     const allPages = await browser.pages();
     const page = allPages[0];
@@ -196,34 +211,45 @@ class Crawler {
       } else interceptedRequest.continue();
     });
 
-    await this.startAuthentication(browser, page);
-    await page.goto('https://security-crawl-maze.app/', {waitUntil: 'domcontentloaded'});
+    page.on('dialog', async (dialog) => {
+      await dialog.dismiss();
+    });
+
+    // await this.startAuthentication(browser, page);
+    await page.goto(this.crawlerConfig.entryPoint, {waitUntil: 'domcontentloaded'});
 
     const rootState = new CrawlState(page.url(), await this.getPageHash(page), 0, null);
     rootState.crawlActions = await this.getCrawlActions(page, rootState);
     let parentState = rootState;
+    let currentState = rootState;
 
     const crawlManager = new CrawlStateManager(rootState);
-    let nextCrawlAction = crawlManager.getNextCrawlAction(crawlManager.rootState, null, false, [crawlManager.rootState]);
+    let nextCrawlAction = crawlManager.getNextCrawlAction(crawlManager.rootState);
 
     do {
       const currentAction = nextCrawlAction;
-      console.log(currentAction);
-      // await this.performAction(currentAction, page);
+      await this.performAction(crawlManager, currentAction, page);
       const currentStateHash = await this.getPageHash(page);
-      const existingState = crawlManager.getStateByHash(crawlManager.rootState, [crawlManager.rootState], currentStateHash);
+      const existingState = crawlManager.getStateByHash(currentStateHash);
       if (existingState) {
+        currentState = existingState;
         currentAction.childState = existingState;
       } else {
-        const currentState = new CrawlState(page.url(), currentStateHash, parentState.crawlDepth + 1, null);
-        currentAction.childState = currentState;
-        currentState.crawlActions = await this.getCrawlActions(page, currentState);
-        parentState = currentState;
+        if (this.inContext(page.url())) {
+          currentState = new CrawlState(page.url(), currentStateHash, parentState.crawlDepth + 1, null);
+          currentAction.childState = currentState;
+          currentState.crawlActions = await this.getCrawlActions(page, currentState);
+          parentState = currentState;
+        } else {
+          currentState.crawlActions = currentState.crawlActions.filter((value)=>currentAction.actionId !== value.actionId);
+        }
       }
-    } while ((nextCrawlAction = crawlManager.getNextCrawlAction(crawlManager.rootState, nextCrawlAction, false, [crawlManager.rootState])));
+    } while ((nextCrawlAction = crawlManager.getNextCrawlAction(crawlManager.rootState)));
 
     console.log('Scan completed');
     await browser.close();
+    console.log('\nAll crawlstates:');
+    crawlManager.traverse(crawlManager.rootState, [crawlManager.rootState]);
   }
 
   /**

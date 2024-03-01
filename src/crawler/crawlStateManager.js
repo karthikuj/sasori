@@ -11,22 +11,44 @@ class CrawlStateManager {
   }
 
   /**
-   * Returns CrawlState with the given stateHash if found else null.
+   * Traverse the state graph.
    * @param {CrawlState} rootState
    * @param {CrawlState[]} visited
-   * @param {string} stateHash
-   * @return {CrawlState}
    */
-  getStateByHash(rootState, visited, stateHash) {
-    if (rootState.stateHash === stateHash) {
-      return rootState;
-    }
+  traverse(rootState, visited) {
+    console.log(rootState.url);
     for (const action of rootState.getCrawlActions()) {
       const childState = action.getChildState();
 
-      if (!visited.includes(childState)) {
+      if (childState && !visited.includes(childState)) {
         visited.push(childState);
-        return this.getStateByHash(childState, visited, stateHash);
+        this.traverse(childState, visited);
+      }
+    }
+  }
+
+  /**
+   * Returns CrawlState with the given stateHash if found else null.
+   * @param {string} stateHash
+   * @return {CrawlState}
+   */
+  getStateByHash(stateHash) {
+    const stack = [this.rootState];
+    const visited = new Set();
+
+    while (stack.length) {
+      const currentState = stack.pop();
+      if (!visited.has(currentState.stateId)) {
+        visited.add(currentState.stateId);
+        if (currentState.stateHash === stateHash) {
+          return currentState;
+        }
+        for (const action of currentState.getCrawlActions()) {
+          const childState = action.getChildState();
+          if (childState) {
+            stack.push(childState);
+          }
+        }
       }
     }
 
@@ -37,23 +59,67 @@ class CrawlStateManager {
    * Return the next crawlAction to be performed.
    * @param {CrawlState} rootState
    * @param {CrawlAction} lastAction
-   * @param {boolean} lastActionFound
-   * @param {CrawlAction[]} visited
    * @return {CrawlAction}
    */
-  getNextCrawlAction(rootState, lastAction, lastActionFound, visited) {
-    for (const action of rootState.getCrawlActions()) {
-      if (lastAction === null || lastActionFound) {
-        return action;
-      }
-      if (action === lastAction) {
-        lastActionFound = true;
-      }
-      const childState = action.getChildState();
+  getNextCrawlAction(rootState) {
+    const stack = [rootState];
+    const visited = new Set();
 
-      if (!visited.includes(childState)) {
-        visited.push(childState);
-        return this.getNextCrawlAction(childState, lastAction, lastActionFound, visited);
+    while (stack.length) {
+      const currentState = stack.pop();
+
+      if (!visited.has(currentState.stateId)) {
+        visited.add(currentState.stateId);
+
+        for (const action of currentState.getCrawlActions()) {
+          const childState = action.getChildState();
+          if (childState) {
+            stack.push(childState);
+          } else {
+            return action;
+          }
+        }
+      }
+    }
+
+    return null;
+  }
+
+  /**
+   * Returns the shortest path to a CrawlState from the root state.
+   * @param {CrawlState} destinationState
+   * @return {CrawlAction[]}
+   */
+  getShortestPath(destinationState) {
+    const queue = [[this.rootState]];
+    const visited = new Set();
+
+    while (queue.length > 0) {
+      const path = queue.shift();
+      const currentState = path[path.length - 1];
+
+      if (currentState === destinationState) {
+        // Convert crawl states to crawl actions
+        const crawlActionsPath = [];
+        for (let i = 0; i < path.length - 1; i++) {
+          const currentState = path[i];
+          const nextState = path[i + 1];
+          const action = currentState.crawlActions.find((action) => action.childState === nextState);
+          crawlActionsPath.push(action);
+        }
+        return crawlActionsPath;
+      }
+
+      if (!visited.has(currentState.stateId)) {
+        visited.add(currentState.stateId);
+
+        for (const action of currentState.crawlActions) {
+          const childState = action.childState;
+          if (childState && !visited.has(childState.stateId)) {
+            const newPath = [...path, childState];
+            queue.push(newPath);
+          }
+        }
       }
     }
 
