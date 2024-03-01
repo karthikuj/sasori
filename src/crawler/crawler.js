@@ -134,18 +134,6 @@ class Crawler {
         console.error(message);
       }
     }
-
-    // try {
-    //   await page.waitForNavigation({waitUntil: 'domcontentloaded', timeout: this.crawlerConfig.eventTimeout});
-    // } catch ({name, message}) {
-    //   try {
-    //     if (name === 'TimeoutError' && message.includes('Navigation timeout')) {
-    //       await page.waitForFunction(()=>document.readyState === 'complete', {timeout: this.crawlerConfig.eventTimeout});
-    //     }
-    //   } catch (err) {
-    //     console.error(err);
-    //   }
-    // }
   }
 
   /**
@@ -194,6 +182,7 @@ class Crawler {
    */
   async startCrawling() {
     console.log(this.banner);
+    console.log(`\nSasori will now start crawling from ${this.crawlerConfig.entryPoint}`);
     const browser = await Browser.getBrowserInstance();
     const allPages = await browser.pages();
     const page = allPages[0];
@@ -226,7 +215,7 @@ class Crawler {
       await dialog.dismiss();
     });
 
-    await this.startAuthentication(browser, page);
+    // await this.startAuthentication(browser, page);
     await page.goto(this.crawlerConfig.entryPoint, {waitUntil: 'domcontentloaded'});
 
     const rootState = new CrawlState(page.url(), await this.getPageHash(page), 0, null);
@@ -259,6 +248,7 @@ class Crawler {
 
     console.log('Scan completed');
     await browser.close();
+    console.log('\nAll crawlstates:');
     crawlManager.traverse(crawlManager.rootState, [crawlManager.rootState]);
   }
 
