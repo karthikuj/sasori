@@ -140,16 +140,26 @@ class Crawler {
     console.log(`Action performed`);
 
     try {
-      await page.waitForNavigation({waitUntil: 'domcontentloaded'});
-    } catch ({name, message}) {
-      try {
-        if (name === 'TimeoutError' && message.includes('Navigation timeout')) {
-          await page.waitForNetworkIdle({idleTime: 500});
-        }
-      } catch (err) {
-        // Do nothing
-      }
+      await page.evaluate(()=>{
+        window.addEventListener('DOMContentLoaded', function() {
+          window.navWait();
+        });
+      });
+    } catch (error) {
+      console.error(error);
     }
+
+    // try {
+    //   await page.waitForNavigation({waitUntil: 'domcontentloaded', timeout: this.crawlerConfig.eventTimeout});
+    // } catch ({name, message}) {
+    //   // try {
+    //   //   if (name === 'TimeoutError' && message.includes('Navigation timeout')) {
+    //   //     page.waitForFunction(document.readyState === 'complete', {timeout: this.crawlerConfig.eventTimeout});
+    //   //   }
+    //   // } catch (err) {
+    //   //   console.error(err);
+    //   // }
+    // }
   }
 
   /**
@@ -185,6 +195,7 @@ class Crawler {
    * @return {string}
    */
   async getPageHash(page) {
+    console.log(await page.content());
     const rootStateDom = new JSDOM(await page.content());
     this.stripDOM(rootStateDom.window.document.documentElement);
     const rootStateHash = createHash('sha256').update(rootStateDom.serialize()).digest('hex');
@@ -208,6 +219,9 @@ class Crawler {
     });
     await page.setViewport({width: screen.width, height: screen.height});
     await page.setRequestInterception(true);
+    await page.exposeFunction('navWait', async ()=>{
+      await page.waitForFunction(() => document.readyState === 'complete', {timeout: this.crawlerConfig.eventTimeout});
+    });
 
     // Statically response to out-of-scope requests.
     page.on('request', (interceptedRequest) => {
