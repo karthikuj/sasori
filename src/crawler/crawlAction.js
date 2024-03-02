@@ -22,7 +22,15 @@ class CrawlAction {
   }
 
   /**
-   * Returns the ChildState associated with the CrawlAction.
+   * Returns the parentState associated with the CrawlAction.
+   * @return {CrawlState}
+   */
+  getParentState() {
+    return this.parentState;
+  }
+
+  /**
+   * Returns the childState associated with the CrawlAction.
    * @return {CrawlState}
    */
   getChildState() {
