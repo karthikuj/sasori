@@ -211,16 +211,11 @@ class Crawler {
       } else interceptedRequest.continue();
     });
 
-    page.on('dialog', async (dialog) => {
-      await dialog.dismiss();
-    });
-
     // await this.startAuthentication(browser, page);
     await page.goto(this.crawlerConfig.entryPoint, {waitUntil: 'domcontentloaded'});
 
     const rootState = new CrawlState(page.url(), await this.getPageHash(page), 0, null);
     rootState.crawlActions = await this.getCrawlActions(page, rootState);
-    let parentState = rootState;
     let currentState = rootState;
 
     const crawlManager = new CrawlStateManager(rootState);
@@ -233,23 +228,23 @@ class Crawler {
       const existingState = crawlManager.getStateByHash(currentStateHash);
       if (existingState) {
         currentState = existingState;
-        currentAction.childState = existingState;
+        currentAction.getParentState().crawlActions = currentAction.getParentState().crawlActions.filter((value)=>currentAction.actionId !== value.actionId);
       } else {
         if (this.inContext(page.url())) {
-          currentState = new CrawlState(page.url(), currentStateHash, parentState.crawlDepth + 1, null);
+          currentState = new CrawlState(page.url(), currentStateHash, currentAction.getParentState().crawlDepth + 1, null);
           currentAction.childState = currentState;
           currentState.crawlActions = await this.getCrawlActions(page, currentState);
-          parentState = currentState;
         } else {
-          currentState.crawlActions = currentState.crawlActions.filter((value)=>currentAction.actionId !== value.actionId);
+          currentAction.getParentState().crawlActions = currentAction.getParentState().crawlActions.filter((value)=>currentAction.actionId !== value.actionId);
         }
       }
     } while ((nextCrawlAction = crawlManager.getNextCrawlAction(crawlManager.rootState)));
 
-    console.log('Scan completed');
-    await browser.close();
     console.log('\nAll crawlstates:');
     crawlManager.traverse(crawlManager.rootState, [crawlManager.rootState]);
+
+    console.log('Scan completed');
+    await browser.close();
   }
 
   /**
