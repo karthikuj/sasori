@@ -10,8 +10,9 @@
         "profile": {}
     },
     "crawler": {
-        "entryPoint": "https://security-crawl-maze.app/",
+        "entryPoint": "https://developer.mozilla.org/en-US/",
         "eventTimeout": 10000,
+        "maxDuration": 60000,
         "elements": [
             "a"
         ],
@@ -20,7 +21,7 @@
             "pptrRecording": "/home/astra/Downloads/pptr.json"
         },
         "includeRegexes": [
-            "https?://security-crawl-maze.app(?:/.*|)"
+            "https?://developer.mozilla.org(?:/.*|)"
         ]
     }
 }
