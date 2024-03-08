@@ -34,8 +34,8 @@ class Crawler {
                                  :   ..   :     
 
 
-                                    SASORI
-                                    v1.0.0
+                                   SASORI
+                                   v1.0.0
 
     `;
   }
@@ -89,10 +89,13 @@ class Crawler {
    */
   async getCrawlActions(page, currentState) {
     const domPath = new DomPath(page);
-    const cssPaths = await domPath.getCssPaths('a');
-    const crawlActions = cssPaths.map((cssPath) => {
-      return new CrawlAction('a', 'click', cssPath, currentState);
-    });
+    const crawlActions = [];
+    for (const element of this.crawlerConfig.elements) {
+      const cssPaths = await domPath.getCssPaths(element);
+      crawlActions.push(...cssPaths.map((cssPath) => {
+        return new CrawlAction(element, 'click', cssPath, currentState);
+      }));
+    }
     return (crawlActions.length !== 0) ? crawlActions : [];
   }
 
@@ -223,7 +226,7 @@ class Crawler {
       } else interceptedRequest.continue();
     });
 
-    await this.startAuthentication(browser, page);
+    // await this.startAuthentication(browser, page);
     await page.goto(this.crawlerConfig.entryPoint, {waitUntil: 'domcontentloaded'});
 
     const rootState = new CrawlState(page.url(), await this.getPageHash(page), 0, null);
