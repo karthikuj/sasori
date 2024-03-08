@@ -184,6 +184,18 @@ class Crawler {
     console.log(this.banner);
     console.log(`\nSasori will now start crawling from ${this.crawlerConfig.entryPoint}`);
     const browser = await Browser.getBrowserInstance();
+
+    browser.on('targetcreated', async (target)=>{
+      const targetBrowser = target.browser();
+      const allTargetBrowserPages = await targetBrowser.pages();
+      const targetPage = await target.page();
+      if (targetPage && target.type() === 'page' && allTargetBrowserPages.length > 1) {
+        await targetPage.close();
+      }
+    });
+
+    const startTime = Date.now();
+    const endTime = startTime + this.crawlerConfig.maxDuration;
     const allPages = await browser.pages();
     const page = allPages[0];
     const screen = await page.evaluate(() => {
@@ -211,7 +223,7 @@ class Crawler {
       } else interceptedRequest.continue();
     });
 
-    // await this.startAuthentication(browser, page);
+    await this.startAuthentication(browser, page);
     await page.goto(this.crawlerConfig.entryPoint, {waitUntil: 'domcontentloaded'});
 
     const rootState = new CrawlState(page.url(), await this.getPageHash(page), 0, null);
@@ -238,7 +250,7 @@ class Crawler {
           currentAction.getParentState().crawlActions = currentAction.getParentState().crawlActions.filter((value)=>currentAction.actionId !== value.actionId);
         }
       }
-    } while ((nextCrawlAction = crawlManager.getNextCrawlAction(crawlManager.rootState)));
+    } while ((nextCrawlAction = crawlManager.getNextCrawlAction(crawlManager.rootState)) && Date.now() < endTime);
 
     console.log('\nAll crawlstates:');
     crawlManager.traverse(crawlManager.rootState, [crawlManager.rootState]);
