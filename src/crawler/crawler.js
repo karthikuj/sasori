@@ -161,6 +161,13 @@ class Crawler {
     this.authInProgress = true;
     await authenticate(browser, page, new URL('/home/astra/Downloads/pptr.json', import.meta.url));
     this.authInProgress = false;
+    const screen = await page.evaluate(() => {
+      return {
+        width: window.screen.availWidth,
+        height: window.screen.availHeight,
+      };
+    });
+    await page.setViewport({width: screen.width, height: screen.height});
   }
 
   /**
@@ -198,16 +205,9 @@ class Crawler {
     const endTime = startTime + this.crawlerConfig.maxDuration;
     const allPages = await browser.pages();
     const page = allPages[0];
-    const screen = await page.evaluate(() => {
-      return {
-        width: window.screen.availWidth,
-        height: window.screen.availHeight,
-      };
-    });
-    await page.setViewport({width: screen.width, height: screen.height});
-    await page.setRequestInterception(true);
 
     // Statically response to out-of-scope requests.
+    await page.setRequestInterception(true);
     page.on('request', (interceptedRequest) => {
       if (interceptedRequest.isInterceptResolutionHandled()) return;
 
