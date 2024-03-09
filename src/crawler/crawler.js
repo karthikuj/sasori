@@ -1,3 +1,4 @@
+import {readFileSync, writeFileSync} from 'fs';
 import Browser from '../browser/browser.js';
 import CrawlAction from './crawlAction.js';
 import CrawlInput from './crawlInput.js';
@@ -7,7 +8,6 @@ import DomPath from './domPath.js';
 import {JSDOM} from 'jsdom';
 import authenticate from '../auth/authenticator.js';
 import {createHash} from 'crypto';
-import {readFileSync} from 'fs';
 
 /**
  * The Crawler class is responsible for creating and managing the crawler.
@@ -91,11 +91,11 @@ class Crawler {
   async getCrawlInputs(page) {
     const domPath = new DomPath(page);
     const crawlInputs = [];
-    for (const input of CrawlInput.INPUTS) {
+    for (const input of CrawlInput.INPUT_FIELDS) {
       const cssPath = input.CSS_PATH;
       const cssPaths = await domPath.getCssPaths(cssPath);
       crawlInputs.push(...cssPaths.map((cssPath) => {
-        return new CrawlInput(input.ELEMENT, cssPath);
+        return new CrawlInput(input.ELEMENT, input.TYPE, cssPath);
       }));
     }
 
@@ -118,6 +118,17 @@ class Crawler {
       }));
     }
     return (crawlActions.length !== 0) ? crawlActions : [];
+  }
+
+  /**
+   * Fills out all CrawlInputs provided to it in the iterable.
+   * @param {Page} page
+   * @param {CrawlInput[]} crawlInputs
+   */
+  async fillAllInputs(page, crawlInputs) {
+    for (const crawlInput of crawlInputs) {
+      await crawlInput.inputFieldHandler(page);
+    }
   }
 
   /**
@@ -147,6 +158,9 @@ class Crawler {
     }
 
     const node = await page.waitForSelector(crawlerAction.cssPath);
+    if (crawlerAction.element != CrawlAction.ANCHOR) {
+      await this.fillAllInputs(page, crawlerAction.parentState.crawlInputs);
+    }
     try {
       await node.click();
     } catch ({name, message}) {
@@ -296,7 +310,13 @@ class Crawler {
     } while ((nextCrawlAction = crawlManager.getNextCrawlAction(crawlManager.rootState)) && Date.now() < endTime);
 
     console.log('\nAll crawlstates:');
-    console.log(this.allUrls);
+    writeFileSync('test.log', (()=>{
+      let urlList = '';
+      for (const url of this.allUrls) {
+        urlList += (url + '\n');
+      }
+      return urlList;
+    })());
     // crawlManager.traverse(crawlManager.rootState, [crawlManager.rootState]);
 
     console.log('Scan completed');

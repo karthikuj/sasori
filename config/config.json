@@ -10,18 +10,19 @@
         "profile": {}
     },
     "crawler": {
-        "entryPoint": "https://hypejabbedv2.getastra.dev",
+        "entryPoint": "https://security-crawl-maze.app",
         "eventTimeout": 10000,
         "maxDuration": 600000,
         "elements": [
-            "a"
+            "a",
+            "button"
         ],
         "maxDepth": 10,
         "authentication": {
             "pptrRecording": "/home/astra/Downloads/pptr.json"
         },
         "includeRegexes": [
-            "https?://hypejabbedv2.getastra.dev(?:/.*|)"
+            "https?://security-crawl-maze.app(?:/.*|)"
         ]
     }
 }

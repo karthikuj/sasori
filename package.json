@@ -8,7 +8,7 @@
   },
   "type": "module",
   "scripts": {
-    "run": "clear && npx eslint ./ --fix && node index.js"
+    "start": "clear && npx eslint ./ --fix && node index.js"
   },
   "keywords": [],
   "author": "Karthik UJ / Peeyush Tyagi",
