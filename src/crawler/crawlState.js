@@ -10,13 +10,15 @@ class CrawlState {
    * @param {string} url
    * @param {string} stateHash
    * @param {int} crawlDepth
+   * @param {CrawlInput[]} crawlInputs
    * @param {CrawlAction[]} crawlActions
    */
-  constructor(url, stateHash, crawlDepth, crawlActions) {
+  constructor(url, stateHash, crawlDepth, crawlInputs, crawlActions) {
     this.stateId = randomUUID();
     this.url = url;
     this.stateHash = stateHash;
     this.crawlDepth = crawlDepth;
+    this.crawlInputs = crawlInputs ? crawlInputs : [];
     this.crawlActions = crawlActions ? crawlActions : [];
   }
 

@@ -1,5 +1,6 @@
 import Browser from '../browser/browser.js';
 import CrawlAction from './crawlAction.js';
+import CrawlInput from './crawlInput.js';
 import CrawlState from './crawlState.js';
 import CrawlStateManager from './crawlStateManager.js';
 import DomPath from './domPath.js';
@@ -80,6 +81,26 @@ class Crawler {
     }
 
     return crawlerConfig;
+  }
+
+  /**
+   * Fetches all possible CrawlInputs on a CrawlState and returns them.
+   * @param {Page} page
+   * @return {CrawlInput[]}
+   */
+  async getCrawlInputs(page) {
+    const domPath = new DomPath(page);
+    const crawlInputs = [];
+    for (const attr in CrawlInput.INPUTS) {
+      if (Object.hasOwnProperty.call(CrawlInput.INPUTS, attr)) {
+        const cssPath = CrawlInput.INPUTS[attr];
+        const cssPaths = await domPath.getCssPaths(cssPath);
+        crawlInputs.push(...cssPaths.map((cssPath) => {
+          return new CrawlInput('input', cssPath);
+        }));
+      }
+    }
+    return (crawlInputs.length !== 0) ? crawlInputs : [];
   }
 
   /**
@@ -195,6 +216,19 @@ class Crawler {
   }
 
   /**
+   * Creates and returns a new CrawlState using the page and crawl depth passed to it.
+   * @param {Page} page
+   * @param {int} crawlDepth
+   * @return {CrawlState}
+   */
+  async getNewCrawlState(page, crawlDepth) {
+    const crawlState = new CrawlState(page.url(), await this.getPageHash(page), crawlDepth, null);
+    crawlState.crawlActions = await this.getCrawlActions(page, crawlState);
+    crawlState.crawlInputs = await this.getCrawlInputs(page);
+    return crawlState;
+  }
+
+  /**
    * Starts the crawling process.
    */
   async startCrawling() {
@@ -235,11 +269,10 @@ class Crawler {
       } else interceptedRequest.continue();
     });
 
-    await this.startAuthentication(browser, page);
+    // await this.startAuthentication(browser, page);
     await page.goto(this.crawlerConfig.entryPoint, {waitUntil: 'domcontentloaded'});
 
-    const rootState = new CrawlState(page.url(), await this.getPageHash(page), 0, null);
-    rootState.crawlActions = await this.getCrawlActions(page, rootState);
+    const rootState = await this.getNewCrawlState(page, 0);
     let currentState = rootState;
 
     const crawlManager = new CrawlStateManager(rootState);
@@ -255,8 +288,8 @@ class Crawler {
         currentAction.getParentState().crawlActions = currentAction.getParentState().crawlActions.filter((value)=>currentAction.actionId !== value.actionId);
       } else {
         if (this.inContext(page.url())) {
-          currentState = new CrawlState(page.url(), currentStateHash, currentAction.getParentState().crawlDepth + 1, null);
-          currentState.crawlActions = await this.getCrawlActions(page, currentState);
+          currentState = await this.getNewCrawlState(page, currentAction.getParentState().crawlDepth + 1);
+          console.log(currentState);
           currentAction.childState = currentState;
         } else {
           currentAction.getParentState().crawlActions = currentAction.getParentState().crawlActions.filter((value)=>currentAction.actionId !== value.actionId);
