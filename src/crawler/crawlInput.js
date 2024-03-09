@@ -3,11 +3,11 @@
  */
 class CrawlInput {
   static {
-    this.INPUTS = {
-      TEXT: 'input[type="text"]',
-      EMAIL: 'input[type="email"]',
-      PASSWORD: 'input[type="password"]',
-    };
+    this.INPUTS = [
+      {ELEMENT: 'input', TYPE: 'text', CSS_PATH: 'input[type="text"]'},
+      {ELEMENT: 'input', TYPE: 'email', CSS_PATH: 'input[type="email"]'},
+      {ELEMENT: 'input', TYPE: 'password', CSS_PATH: 'input[type="password"]'},
+    ];
   }
 
   /**

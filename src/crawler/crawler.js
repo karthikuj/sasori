@@ -91,15 +91,14 @@ class Crawler {
   async getCrawlInputs(page) {
     const domPath = new DomPath(page);
     const crawlInputs = [];
-    for (const attr in CrawlInput.INPUTS) {
-      if (Object.hasOwnProperty.call(CrawlInput.INPUTS, attr)) {
-        const cssPath = CrawlInput.INPUTS[attr];
-        const cssPaths = await domPath.getCssPaths(cssPath);
-        crawlInputs.push(...cssPaths.map((cssPath) => {
-          return new CrawlInput('input', cssPath);
-        }));
-      }
+    for (const input of CrawlInput.INPUTS) {
+      const cssPath = input.CSS_PATH;
+      const cssPaths = await domPath.getCssPaths(cssPath);
+      crawlInputs.push(...cssPaths.map((cssPath) => {
+        return new CrawlInput(input.ELEMENT, cssPath);
+      }));
     }
+
     return (crawlInputs.length !== 0) ? crawlInputs : [];
   }
 
@@ -289,7 +288,6 @@ class Crawler {
       } else {
         if (this.inContext(page.url())) {
           currentState = await this.getNewCrawlState(page, currentAction.getParentState().crawlDepth + 1);
-          console.log(currentState);
           currentAction.childState = currentState;
         } else {
           currentAction.getParentState().crawlActions = currentAction.getParentState().crawlActions.filter((value)=>currentAction.actionId !== value.actionId);
