@@ -18,6 +18,7 @@ class Crawler {
   constructor() {
     this.crawlerConfig = this.getCrawlerConfig();
     this.authInProgress = false;
+    this.allUrls = new Set();
     this.banner = `\x1b[32m
                               :.            :   
                              .+              =. 
@@ -111,8 +112,7 @@ class Crawler {
       const shortestPath = crawlManager.getShortestPath(crawlerAction.parentState);
       await page.goto(this.crawlerConfig.entryPoint, {waitUntil: 'domcontentloaded'});
       for (const crawlAction of shortestPath) {
-        await page.waitForSelector(crawlAction.cssPath);
-        const node = await page.$(crawlAction.cssPath);
+        const node = await page.waitForSelector(crawlAction.cssPath);
 
         try {
           await node.click();
@@ -126,8 +126,7 @@ class Crawler {
       }
     }
 
-    await page.waitForSelector(crawlerAction.cssPath);
-    const node = await page.$(crawlerAction.cssPath);
+    const node = await page.waitForSelector(crawlerAction.cssPath);
     try {
       await node.click();
     } catch ({name, message}) {
@@ -156,6 +155,20 @@ class Crawler {
   }
 
   /**
+   * Maximizes viewport according to screensize.
+   * @param {Page} page
+   */
+  async maximizeViewport(page) {
+    const screen = await page.evaluate(() => {
+      return {
+        width: window.screen.availWidth,
+        height: window.screen.availHeight,
+      };
+    });
+    await page.setViewport({width: screen.width, height: screen.height});
+  }
+
+  /**
    * Starts authentication on the given browser instance.
    * @param {Browser} browser
    * @param {Page} page
@@ -164,13 +177,7 @@ class Crawler {
     this.authInProgress = true;
     await authenticate(browser, page, new URL('/home/astra/Downloads/pptr.json', import.meta.url));
     this.authInProgress = false;
-    const screen = await page.evaluate(() => {
-      return {
-        width: window.screen.availWidth,
-        height: window.screen.availHeight,
-      };
-    });
-    await page.setViewport({width: screen.width, height: screen.height});
+    await this.maximizeViewport(page);
   }
 
   /**
@@ -208,16 +215,18 @@ class Crawler {
     const endTime = startTime + this.crawlerConfig.maxDuration;
     const allPages = await browser.pages();
     const page = allPages[0];
+    await this.maximizeViewport(page);
 
     // Statically response to out-of-scope requests.
     await page.setRequestInterception(true);
     page.on('request', (interceptedRequest) => {
       if (interceptedRequest.isInterceptResolutionHandled()) return;
 
-      if (
-        this.authInProgress == false &&
-        !this.inContext(interceptedRequest.url())
-      ) {
+      if (this.inContext(interceptedRequest.url())) {
+        this.allUrls.add(interceptedRequest.url());
+      }
+
+      if (this.authInProgress == false && !this.inContext(interceptedRequest.url())) {
         interceptedRequest.respond({
           status: 200,
           contentType: 'text/plain',
@@ -226,7 +235,7 @@ class Crawler {
       } else interceptedRequest.continue();
     });
 
-    // await this.startAuthentication(browser, page);
+    await this.startAuthentication(browser, page);
     await page.goto(this.crawlerConfig.entryPoint, {waitUntil: 'domcontentloaded'});
 
     const rootState = new CrawlState(page.url(), await this.getPageHash(page), 0, null);
@@ -247,8 +256,8 @@ class Crawler {
       } else {
         if (this.inContext(page.url())) {
           currentState = new CrawlState(page.url(), currentStateHash, currentAction.getParentState().crawlDepth + 1, null);
-          currentAction.childState = currentState;
           currentState.crawlActions = await this.getCrawlActions(page, currentState);
+          currentAction.childState = currentState;
         } else {
           currentAction.getParentState().crawlActions = currentAction.getParentState().crawlActions.filter((value)=>currentAction.actionId !== value.actionId);
         }
@@ -256,7 +265,8 @@ class Crawler {
     } while ((nextCrawlAction = crawlManager.getNextCrawlAction(crawlManager.rootState)) && Date.now() < endTime);
 
     console.log('\nAll crawlstates:');
-    crawlManager.traverse(crawlManager.rootState, [crawlManager.rootState]);
+    console.log(this.allUrls);
+    // crawlManager.traverse(crawlManager.rootState, [crawlManager.rootState]);
 
     console.log('Scan completed');
     await browser.close();
