@@ -1,8 +1,8 @@
 <h1 align="center">
   <br>
-  <a href="https://github.com/karthikuj/sasori"><img src="./resources/sasori-logo3.png" alt="Sasori Logo" width="150" /></a>
+  <a href="https://github.com/karthikuj/sasori"><img src="./resources/sasori-logo3.png" alt="Sasori Logo" width="200" /></a>
   <br>
-  Sasori
+  Sasori: Dynamic Web Crawler
   <br>
 </h1>
 
