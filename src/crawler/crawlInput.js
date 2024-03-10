@@ -39,6 +39,16 @@ class CrawlInput {
       'image/tiff': {TYPE: 'image', EXTENSION: '.tiff'},
       'image/vnd.microsoft.icon': {TYPE: 'image', EXTENSION: '.ico'},
       'image/webp': {TYPE: 'image', EXTENSION: '.webp'},
+
+      'video/*': {TYPE: 'image', EXTENSION: '.mp4'},
+      'video/x-msvideo': {TYPE: 'image', EXTENSION: '.avi'},
+      'video/x-flv': {TYPE: 'image', EXTENSION: '.flv'},
+      'video/x-matroska': {TYPE: 'image', EXTENSION: '.mkv'},
+      'video/quicktime': {TYPE: 'image', EXTENSION: '.mov'},
+      'video/mp4': {TYPE: 'image', EXTENSION: '.mp4'},
+      'video/webm': {TYPE: 'image', EXTENSION: '.webm'},
+      'video/x-ms-wmv': {TYPE: 'image', EXTENSION: '.wmv'},
+
       '.avif': {TYPE: 'image', EXTENSION: '.avif'},
       '.bmp': {TYPE: 'image', EXTENSION: '.bmp'},
       '.gif': {TYPE: 'image', EXTENSION: '.gif'},
@@ -49,6 +59,14 @@ class CrawlInput {
       '.png': {TYPE: 'image', EXTENSION: '.png'},
       '.tiff': {TYPE: 'image', EXTENSION: '.tiff'},
       '.webp': {TYPE: 'image', EXTENSION: '.webp'},
+
+      '.avi': {TYPE: 'image', EXTENSION: '.avi'},
+      '.flv': {TYPE: 'image', EXTENSION: '.flv'},
+      '.mkv': {TYPE: 'image', EXTENSION: '.mkv'},
+      '.mov': {TYPE: 'image', EXTENSION: '.mov'},
+      '.mp4': {TYPE: 'image', EXTENSION: '.mp4'},
+      '.webm': {TYPE: 'image', EXTENSION: '.webm'},
+      '.wmv': {TYPE: 'image', EXTENSION: '.wmv'},
     };
   }
 
