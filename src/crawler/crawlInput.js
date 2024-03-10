@@ -14,8 +14,8 @@ class CrawlInput {
       {ELEMENT: 'input', TYPE: 'checkbox', CSS_PATH: 'input[type="checkbox"]'},
       {ELEMENT: 'input', TYPE: 'radio', CSS_PATH: 'input[type="radio"]'},
       {ELEMENT: 'input', TYPE: 'file', CSS_PATH: 'input[type="file"]'},
-      // TODO:
-      // Add <textarea> and <select> as well.
+      {ELEMENT: 'textarea', TYPE: null, CSS_PATH: 'textarea'},
+      {ELEMENT: 'select', TYPE: null, CSS_PATH: 'select'},
     ];
 
     this.VALUES = {
@@ -168,6 +168,14 @@ class CrawlInput {
         await this.inputHandler(page);
         break;
 
+      case 'textarea':
+        await this.textareaHandler(page);
+        break;
+
+      case 'select':
+        await this.selectHandler(page);
+        break;
+
       default:
         break;
     }
@@ -216,6 +224,31 @@ class CrawlInput {
       default:
         break;
     }
+  }
+
+  /**
+   * Handles all textarea elements on the given page
+   * @param {Page} page
+   */
+  async textareaHandler(page) {
+    const node = await page.waitForSelector(this.cssPath);
+    await node.type(CrawlInput.VALUES['inputText']);
+  }
+
+  /**
+   * Handles all select elements on the given page
+   * @param {Page} page
+   */
+  async selectHandler(page) {
+    const node = await page.waitForSelector(this.cssPath);
+    const firstNonEmptyValue = await node.$$eval('option', (nodes) => {
+      for (const optionNode of nodes) {
+        if (optionNode.value !== null && optionNode.value !== '') {
+          return optionNode.value;
+        }
+      }
+    });
+    await page.select(this.cssPath, firstNonEmptyValue);
   }
 }
 
