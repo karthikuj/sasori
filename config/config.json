@@ -1,6 +1,6 @@
 {
     "browser": {
-        "headless": false,
+        "headless": true,
         "maximize": true,
         "proxy": {
             "enabled": false,
