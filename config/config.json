@@ -10,7 +10,7 @@
         "profile": {}
     },
     "crawler": {
-        "entryPoint": "https://security-crawl-maze.app/",
+        "entryPoint": "https://example.com/",
         "eventTimeout": 10000,
         "maxDuration": 600000,
         "elements": [
@@ -23,7 +23,7 @@
             "pptrRecording": "/home/astra/Downloads/pptr.json"
         },
         "includeRegexes": [
-            "https?://security-crawl-maze.app(?:/.*|)"
+            "https?://example.com(?:/.*|)"
         ]
     }
 }
