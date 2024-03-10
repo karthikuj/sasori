@@ -69,7 +69,3 @@ Contributions to Sasori are welcome! If you encounter any bugs, have feature req
 
 ## License:
 Needs to be updated
-
-
-## Contact:
-For questions, feedback, or collaboration opportunities, please reach out to us via [GitHub issues](https://github.com/your_username/sasori/issues).
