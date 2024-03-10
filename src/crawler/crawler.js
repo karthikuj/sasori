@@ -7,6 +7,7 @@ import CrawlStateManager from './crawlStateManager.js';
 import DomPath from './domPath.js';
 import {JSDOM} from 'jsdom';
 import authenticate from '../auth/authenticator.js';
+import chalk from 'chalk';
 import {createHash} from 'crypto';
 
 /**
@@ -20,7 +21,7 @@ class Crawler {
     this.crawlerConfig = this.getCrawlerConfig();
     this.authInProgress = false;
     this.allUrls = new Set();
-    this.banner = `\x1b[32m
+    this.banner = `
                               :.            :   
                              .+              =. 
                              ++.            .-= 
@@ -245,9 +246,11 @@ class Crawler {
    * Starts the crawling process.
    */
   async startCrawling() {
-    console.log(this.banner);
-    console.log(`\nSasori will now start crawling from ${this.crawlerConfig.entryPoint}`);
+    console.log(chalk.greenBright.bold(this.banner));
+    console.log(chalk.greenBright(`\n[INFO] Initializing browser...`));
     const browser = await Browser.getBrowserInstance();
+    console.log(chalk.greenBright(`\n[INFO] Browser initialized successfully!`));
+    console.log(chalk.greenBright(`\n[INFO] Sasori will now start crawling from ${this.crawlerConfig.entryPoint}`));
 
     browser.on('targetcreated', async (target)=>{
       const targetBrowser = target.browser();
@@ -260,11 +263,17 @@ class Crawler {
 
     const startTime = Date.now();
     const endTime = startTime + this.crawlerConfig.maxDuration;
+    if (this.crawlerConfig.maxDuration === 0) {
+      console.log(chalk.greenBright(`\n[INFO] Max duration is set to 0, sasori will run indefinitely.`));
+    } else {
+      console.log(chalk.greenBright(`\n[INFO] Sasori will stop crawling at ${new Date(endTime).toTimeString()}`));
+    }
     const allPages = await browser.pages();
     const page = allPages[0];
     await this.maximizeViewport(page);
 
     // Statically response to out-of-scope requests.
+    console.log(chalk.greenBright(`\n[INFO] Setting up scope manager...`));
     await page.setRequestInterception(true);
     page.on('request', (interceptedRequest) => {
       if (interceptedRequest.isInterceptResolutionHandled()) return;
@@ -281,13 +290,16 @@ class Crawler {
         });
       } else interceptedRequest.continue();
     });
+    console.log(chalk.greenBright(`\n[INFO] Scope manager started successfully!`));
 
-    // await this.startAuthentication(browser, page);
+    console.log(chalk.greenBright(`\n[INFO] Running initial authentication...`));
+    await this.startAuthentication(browser, page);
     await page.goto(this.crawlerConfig.entryPoint, {waitUntil: 'domcontentloaded'});
 
     const rootState = await this.getNewCrawlState(page, 0);
     let currentState = rootState;
 
+    console.log(chalk.greenBright(`\n[INFO] Creating crawl state manager...`));
     const crawlManager = new CrawlStateManager(rootState);
     let nextCrawlAction = crawlManager.getNextCrawlAction(crawlManager.rootState);
 
@@ -309,7 +321,6 @@ class Crawler {
       }
     } while ((nextCrawlAction = crawlManager.getNextCrawlAction(crawlManager.rootState)) && Date.now() < endTime);
 
-    console.log('\nAll crawlstates:');
     writeFileSync('test.log', (()=>{
       let urlList = '';
       for (const url of this.allUrls) {
