@@ -27,6 +27,7 @@ class CrawlInput {
     };
 
     this.SUPPORTED_FILE_TYPES = {
+      // Images by mime type.
       'image/*': {TYPE: 'image', EXTENSION: '.png'},
       'image/avif': {TYPE: 'image', EXTENSION: '.avif'},
       'image/bmp': {TYPE: 'image', EXTENSION: '.bmp'},
@@ -40,6 +41,7 @@ class CrawlInput {
       'image/vnd.microsoft.icon': {TYPE: 'image', EXTENSION: '.ico'},
       'image/webp': {TYPE: 'image', EXTENSION: '.webp'},
 
+      // Videos by mime type.
       'video/*': {TYPE: 'video', EXTENSION: '.mp4'},
       'video/x-msvideo': {TYPE: 'video', EXTENSION: '.avi'},
       'video/x-flv': {TYPE: 'video', EXTENSION: '.flv'},
@@ -49,6 +51,7 @@ class CrawlInput {
       'video/webm': {TYPE: 'video', EXTENSION: '.webm'},
       'video/x-ms-wmv': {TYPE: 'video', EXTENSION: '.wmv'},
 
+      // Audios by mime type.
       'audio/*': {TYPE: 'audio', EXTENSION: '.mp3'},
       'audio/aac': {TYPE: 'audio', EXTENSION: '.aac'},
       'audio/amr': {TYPE: 'audio', EXTENSION: '.amr'},
@@ -56,6 +59,7 @@ class CrawlInput {
       'audio/mp3': {TYPE: 'audio', EXTENSION: '.mp3'},
       'audio/ogg': {TYPE: 'audio', EXTENSION: '.ogg'},
 
+      // Images by extension.
       '.avif': {TYPE: 'image', EXTENSION: '.avif'},
       '.bmp': {TYPE: 'image', EXTENSION: '.bmp'},
       '.gif': {TYPE: 'image', EXTENSION: '.gif'},
@@ -67,6 +71,7 @@ class CrawlInput {
       '.tiff': {TYPE: 'image', EXTENSION: '.tiff'},
       '.webp': {TYPE: 'image', EXTENSION: '.webp'},
 
+      // Videos by extension.
       '.avi': {TYPE: 'video', EXTENSION: '.avi'},
       '.flv': {TYPE: 'video', EXTENSION: '.flv'},
       '.mkv': {TYPE: 'video', EXTENSION: '.mkv'},
@@ -75,6 +80,7 @@ class CrawlInput {
       '.webm': {TYPE: 'video', EXTENSION: '.webm'},
       '.wmv': {TYPE: 'video', EXTENSION: '.wmv'},
 
+      // Audios by extension.
       '.aac': {TYPE: 'audio', EXTENSION: '.aac'},
       '.amr': {TYPE: 'audio', EXTENSION: '.amr'},
       '.flac': {TYPE: 'audio', EXTENSION: '.flac'},
