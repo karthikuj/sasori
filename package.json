@@ -11,17 +11,12 @@
     "start": "clear && npx eslint ./ --fix && node index.js"
   },
   "keywords": [],
-  "author": "Karthik UJ / Peeyush Tyagi",
+  "author": "Karthik UJ",
   "contributors": [
     {
       "name": "Karthik UJ",
       "email": "karthikuj2001@gmail.com",
       "url": "https://www.5up3r541y4n.tech/"
-    },
-    {
-      "name": "Peeyush Tyagi",
-      "email": "mastermind12210@gmail.com",
-      "url": "https://github.com/killshotrevival"
     }
   ],
   "license": "ISC",
