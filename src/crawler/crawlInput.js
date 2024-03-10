@@ -37,6 +37,7 @@ class CrawlInput {
       'image/icon': {TYPE: 'image', EXTENSION: '.ico'}, // This is erroneous and is not IANA-registered.
       'image/jpeg': {TYPE: 'image', EXTENSION: '.jpeg'},
       'image/png': {TYPE: 'image', EXTENSION: '.png'},
+      'image/svg+xml': {TYPE: 'image', EXTENSION: '.svg'},
       'image/tiff': {TYPE: 'image', EXTENSION: '.tiff'},
       'image/vnd.microsoft.icon': {TYPE: 'image', EXTENSION: '.ico'},
       'image/webp': {TYPE: 'image', EXTENSION: '.webp'},
@@ -59,6 +60,22 @@ class CrawlInput {
       'audio/mp3': {TYPE: 'audio', EXTENSION: '.mp3'},
       'audio/ogg': {TYPE: 'audio', EXTENSION: '.ogg'},
 
+      // Applications by mime type.
+      'application/*': {TYPE: 'application', EXTENSION: '.pdf'},
+      'application/gzip': {TYPE: 'application', EXTENSION: '.gz'},
+      'application/pdf': {TYPE: 'application', EXTENSION: '.pdf'},
+      'application/xml': {TYPE: 'application', EXTENSION: '.xml'},
+      'application/yaml': {TYPE: 'application', EXTENSION: '.yaml'},
+      'application/zip': {TYPE: 'application', EXTENSION: '.zip'},
+
+      // Texts by mime type.
+      'text/*': {TYPE: 'text', EXTENSION: '.txt'},
+      'text/css': {TYPE: 'text', EXTENSION: '.css'},
+      'text/csv': {TYPE: 'text', EXTENSION: '.csv'},
+      'text/html': {TYPE: 'text', EXTENSION: '.html'},
+      'text/javascript': {TYPE: 'text', EXTENSION: '.js'},
+      'text/plain': {TYPE: 'text', EXTENSION: '.txt'},
+
       // Images by extension.
       '.avif': {TYPE: 'image', EXTENSION: '.avif'},
       '.bmp': {TYPE: 'image', EXTENSION: '.bmp'},
@@ -68,6 +85,7 @@ class CrawlInput {
       '.jpeg': {TYPE: 'image', EXTENSION: '.jpeg'},
       '.jpg': {TYPE: 'image', EXTENSION: '.jpg'},
       '.png': {TYPE: 'image', EXTENSION: '.png'},
+      '.svg': {TYPE: 'image', EXTENSION: '.svg'},
       '.tiff': {TYPE: 'image', EXTENSION: '.tiff'},
       '.webp': {TYPE: 'image', EXTENSION: '.webp'},
 
@@ -86,6 +104,20 @@ class CrawlInput {
       '.flac': {TYPE: 'audio', EXTENSION: '.flac'},
       '.mp3': {TYPE: 'audio', EXTENSION: '.mp3'},
       '.ogg': {TYPE: 'audio', EXTENSION: '.ogg'},
+
+      // Applications by extension
+      '.gz': {TYPE: 'application', EXTENSION: '.gz'},
+      '.pdf': {TYPE: 'application', EXTENSION: '.pdf'},
+      '.xml': {TYPE: 'application', EXTENSION: '.xml'},
+      '.yaml': {TYPE: 'application', EXTENSION: '.yaml'},
+      '.zip': {TYPE: 'application', EXTENSION: '.zip'},
+
+      // Text by extension.
+      '.css': {TYPE: 'text', EXTENSION: '.css'},
+      '.csv': {TYPE: 'text', EXTENSION: '.csv'},
+      '.html': {TYPE: 'text', EXTENSION: '.html'},
+      '.js': {TYPE: 'text', EXTENSION: '.js'},
+      '.txt': {TYPE: 'text', EXTENSION: '.txt'},
     };
   }
 
