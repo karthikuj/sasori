@@ -10,19 +10,20 @@
         "profile": {}
     },
     "crawler": {
-        "entryPoint": "https://security-crawl-maze.app",
+        "entryPoint": "http://localhost:9000/file-upload",
         "eventTimeout": 10000,
         "maxDuration": 600000,
         "elements": [
             "a",
-            "button"
+            "button",
+            "input[type=\"submit\"]"
         ],
         "maxDepth": 10,
         "authentication": {
             "pptrRecording": "/home/astra/Downloads/pptr.json"
         },
         "includeRegexes": [
-            "https?://security-crawl-maze.app(?:/.*|)"
+            "https?://localhost:9000(?:/.*|)"
         ]
     }
 }
