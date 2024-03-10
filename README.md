@@ -7,7 +7,7 @@
 </h1>
 
 ## Project Description:
-Sasori is a powerful and flexible dynamic web crawler built on Puppeteer. It allows you to automate the crawling of web applications, even those behind authentication, offers seamless integration with security testing tools like ZAP or Burp Suite and provides customizable configurations for enhanced flexibility.
+Sasori is a powerful and flexible dynamic web crawler built on Puppeteer. It allows you to automate the crawling of web applications, even those behind authentication, offers seamless integration with security testing tools like Zaproxy or Burp Suite and provides customizable configurations for enhanced flexibility.
 
 
 ## Features
@@ -59,6 +59,7 @@ Sasori offers various configuration options to customize its behavior. These inc
 Here are some examples demonstrating the usage of Sasori in real-world scenarios:
 
 - Crawling a web application behind authentication.
+- Fast and efficient endpoint discovery.
 - Integrating Sasori with Zaproxy or Burp Suite for security testing.
 - Customizing crawling parameters for specific use cases.
 
