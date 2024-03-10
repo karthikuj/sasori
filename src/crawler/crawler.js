@@ -1,12 +1,13 @@
+import {readFileSync, writeFileSync} from 'fs';
 import Browser from '../browser/browser.js';
 import CrawlAction from './crawlAction.js';
+import CrawlInput from './crawlInput.js';
 import CrawlState from './crawlState.js';
 import CrawlStateManager from './crawlStateManager.js';
 import DomPath from './domPath.js';
 import {JSDOM} from 'jsdom';
 import authenticate from '../auth/authenticator.js';
 import {createHash} from 'crypto';
-import {readFileSync} from 'fs';
 
 /**
  * The Crawler class is responsible for creating and managing the crawler.
@@ -18,6 +19,7 @@ class Crawler {
   constructor() {
     this.crawlerConfig = this.getCrawlerConfig();
     this.authInProgress = false;
+    this.allUrls = new Set();
     this.banner = `\x1b[32m
                               :.            :   
                              .+              =. 
@@ -34,8 +36,8 @@ class Crawler {
                                  :   ..   :     
 
 
-                                    SASORI
-                                    v1.0.0
+                                   SASORI
+                                   v1.0.0
 
     `;
   }
@@ -82,6 +84,25 @@ class Crawler {
   }
 
   /**
+   * Fetches all possible CrawlInputs on a CrawlState and returns them.
+   * @param {Page} page
+   * @return {CrawlInput[]}
+   */
+  async getCrawlInputs(page) {
+    const domPath = new DomPath(page);
+    const crawlInputs = [];
+    for (const input of CrawlInput.INPUT_FIELDS) {
+      const cssPath = input.CSS_PATH;
+      const cssPaths = await domPath.getCssPaths(cssPath);
+      crawlInputs.push(...cssPaths.map((cssPath) => {
+        return new CrawlInput(input.ELEMENT, input.TYPE, cssPath);
+      }));
+    }
+
+    return (crawlInputs.length !== 0) ? crawlInputs : [];
+  }
+
+  /**
    * Fetches all possible CrawlActions on a CrawlState and returns them.
    * @param {Page} page
    * @param {CrawlState} currentState
@@ -89,11 +110,25 @@ class Crawler {
    */
   async getCrawlActions(page, currentState) {
     const domPath = new DomPath(page);
-    const cssPaths = await domPath.getCssPaths('a');
-    const crawlActions = cssPaths.map((cssPath) => {
-      return new CrawlAction('a', 'click', cssPath, currentState);
-    });
+    const crawlActions = [];
+    for (const element of this.crawlerConfig.elements) {
+      const cssPaths = await domPath.getCssPaths(element);
+      crawlActions.push(...cssPaths.map((cssPath) => {
+        return new CrawlAction(element, 'click', cssPath, currentState);
+      }));
+    }
     return (crawlActions.length !== 0) ? crawlActions : [];
+  }
+
+  /**
+   * Fills out all CrawlInputs provided to it in the iterable.
+   * @param {Page} page
+   * @param {CrawlInput[]} crawlInputs
+   */
+  async fillAllInputs(page, crawlInputs) {
+    for (const crawlInput of crawlInputs) {
+      await crawlInput.inputFieldHandler(page);
+    }
   }
 
   /**
@@ -108,8 +143,7 @@ class Crawler {
       const shortestPath = crawlManager.getShortestPath(crawlerAction.parentState);
       await page.goto(this.crawlerConfig.entryPoint, {waitUntil: 'domcontentloaded'});
       for (const crawlAction of shortestPath) {
-        await page.waitForSelector(crawlAction.cssPath);
-        const node = await page.$(crawlAction.cssPath);
+        const node = await page.waitForSelector(crawlAction.cssPath);
 
         try {
           await node.click();
@@ -123,8 +157,10 @@ class Crawler {
       }
     }
 
-    await page.waitForSelector(crawlerAction.cssPath);
-    const node = await page.$(crawlerAction.cssPath);
+    const node = await page.waitForSelector(crawlerAction.cssPath);
+    if (crawlerAction.element != CrawlAction.ANCHOR) {
+      await this.fillAllInputs(page, crawlerAction.parentState.crawlInputs);
+    }
     try {
       await node.click();
     } catch ({name, message}) {
@@ -153,6 +189,20 @@ class Crawler {
   }
 
   /**
+   * Maximizes viewport according to screensize.
+   * @param {Page} page
+   */
+  async maximizeViewport(page) {
+    const screen = await page.evaluate(() => {
+      return {
+        width: window.screen.availWidth,
+        height: window.screen.availHeight,
+      };
+    });
+    await page.setViewport({width: screen.width, height: screen.height});
+  }
+
+  /**
    * Starts authentication on the given browser instance.
    * @param {Browser} browser
    * @param {Page} page
@@ -161,6 +211,7 @@ class Crawler {
     this.authInProgress = true;
     await authenticate(browser, page, new URL('/home/astra/Downloads/pptr.json', import.meta.url));
     this.authInProgress = false;
+    await this.maximizeViewport(page);
   }
 
   /**
@@ -175,6 +226,19 @@ class Crawler {
     const pageHash = createHash('sha256').update(pageDom.serialize()).digest('hex');
 
     return pageHash;
+  }
+
+  /**
+   * Creates and returns a new CrawlState using the page and crawl depth passed to it.
+   * @param {Page} page
+   * @param {int} crawlDepth
+   * @return {CrawlState}
+   */
+  async getNewCrawlState(page, crawlDepth) {
+    const crawlState = new CrawlState(page.url(), await this.getPageHash(page), crawlDepth, null);
+    crawlState.crawlActions = await this.getCrawlActions(page, crawlState);
+    crawlState.crawlInputs = await this.getCrawlInputs(page);
+    return crawlState;
   }
 
   /**
@@ -198,23 +262,18 @@ class Crawler {
     const endTime = startTime + this.crawlerConfig.maxDuration;
     const allPages = await browser.pages();
     const page = allPages[0];
-    const screen = await page.evaluate(() => {
-      return {
-        width: window.screen.availWidth,
-        height: window.screen.availHeight,
-      };
-    });
-    await page.setViewport({width: screen.width, height: screen.height});
-    await page.setRequestInterception(true);
+    await this.maximizeViewport(page);
 
     // Statically response to out-of-scope requests.
+    await page.setRequestInterception(true);
     page.on('request', (interceptedRequest) => {
       if (interceptedRequest.isInterceptResolutionHandled()) return;
 
-      if (
-        this.authInProgress == false &&
-        !this.inContext(interceptedRequest.url())
-      ) {
+      if (this.inContext(interceptedRequest.url())) {
+        this.allUrls.add(interceptedRequest.url());
+      }
+
+      if (this.authInProgress == false && !this.inContext(interceptedRequest.url())) {
         interceptedRequest.respond({
           status: 200,
           contentType: 'text/plain',
@@ -223,11 +282,10 @@ class Crawler {
       } else interceptedRequest.continue();
     });
 
-    await this.startAuthentication(browser, page);
+    // await this.startAuthentication(browser, page);
     await page.goto(this.crawlerConfig.entryPoint, {waitUntil: 'domcontentloaded'});
 
-    const rootState = new CrawlState(page.url(), await this.getPageHash(page), 0, null);
-    rootState.crawlActions = await this.getCrawlActions(page, rootState);
+    const rootState = await this.getNewCrawlState(page, 0);
     let currentState = rootState;
 
     const crawlManager = new CrawlStateManager(rootState);
@@ -243,9 +301,8 @@ class Crawler {
         currentAction.getParentState().crawlActions = currentAction.getParentState().crawlActions.filter((value)=>currentAction.actionId !== value.actionId);
       } else {
         if (this.inContext(page.url())) {
-          currentState = new CrawlState(page.url(), currentStateHash, currentAction.getParentState().crawlDepth + 1, null);
+          currentState = await this.getNewCrawlState(page, currentAction.getParentState().crawlDepth + 1);
           currentAction.childState = currentState;
-          currentState.crawlActions = await this.getCrawlActions(page, currentState);
         } else {
           currentAction.getParentState().crawlActions = currentAction.getParentState().crawlActions.filter((value)=>currentAction.actionId !== value.actionId);
         }
@@ -253,7 +310,14 @@ class Crawler {
     } while ((nextCrawlAction = crawlManager.getNextCrawlAction(crawlManager.rootState)) && Date.now() < endTime);
 
     console.log('\nAll crawlstates:');
-    crawlManager.traverse(crawlManager.rootState, [crawlManager.rootState]);
+    writeFileSync('test.log', (()=>{
+      let urlList = '';
+      for (const url of this.allUrls) {
+        urlList += (url + '\n');
+      }
+      return urlList;
+    })());
+    // crawlManager.traverse(crawlManager.rootState, [crawlManager.rootState]);
 
     console.log('Scan completed');
     await browser.close();

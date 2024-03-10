@@ -1,25 +1,25 @@
 <h1 align="center">
   <br>
-  <a href="https://github.com/karthikuj/sasori"><img src="./resources/sasori-logo3.png" alt="Sasori Logo" width="200" /></a>
+  <a href="https://github.com/karthikuj/sasori"><img src="./resources/sasori-logo.png" alt="Sasori Logo" width="200" /></a>
   <br>
   Sasori: Dynamic Web Crawler
   <br>
 </h1>
 
 ## Project Description:
-Sasori is a powerful and flexible dynamic web crawler built on Puppeteer. It allows you to automate the crawling of web applications, even those behind authentication, offers seamless integration with security testing tools like ZAP or Burp Suite and provides customizable configurations for enhanced flexibility.
+Sasori is a powerful and flexible dynamic web crawler built on Puppeteer. It allows you to automate the crawling of web applications, even those behind authentication, offers seamless integration with security testing tools like Zaproxy or Burp Suite and provides customizable configurations for enhanced flexibility.
 
 
 ## Features
 - **Dynamic Crawling:** Sasori excels at crawling dynamic web applications, handling AJAX-loaded content, and interacting with complex user interfaces.
 
-- **Authentication Support:** Easily spider applications behind authentication barriers by configuring Sasori with the necessary credentials.
+- **Authentication Support:** Easily spider applications behind authentication barriers by passing the puppeteer recording for the login sequence.
 
-- **Proxy Integration:** Sasori provides the option to set up a proxy server, allowing you to route requests through tools like ZAP or Burp Suite for detailed analysis.
+- **Proxy Integration:** Sasori provides the option to set up a proxy server, allowing you to route requests through tools like Zaproxy or Burp Suite for security testing.
 
 - **State-Based Navigation:** The project is designed around a state-based system, keeping track of URLs, DOM structures, and interactable elements for efficient crawling.
 
-- **Efficient Endpoint Coverage:** Utilizes algorithms for intelligent crawling, ensuring coverage of more endpoints while maintaining speed.
+- **Efficient Endpoint Coverage:** Utilizes efficient algorithms for intelligent crawling, ensuring coverage of more endpoints while maintaining speed.
 
 
 ## Getting Started:
@@ -59,6 +59,7 @@ Sasori offers various configuration options to customize its behavior. These inc
 Here are some examples demonstrating the usage of Sasori in real-world scenarios:
 
 - Crawling a web application behind authentication.
+- Fast and efficient endpoint discovery.
 - Integrating Sasori with Zaproxy or Burp Suite for security testing.
 - Customizing crawling parameters for specific use cases.
 
@@ -69,7 +70,3 @@ Contributions to Sasori are welcome! If you encounter any bugs, have feature req
 
 ## License:
 Needs to be updated
-
-
-## Contact:
-For questions, feedback, or collaboration opportunities, please reach out to us via [GitHub issues](https://github.com/your_username/sasori/issues).

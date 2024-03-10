@@ -13,11 +13,11 @@ class DomPath {
   /**
    * This function returns an Array of CssPaths of the elements
    * in context of the given page.
-   * @param {String} element
+   * @param {String} cssPath
    * @return {Array<String>}
    */
-  async getCssPaths(element) {
-    return await this.page.$$eval(element, (nodes) => {
+  async getCssPaths(cssPath) {
+    return await this.page.$$eval(cssPath, (nodes) => {
       return nodes.map((node) => {
         const Step = class {
           /**
@@ -184,11 +184,11 @@ class DomPath {
   /**
    * This function returns an Array of XPaths of the elements
    * in context of the given page.
-   * @param {string} element
+   * @param {string} cssPath
    * @return {Array<String>}
    */
-  async getXPaths(element) {
-    return await this.page.$$eval(element, (nodes) => {
+  async getXPaths(cssPath) {
+    return await this.page.$$eval(cssPath, (nodes) => {
       return nodes.map((node) => {
         const Step = class {
           /**

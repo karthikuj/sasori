@@ -5,6 +5,10 @@ import {randomUUID} from 'crypto';
  * in the DOM (it is an edge in the crawl graph).
  */
 class CrawlAction {
+  static {
+    this.ANCHOR = 'a';
+  }
+
   /**
    * CrawlAction object constructor
    * @param {string} element
@@ -37,10 +41,5 @@ class CrawlAction {
     return this.childState;
   }
 }
-
-// TODO:
-//      1. Check if it is interactable. If not don't add it or remove it.
-//         Error:  Node is either not clickable or not an Element
-//      2. Add getters and setters for properties.
 
 export default CrawlAction;
