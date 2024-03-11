@@ -57,7 +57,7 @@ class Crawler {
     // Remove attributes from element nodes
     if (node.nodeType === node.ELEMENT_NODE) {
       Array.from(node.attributes).forEach((attr) => {
-        if (['href', 'src'].indexOf(attr.name) == -1) {
+        if (!['A', 'SCRIPT', 'BASE'].includes(node.tagName) || (['A', 'BASE'].includes(node.tagName) && attr.name !== 'href') || (node.tagName === 'SCRIPT' && attr.name !== 'src')) {
           node.removeAttribute(attr.name);
         }
       });

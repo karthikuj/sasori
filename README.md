@@ -23,13 +23,15 @@ Sasori is a powerful and flexible dynamic web crawler built on Puppeteer. It all
 
 - **Efficient Endpoint Coverage:** Utilizes efficient algorithms for intelligent crawling, ensuring coverage of more endpoints while maintaining speed.
 
+- **Crawl Customization:** Allows you to customize what elements to interact with to target specific use cases.
+
 
 ## Getting Started:
 To get started with Sasori, follow these steps:
 
 1. Clone the repository:
 ```bash
-git clone https://github.com/your_username/sasori.git
+git clone https://github.com/karthikuj/sasori.git
 ```
 
 2. Install dependencies:
@@ -55,15 +57,6 @@ Sasori offers various configuration options to customize its behavior. These inc
 - Authentication recording.
 - Max duration.
 - Regexes for scope management.
-
-
-## Examples:
-Here are some examples demonstrating the usage of Sasori in real-world scenarios:
-
-- Crawling a web application behind authentication.
-- Fast and efficient endpoint discovery.
-- Integrating Sasori with Zaproxy or Burp Suite for security testing.
-- Customizing crawling parameters for specific use cases.
 
 
 ## Contributing:
