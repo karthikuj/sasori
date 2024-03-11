@@ -293,7 +293,7 @@ class Crawler {
     console.log(chalk.greenBright(`\n[INFO] Scope manager started successfully!`));
 
     console.log(chalk.greenBright(`\n[INFO] Running initial authentication...`));
-    await this.startAuthentication(browser, page);
+    // await this.startAuthentication(browser, page);
     await page.goto(this.crawlerConfig.entryPoint, {waitUntil: 'domcontentloaded'});
 
     const rootState = await this.getNewCrawlState(page, 0);
@@ -301,7 +301,7 @@ class Crawler {
 
     console.log(chalk.greenBright(`\n[INFO] Creating crawl state manager...`));
     const crawlManager = new CrawlStateManager(rootState);
-    let nextCrawlAction = crawlManager.getNextCrawlAction(crawlManager.rootState);
+    let nextCrawlAction = crawlManager.getNextCrawlAction();
 
     do {
       const currentAction = nextCrawlAction;
@@ -319,7 +319,7 @@ class Crawler {
           currentAction.getParentState().crawlActions = currentAction.getParentState().crawlActions.filter((value)=>currentAction.actionId !== value.actionId);
         }
       }
-    } while ((nextCrawlAction = crawlManager.getNextCrawlAction(crawlManager.rootState)) && Date.now() < endTime);
+    } while ((nextCrawlAction = crawlManager.getNextCrawlAction()) && Date.now() < endTime);
 
     writeFileSync('test.log', (()=>{
       let urlList = '';

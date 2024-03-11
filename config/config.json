@@ -1,6 +1,6 @@
 {
     "browser": {
-        "headless": true,
+        "headless": false,
         "maximize": true,
         "proxy": {
             "enabled": false,
@@ -10,7 +10,7 @@
         "profile": {}
     },
     "crawler": {
-        "entryPoint": "https://example.com/",
+        "entryPoint": "https://security-crawl-maze.app/",
         "eventTimeout": 10000,
         "maxDuration": 600000,
         "elements": [
@@ -23,7 +23,7 @@
             "pptrRecording": "/home/astra/Downloads/pptr.json"
         },
         "includeRegexes": [
-            "https?://example.com(?:/.*|)"
+            "https?://security-crawl-maze.app(?:/.*|)"
         ]
     }
 }

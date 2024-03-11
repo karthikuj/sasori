@@ -57,27 +57,23 @@ class CrawlStateManager {
 
   /**
    * Return the next crawlAction to be performed.
-   * @param {CrawlState} rootState
    * @param {CrawlAction} lastAction
    * @return {CrawlAction}
    */
-  getNextCrawlAction(rootState) {
-    const stack = [rootState];
+  getNextCrawlAction() {
+    const stack = [...this.rootState.getCrawlActions()];
     const visited = new Set();
 
     while (stack.length) {
-      const currentState = stack.pop();
+      const currentAction = stack.pop();
+      const childState = currentAction.getChildState();
 
-      if (!visited.has(currentState.stateId)) {
-        visited.add(currentState.stateId);
-
-        for (const action of currentState.getCrawlActions()) {
-          const childState = action.getChildState();
-          if (childState) {
-            stack.push(childState);
-          } else {
-            return action;
-          }
+      if (!visited.has(currentAction.actionId)) {
+        visited.add(currentAction.actionId);
+        if (childState) {
+          stack.push(...childState.getCrawlActions());
+        } else {
+          return currentAction;
         }
       }
     }
