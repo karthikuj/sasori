@@ -57,12 +57,11 @@ class CrawlStateManager {
 
   /**
    * Return the next crawlAction to be performed.
-   * @param {CrawlState} rootState
    * @param {CrawlAction} lastAction
    * @return {CrawlAction}
    */
-  getNextCrawlAction(rootState) {
-    const stack = [rootState];
+  getNextCrawlAction() {
+    const stack = [this.rootState];
     const visited = new Set();
 
     while (stack.length) {
