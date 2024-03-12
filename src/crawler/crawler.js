@@ -112,13 +112,19 @@ class Crawler {
   async getCrawlActions(page, currentState) {
     const domPath = new DomPath(page);
     const crawlActions = [];
+
+    // If max crawl depth has been reached then no need to fetch more actions for the given state.
+    if (this.crawlerConfig.maxDepth && currentState.getCrawlDepth() >= this.crawlerConfig.maxDepth) {
+      return crawlActions;
+    }
+
     for (const element of this.crawlerConfig.elements) {
       const cssPaths = await domPath.getCssPaths(element);
       crawlActions.push(...cssPaths.map((cssPath) => {
         return new CrawlAction(element, 'click', cssPath, currentState);
       }));
     }
-    return (crawlActions.length !== 0) ? crawlActions : [];
+    return (crawlActions.length !== 0) ? (this.crawlerConfig.maxChildren ? crawlActions.slice(0, this.crawlerConfig.maxChildren) : crawlActions) : [];
   }
 
   /**

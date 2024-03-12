@@ -18,7 +18,8 @@
             "button",
             "input[type=\"submit\"]"
         ],
-        "maxDepth": 10,
+        "maxChildren": 0,
+        "maxDepth": 0,
         "authentication": {
             "pptrRecording": "/home/astra/Downloads/pptr.json"
         },
