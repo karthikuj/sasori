@@ -29,6 +29,14 @@ class CrawlState {
   getCrawlActions() {
     return this.crawlActions;
   }
+
+  /**
+   * Returns the crawlDepth associated with the CrawlState.
+   * @return {int}
+   */
+  getCrawlDepth() {
+    return this.crawlDepth;
+  }
 }
 
 export default CrawlState;

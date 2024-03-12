@@ -112,6 +112,12 @@ class Crawler {
   async getCrawlActions(page, currentState) {
     const domPath = new DomPath(page);
     const crawlActions = [];
+
+    // If max crawl depth has been reached then no need to fetch more actions for the given state.
+    if (this.crawlerConfig.maxDepth && currentState.getCrawlDepth() >= this.crawlerConfig.maxDepth) {
+      return crawlActions;
+    }
+
     for (const element of this.crawlerConfig.elements) {
       const cssPaths = await domPath.getCssPaths(element);
       crawlActions.push(...cssPaths.map((cssPath) => {
