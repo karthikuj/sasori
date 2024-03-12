@@ -118,7 +118,7 @@ class Crawler {
         return new CrawlAction(element, 'click', cssPath, currentState);
       }));
     }
-    return (crawlActions.length !== 0) ? crawlActions : [];
+    return (crawlActions.length !== 0) ? (this.crawlerConfig.maxChildren ? crawlActions.slice(0, this.crawlerConfig.maxChildren) : crawlActions) : [];
   }
 
   /**
