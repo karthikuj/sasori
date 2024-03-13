@@ -27,7 +27,7 @@
                 "password": "password"
             },
             "scriptAuth": {
-                "enabled": true,
+                "enabled": false,
                 "pptrRecording": "/home/sup3r541y4n/Dev/foss/sasori/pptr.json"
             }
         },

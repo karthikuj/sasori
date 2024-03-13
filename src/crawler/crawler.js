@@ -351,8 +351,6 @@ class Crawler {
     }
 
     await page.goto(this.crawlerConfig.entryPoint, {waitUntil: ['domcontentloaded', 'networkidle0']});
-    // await page.waitForFunction(()=>document.readyState === 'complete', {timeout: this.crawlerConfig.eventTimeout});
-    // await page.waitForTimeout(10000);
     const rootState = await this.getNewCrawlState(page, 0);
     let currentState = rootState;
 
