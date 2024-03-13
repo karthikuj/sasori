@@ -1,3 +1,4 @@
+import * as cheerio from 'cheerio';
 import {readFileSync, writeFileSync} from 'fs';
 import Browser from '../browser/browser.js';
 import CrawlAction from './crawlAction.js';
@@ -5,7 +6,6 @@ import CrawlInput from './crawlInput.js';
 import CrawlState from './crawlState.js';
 import CrawlStateManager from './crawlStateManager.js';
 import DomPath from './domPath.js';
-import {JSDOM} from 'jsdom';
 import authenticate from '../auth/authenticator.js';
 import chalk from 'chalk';
 import {createHash} from 'crypto';
@@ -14,6 +14,12 @@ import {createHash} from 'crypto';
  * The Crawler class is responsible for creating and managing the crawler.
  */
 class Crawler {
+  static {
+    this.TEXT_NODE = 3;
+    this.COMMENT_NODE = 8;
+    this.ELEMENT_NODE = 1;
+  }
+
   /**
    * Crawler class contructor.
    */
@@ -21,6 +27,7 @@ class Crawler {
     this.crawlerConfig = this.getCrawlerConfig();
     this.authInProgress = false;
     this.allUrls = new Set();
+    this.allInteractables = [...this.crawlerConfig.elements].concat(CrawlInput.INPUT_FIELDS.map((element) => element.CSS_PATH));
     this.banner = `
                               :.            :   
                              .+              =. 
@@ -45,26 +52,48 @@ class Crawler {
 
   /**
    * Strips DOM by removing useless attributes, comments and all text.
-   * @param {Object} node
+   * @param {CheerioAPI} $
    */
-  stripDOM(node) {
-    // If the node is a text node or comment node, remove its content
-    if (node.nodeType === node.TEXT_NODE ||
-      node.nodeType === node.COMMENT_NODE) {
-      node.nodeValue = '';
-    }
+  stripDOM($) {
+    // Remove text nodes
+    $('*').contents().filter((_, node) => node.nodeType === Crawler.TEXT_NODE).remove();
 
-    // Remove attributes from element nodes
-    if (node.nodeType === node.ELEMENT_NODE) {
-      Array.from(node.attributes).forEach((attr) => {
-        if (!['A', 'SCRIPT', 'BASE'].includes(node.tagName) || (['A', 'BASE'].includes(node.tagName) && attr.name !== 'href') || (node.tagName === 'SCRIPT' && attr.name !== 'src')) {
-          node.removeAttribute(attr.name);
+    // Remove comment nodes
+    $('*').contents().filter((_, node) => node.nodeType === Crawler.COMMENT_NODE).remove();
+
+    // Remove attributes except href for <a> and <base>, and src for <script>
+    $('*').each((_, element) => {
+      const tagName = element.name && element.name.toUpperCase();
+      const allowedAttributes = [];
+      switch (tagName) {
+        case 'A':
+        case 'BASE':
+          allowedAttributes.push('href');
+          break;
+        case 'SCRIPT':
+          allowedAttributes.push('src');
+          break;
+      }
+      Object.keys(element.attribs).forEach((attrName) => {
+        if (!allowedAttributes.includes(attrName)) {
+          $(element).removeAttr(attrName);
         }
       });
-    }
+    });
 
-    // Recursively strip child nodes
-    node.childNodes.forEach((child) => this.stripDOM(child));
+    // Remove nodes if none of the CSS paths are found
+    $('*').each((_, element) => {
+      const found = this.allInteractables.some((cssPath) => ($(element).is(cssPath) || $(element).find(cssPath).length > 0));
+      if (!found) {
+        $(element).remove();
+      }
+    });
+
+    // Change src attribute value for <script> tags
+    $('script[src]').each((_, element) => {
+      const srcValue = $(element).attr('src');
+      $(element).attr('src', srcValue.split('?')[0]);
+    });
   }
 
   /**
@@ -228,9 +257,12 @@ class Crawler {
    */
   async getPageHash(page) {
     await page.waitForFunction(()=>document.readyState === 'complete', {timeout: this.crawlerConfig.eventTimeout});
-    const pageDom = new JSDOM(await page.content());
-    this.stripDOM(pageDom.window.document.documentElement);
-    const pageHash = createHash('sha256').update(pageDom.serialize()).digest('hex');
+    // const pageDom = new JSDOM(await page.content());
+    const $ = cheerio.load(await page.content(), {xmlMode: true});
+    // this.stripDOM(pageDom.window.document.documentElement);
+    // console.log($.root().);
+    this.stripDOM($);
+    const pageHash = createHash('sha256').update($.html()).digest('hex');
 
     return pageHash;
   }
@@ -278,6 +310,11 @@ class Crawler {
     const page = allPages[0];
     await this.maximizeViewport(page);
 
+    // Authenticate if basic auth is enabled
+    if (this.crawlerConfig.authentication.basicAuth && this.crawlerConfig.authentication.basicAuth.enabled) {
+      await page.authenticate({username: this.crawlerConfig.authentication.basicAuth.username, password: this.crawlerConfig.authentication.basicAuth.password});
+    }
+
     // Statically response to out-of-scope requests.
     console.log(chalk.greenBright(`\n[INFO] Setting up scope manager...`));
     await page.setRequestInterception(true);
@@ -299,8 +336,8 @@ class Crawler {
     console.log(chalk.greenBright(`\n[INFO] Scope manager started successfully!`));
 
     console.log(chalk.greenBright(`\n[INFO] Running initial authentication...`));
-    // await this.startAuthentication(browser, page);
-    await page.goto(this.crawlerConfig.entryPoint, {waitUntil: 'domcontentloaded'});
+    await this.startAuthentication(browser, page);
+    await page.goto(this.crawlerConfig.entryPoint, {waitUntil: ['domcontentloaded', 'networkidle0']});
 
     const rootState = await this.getNewCrawlState(page, 0);
     let currentState = rootState;
