@@ -21,7 +21,15 @@
         "maxChildren": 0,
         "maxDepth": 0,
         "authentication": {
-            "pptrRecording": "/home/astra/Downloads/pptr.json"
+            "basicAuth": {
+                "enabled": false,
+                "username": "username",
+                "password": "password"
+            },
+            "scriptAuth": {
+                "enabled": true,
+                "pptrRecording": "/home/sup3r541y4n/Dev/foss/sasori/pptr.json"
+            }
         },
         "includeRegexes": [
             "https?://security-crawl-maze.app(?:/.*|)"
