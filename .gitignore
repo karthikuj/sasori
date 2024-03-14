@@ -130,4 +130,5 @@ dist
 .pnp.*
 
 # Project notes
+crawlConfigs
 to-fix.md

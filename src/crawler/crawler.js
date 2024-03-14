@@ -153,7 +153,7 @@ class Crawler {
         return new CrawlAction(element, 'click', cssPath, currentState);
       }));
     }
-    return (crawlActions.length !== 0) ? (this.crawlerConfig.maxChildren ? crawlActions.slice(0, this.crawlerConfig.maxChildren) : crawlActions) : [];
+    return (crawlActions.length !== 0) ? (this.crawlerConfig.maxChildren ? crawlActions.slice(0, this.crawlerConfig.maxChildren).reverse() : crawlActions.reverse()) : [];
   }
 
   /**
@@ -245,7 +245,7 @@ class Crawler {
    */
   async startAuthentication(browser, page) {
     this.authInProgress = true;
-    await authenticate(browser, page, new URL('/home/astra/Downloads/pptr.json', import.meta.url));
+    await authenticate(browser, page, new URL(this.crawlerConfig.authentication.scriptAuth.pptrRecording, import.meta.url));
     this.authInProgress = false;
     await this.maximizeViewport(page);
   }
@@ -325,6 +325,15 @@ class Crawler {
         this.allUrls.add(interceptedRequest.url());
       }
 
+      if (this.authInProgress) {
+        const parsedUrl = new URL(interceptedRequest.url());
+        const authority = parsedUrl.host;
+        const includeRegex = `https?://${authority}(?:/.*|)`;
+        if (!this.crawlerConfig.includeRegexes.includes(includeRegex)) {
+          this.crawlerConfig.includeRegexes.push(includeRegex);
+        }
+      }
+
       if (this.authInProgress == false && !this.inContext(interceptedRequest.url())) {
         interceptedRequest.respond({
           status: 200,
@@ -335,10 +344,13 @@ class Crawler {
     });
     console.log(chalk.greenBright(`\n[INFO] Scope manager started successfully!`));
 
-    console.log(chalk.greenBright(`\n[INFO] Running initial authentication...`));
-    await this.startAuthentication(browser, page);
-    await page.goto(this.crawlerConfig.entryPoint, {waitUntil: ['domcontentloaded', 'networkidle0']});
+    // Start authentication if enabled.
+    if (this.crawlerConfig.authentication.scriptAuth && this.crawlerConfig.authentication.scriptAuth.enabled) {
+      console.log(chalk.greenBright(`\n[INFO] Running initial authentication...`));
+      await this.startAuthentication(browser, page);
+    }
 
+    await page.goto(this.crawlerConfig.entryPoint, {waitUntil: ['domcontentloaded', 'networkidle0']});
     const rootState = await this.getNewCrawlState(page, 0);
     let currentState = rootState;
 
@@ -346,7 +358,7 @@ class Crawler {
     const crawlManager = new CrawlStateManager(rootState);
     let nextCrawlAction = crawlManager.getNextCrawlAction();
 
-    do {
+    while ((nextCrawlAction = crawlManager.getNextCrawlAction()) && Date.now() < endTime) {
       const currentAction = nextCrawlAction;
       await this.performAction(crawlManager, currentAction, page);
       const currentStateHash = await this.getPageHash(page);
@@ -362,7 +374,7 @@ class Crawler {
           currentAction.getParentState().crawlActions = currentAction.getParentState().crawlActions.filter((value)=>currentAction.actionId !== value.actionId);
         }
       }
-    } while ((nextCrawlAction = crawlManager.getNextCrawlAction()) && Date.now() < endTime);
+    }
 
     writeFileSync('test.log', (()=>{
       let urlList = '';
