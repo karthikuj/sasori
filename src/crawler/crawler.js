@@ -43,8 +43,10 @@ class Crawler {
                               :  -   --.  :. :  
                                  :   ..   :     
 
-
                                    SASORI
+
+                            Made by @5up3r541y4n 🔥
+
                                    v1.0.0
 
     `;
@@ -179,31 +181,38 @@ class Crawler {
       const shortestPath = crawlManager.getShortestPath(crawlerAction.parentState);
       await page.goto(this.crawlerConfig.entryPoint, {waitUntil: 'domcontentloaded'});
       for (const crawlAction of shortestPath) {
-        const node = await page.waitForSelector(crawlAction.cssPath);
-
         try {
+          const node = await page.waitForSelector(crawlAction.cssPath);
           await node.click();
         } catch ({name, message}) {
           if (message === 'Node is either not clickable or not an Element') {
-            await node.evaluate((n) => n.click());
+            try {
+              await node.evaluate((n) => n.click());
+            } catch (error) {
+              console.error(chalk.redBright(`\n[ERROR] ${error.message}`));
+            }
           } else {
-            console.error(message);
+            console.error(chalk.redBright(`\n[ERROR] ${message}`));
           }
         }
       }
     }
 
-    const node = await page.waitForSelector(crawlerAction.cssPath);
     if (crawlerAction.element != CrawlAction.ANCHOR) {
       await this.fillAllInputs(page, crawlerAction.parentState.crawlInputs);
     }
+    const node = await page.waitForSelector(crawlerAction.cssPath);
     try {
       await node.click();
     } catch ({name, message}) {
       if (message === 'Node is either not clickable or not an Element') {
-        await node.evaluate((n) => n.click());
+        try {
+          await node.evaluate((n) => n.click());
+        } catch (error) {
+          console.error(chalk.redBright(`\n[ERROR] ${error.message}`));
+        }
       } else {
-        console.error(message);
+        console.error(chalk.redBright(`\n[ERROR] ${message}`));
       }
     }
   }
@@ -257,10 +266,17 @@ class Crawler {
    */
   async getPageHash(page) {
     await page.waitForFunction(()=>document.readyState === 'complete', {timeout: this.crawlerConfig.eventTimeout});
-    // const pageDom = new JSDOM(await page.content());
-    const $ = cheerio.load(await page.content(), {xmlMode: true});
-    // this.stripDOM(pageDom.window.document.documentElement);
-    // console.log($.root().);
+    let $;
+    try {
+      $ = cheerio.load(await page.content(), {xmlMode: true});
+    } catch ({name, message}) {
+      if (message === 'Execution context was destroyed, most likely because of a navigation.') {
+        await page.waitForNavigation({waitUntil: ['domcontentloaded', 'networkidle0']});
+        $ = cheerio.load(await page.content(), {xmlMode: true});
+      } else {
+        console.error(chalk.redBright(`\n[ERROR] ${message}`));
+      }
+    }
     this.stripDOM($);
     const pageHash = createHash('sha256').update($.html()).digest('hex');
 
