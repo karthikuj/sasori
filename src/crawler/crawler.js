@@ -181,6 +181,9 @@ class Crawler {
       const shortestPath = crawlManager.getShortestPath(crawlerAction.parentState);
       await page.goto(this.crawlerConfig.entryPoint, {waitUntil: 'domcontentloaded'});
       for (const crawlAction of shortestPath) {
+        if (crawlAction.element != CrawlAction.ANCHOR) {
+          await this.fillAllInputs(page, crawlAction.parentState.crawlInputs);
+        }
         try {
           const node = await page.waitForSelector(crawlAction.cssPath);
           await node.click();
@@ -287,13 +290,22 @@ class Crawler {
    * Creates and returns a new CrawlState using the page and crawl depth passed to it.
    * @param {Page} page
    * @param {int} crawlDepth
+   * @param {string} stateHash
    * @return {CrawlState}
    */
-  async getNewCrawlState(page, crawlDepth) {
-    const crawlState = new CrawlState(page.url(), await this.getPageHash(page), crawlDepth, null);
+  async getNewCrawlState(page, crawlDepth, stateHash) {
+    const crawlState = new CrawlState(page.url(), stateHash, crawlDepth);
     crawlState.crawlActions = await this.getCrawlActions(page, crawlState);
     crawlState.crawlInputs = await this.getCrawlInputs(page);
     return crawlState;
+  }
+
+  /**
+   * Removes the given CrawlAction from the parent CrawlState.
+   * @param {CrawlAction} crawlAction
+   */
+  removeCrawlActionFromState(crawlAction) {
+    crawlAction.getParentState().crawlActions = crawlAction.getParentState().crawlActions.filter((value)=>crawlAction.actionId !== value.actionId);
   }
 
   /**
@@ -334,7 +346,7 @@ class Crawler {
     // Statically response to out-of-scope requests.
     console.log(chalk.greenBright(`\n[INFO] Setting up scope manager...`));
     await page.setRequestInterception(true);
-    page.on('request', (interceptedRequest) => {
+    page.on('request', async (interceptedRequest) => {
       if (interceptedRequest.isInterceptResolutionHandled()) return;
 
       if (this.inContext(interceptedRequest.url())) {
@@ -350,9 +362,9 @@ class Crawler {
         }
       }
 
-      if (this.authInProgress == false && !this.inContext(interceptedRequest.url())) {
+      if ((this.authInProgress == false && !this.inContext(interceptedRequest.url())) || interceptedRequest.url().includes('/v2/logout')) {
         interceptedRequest.respond({
-          status: 200,
+          status: 403,
           contentType: 'text/plain',
           body: 'Out of Sasori\'s scope',
         });
@@ -367,7 +379,8 @@ class Crawler {
     }
 
     await page.goto(this.crawlerConfig.entryPoint, {waitUntil: ['domcontentloaded', 'networkidle0']});
-    const rootState = await this.getNewCrawlState(page, 0);
+    const rootStateHash = await this.getPageHash(page);
+    const rootState = await this.getNewCrawlState(page, 0, rootStateHash);
     let currentState = rootState;
 
     console.log(chalk.greenBright(`\n[INFO] Creating crawl state manager...`));
@@ -381,13 +394,13 @@ class Crawler {
       const existingState = crawlManager.getStateByHash(currentStateHash);
       if (existingState) {
         currentState = existingState;
-        currentAction.getParentState().crawlActions = currentAction.getParentState().crawlActions.filter((value)=>currentAction.actionId !== value.actionId);
+        this.removeCrawlActionFromState(currentAction);
       } else {
         if (this.inContext(page.url())) {
-          currentState = await this.getNewCrawlState(page, currentAction.getParentState().crawlDepth + 1);
+          currentState = await this.getNewCrawlState(page, currentAction.getParentState().crawlDepth + 1, currentStateHash);
           currentAction.childState = currentState;
         } else {
-          currentAction.getParentState().crawlActions = currentAction.getParentState().crawlActions.filter((value)=>currentAction.actionId !== value.actionId);
+          this.removeCrawlActionFromState(currentAction);
         }
       }
     }
