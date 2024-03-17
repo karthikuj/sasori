@@ -14,13 +14,15 @@ class CrawlAction {
    * @param {string} element
    * @param {string} action
    * @param {string} cssPath
+   * @param {string} actionHash
    * @param {CrawlState} parentState
    */
-  constructor(element, action, cssPath, parentState) {
+  constructor(element, action, cssPath, actionHash, parentState) {
     this.actionId = randomUUID();
     this.element = element;
     this.action = action;
     this.cssPath = cssPath;
+    this.actionHash = actionHash;
     this.parentState = parentState;
     this.childState = null;
   }
