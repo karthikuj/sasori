@@ -1,3 +1,4 @@
+import chalk from 'chalk';
 import path from 'path';
 
 /**
@@ -189,36 +190,68 @@ class CrawlInput {
     const node = await page.waitForSelector(this.cssPath);
     switch (this.type) {
       case 'text':
-        await node.type(CrawlInput.VALUES['inputText']);
+        try {
+          await node.type(CrawlInput.VALUES['inputText']);
+        } catch ({name, message}) {
+          console.error(chalk.redBright(`\n[ERROR] ${message}`));
+        }
         break;
 
       case 'email':
-        await node.type(CrawlInput.VALUES['inputEmail']);
+        try {
+          await node.type(CrawlInput.VALUES['inputEmail']);
+        } catch ({name, message}) {
+          console.error(chalk.redBright(`\n[ERROR] ${message}`));
+        }
         break;
 
       case 'password':
-        await node.type(CrawlInput.VALUES['inputPassword']);
+        try {
+          await node.type(CrawlInput.VALUES['inputPassword']);
+        } catch ({name, message}) {
+          console.error(chalk.redBright(`\n[ERROR] ${message}`));
+        }
         break;
 
       case 'search':
-        await node.type(CrawlInput.VALUES['inputSearch']);
+        try {
+          await node.type(CrawlInput.VALUES['inputSearch']);
+        } catch ({name, message}) {
+          console.error(chalk.redBright(`\n[ERROR] ${message}`));
+        }
         break;
 
       case 'url':
-        await node.type(CrawlInput.VALUES['inputUrl']);
+        try {
+          await node.type(CrawlInput.VALUES['inputUrl']);
+        } catch ({name, message}) {
+          console.error(chalk.redBright(`\n[ERROR] ${message}`));
+        }
         break;
 
       case 'checkbox':
-        await node.click();
+        try {
+          await node.click();
+        } catch ({name, message}) {
+          console.error(chalk.redBright(`\n[ERROR] ${message}`));
+        }
         break;
 
       case 'radio':
-        await node.click();
+        try {
+          await node.click();
+        } catch ({name, message}) {
+          console.error(chalk.redBright(`\n[ERROR] ${message}`));
+        }
         break;
 
       case 'file':
         const filePath = await this.getFilePath(page, this.cssPath);
-        await node.uploadFile(filePath);
+        try {
+          await node.uploadFile(filePath);
+        } catch (error) {
+          console.error(chalk.redBright(`\n[ERROR] ${message}`));
+        }
         break;
 
       default:
@@ -248,7 +281,11 @@ class CrawlInput {
         }
       }
     });
-    await page.select(this.cssPath, firstNonEmptyValue);
+    try {
+      await page.select(this.cssPath, firstNonEmptyValue);
+    } catch ({name, message}) {
+      console.error(chalk.redBright(`\n[ERROR] ${message}`));
+    }
   }
 }
 
