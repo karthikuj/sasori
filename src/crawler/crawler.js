@@ -243,9 +243,18 @@ class Crawler {
    * @return {boolean}
    */
   inContext(url) {
+    // Check if it is excluded
+    for (const regex of this.crawlerConfig.excludeRegexes) {
+      const excludeRegex = new RegExp(regex);
+      if (url.match(excludeRegex)) {
+        return false;
+      }
+    }
+
+    // Check if it is included
     for (const regex of this.crawlerConfig.includeRegexes) {
-      const urlRegex = new RegExp(regex);
-      if (url.match(urlRegex)) {
+      const includeRegex = new RegExp(regex);
+      if (url.match(includeRegex)) {
         return true;
       }
     }
@@ -385,7 +394,7 @@ class Crawler {
         }
       }
 
-      if ((this.authInProgress == false && !this.inContext(interceptedRequest.url())) || interceptedRequest.url().includes('/v2/logout')) {
+      if ((this.authInProgress == false && !this.inContext(interceptedRequest.url()))) {
         interceptedRequest.respond({
           status: 403,
           contentType: 'text/plain',

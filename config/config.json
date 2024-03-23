@@ -34,6 +34,9 @@
         },
         "includeRegexes": [
             "https?://security-crawl-maze.app(?:/.*|)"
+        ],
+        "excludeRegexes": [
+            "https?://security-crawl-maze.app/misc/known-files.*"
         ]
     }
 }
