@@ -138,9 +138,10 @@ class Crawler {
    * Fetches all possible CrawlActions on a CrawlState and returns them.
    * @param {Page} page
    * @param {CrawlState} currentState
+   * @param {CrawlStateManager} crawlManager
    * @return {CrawlAction[]}
    */
-  async getCrawlActions(page, currentState) {
+  async getCrawlActions(page, currentState, crawlManager) {
     const domPath = new DomPath(page);
     const crawlActions = [];
 
@@ -151,10 +152,16 @@ class Crawler {
 
     for (const element of this.crawlerConfig.elements) {
       const cssPaths = await domPath.getCssPaths(element);
-      crawlActions.push(...cssPaths.map((cssPath) => {
-        return new CrawlAction(element, 'click', cssPath, currentState);
-      }));
+      for (const cssPath of cssPaths) {
+        const node = await page.$eval(cssPath, (el) => el.outerHTML);
+        const actionHash = createHash('sha256').update(node).digest('hex');
+        if (crawlManager.isCrawlActionUnique(cssPath, actionHash)) {
+          crawlActions.push(new CrawlAction(element, 'click', cssPath, actionHash, currentState));
+        } else {
+        }
+      }
     }
+
     return (crawlActions.length !== 0) ? (this.crawlerConfig.maxChildren ? crawlActions.slice(0, this.crawlerConfig.maxChildren).reverse() : crawlActions.reverse()) : [];
   }
 
@@ -179,23 +186,31 @@ class Crawler {
     const currentStateHash = await this.getPageHash(page);
     if (currentStateHash !== crawlerAction.parentState.stateHash) {
       const shortestPath = crawlManager.getShortestPath(crawlerAction.parentState);
+      console.log('Shortest path:');
+      console.log(shortestPath.map((action) => action.cssPath));
       await page.goto(this.crawlerConfig.entryPoint, {waitUntil: 'domcontentloaded'});
       for (const crawlAction of shortestPath) {
         if (crawlAction.element != CrawlAction.ANCHOR) {
           await this.fillAllInputs(page, crawlAction.parentState.crawlInputs);
         }
+        // let node;
+        // try {
+        const node = await page.waitForSelector(crawlAction.cssPath);
+        // } catch (error) {
+        // this.removeCrawlActionFromState(crawlAction);
+        // return;
+        // }
         try {
-          const node = await page.waitForSelector(crawlAction.cssPath);
           await node.click();
         } catch ({name, message}) {
           if (message === 'Node is either not clickable or not an Element') {
             try {
               await node.evaluate((n) => n.click());
             } catch (error) {
-              console.error(chalk.redBright(`\n[ERROR] ${error.message}`));
+              console.error(chalk.red(`\n[ERROR] ${error.message}`));
             }
           } else {
-            console.error(chalk.redBright(`\n[ERROR] ${message}`));
+            console.error(chalk.red(`\n[ERROR] ${message}`));
           }
         }
       }
@@ -212,10 +227,10 @@ class Crawler {
         try {
           await node.evaluate((n) => n.click());
         } catch (error) {
-          console.error(chalk.redBright(`\n[ERROR] ${error.message}`));
+          console.error(chalk.red(`\n[ERROR] ${error.message}`));
         }
       } else {
-        console.error(chalk.redBright(`\n[ERROR] ${message}`));
+        console.error(chalk.red(`\n[ERROR] ${message}`));
       }
     }
   }
@@ -277,7 +292,7 @@ class Crawler {
         await page.waitForNavigation({waitUntil: ['domcontentloaded', 'networkidle0']});
         $ = cheerio.load(await page.content(), {xmlMode: true});
       } else {
-        console.error(chalk.redBright(`\n[ERROR] ${message}`));
+        console.error(chalk.red(`\n[ERROR] ${message}`));
       }
     }
     this.stripDOM($);
@@ -291,12 +306,18 @@ class Crawler {
    * @param {Page} page
    * @param {int} crawlDepth
    * @param {string} stateHash
+   * @param {CrawlStateManager} crawlManager
    * @return {CrawlState}
    */
-  async getNewCrawlState(page, crawlDepth, stateHash) {
+  async getNewCrawlState(page, crawlDepth, stateHash, crawlManager) {
+    console.log(`Crawl state creator called for page: ${page.url()}`);
     const crawlState = new CrawlState(page.url(), stateHash, crawlDepth);
-    crawlState.crawlActions = await this.getCrawlActions(page, crawlState);
+    crawlState.crawlActions = await this.getCrawlActions(page, crawlState, crawlManager);
+    console.log('Crawl actions found:');
+    console.log(crawlState.crawlActions.map((action) => action.cssPath));
     crawlState.crawlInputs = await this.getCrawlInputs(page);
+    console.log(`Crawl inputs found:`);
+    console.log(crawlState.crawlInputs.map((input) => input.cssPath));
     return crawlState;
   }
 
@@ -378,26 +399,35 @@ class Crawler {
       await this.startAuthentication(browser, page);
     }
 
+    console.log(chalk.greenBright(`\n[INFO] Creating crawl state manager...`));
+    const crawlManager = new CrawlStateManager();
+
     await page.goto(this.crawlerConfig.entryPoint, {waitUntil: ['domcontentloaded', 'networkidle0']});
     const rootStateHash = await this.getPageHash(page);
-    const rootState = await this.getNewCrawlState(page, 0, rootStateHash);
+    const rootState = await this.getNewCrawlState(page, 0, rootStateHash, crawlManager);
+    crawlManager.rootState = rootState;
     let currentState = rootState;
 
-    console.log(chalk.greenBright(`\n[INFO] Creating crawl state manager...`));
-    const crawlManager = new CrawlStateManager(rootState);
     let nextCrawlAction = crawlManager.getNextCrawlAction();
 
     while ((nextCrawlAction = crawlManager.getNextCrawlAction()) && Date.now() < endTime) {
       const currentAction = nextCrawlAction;
+      console.log('\nCurrent Action:');
+      console.log(currentAction.cssPath);
       await this.performAction(crawlManager, currentAction, page);
+      console.log('Action performed');
       const currentStateHash = await this.getPageHash(page);
+      console.log('Current state hash:');
+      console.log(currentStateHash);
       const existingState = crawlManager.getStateByHash(currentStateHash);
       if (existingState) {
+        console.log('State already exists');
         currentState = existingState;
         this.removeCrawlActionFromState(currentAction);
       } else {
         if (this.inContext(page.url())) {
-          currentState = await this.getNewCrawlState(page, currentAction.getParentState().crawlDepth + 1, currentStateHash);
+          console.log('State does not exist, creating...');
+          currentState = await this.getNewCrawlState(page, currentAction.getParentState().crawlDepth + 1, currentStateHash, crawlManager);
           currentAction.childState = currentState;
         } else {
           this.removeCrawlActionFromState(currentAction);

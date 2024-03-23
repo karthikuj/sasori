@@ -187,13 +187,19 @@ class CrawlInput {
    * @param {Page} page
    */
   async inputHandler(page) {
-    const node = await page.waitForSelector(this.cssPath);
+    let node;
+    try {
+      node = await page.waitForSelector(this.cssPath);
+    } catch ({name, message}) {
+      console.error(chalk.red(`[ERROR] Could not find a node with the selector: ${this.cssPath}`));
+      console.error(chalk.red(`[ERROR] ${message}`));
+    }
     switch (this.type) {
       case 'text':
         try {
           await node.type(CrawlInput.VALUES['inputText']);
         } catch ({name, message}) {
-          console.error(chalk.redBright(`\n[ERROR] ${message}`));
+          console.error(chalk.red(`\n[ERROR] ${message}`));
         }
         break;
 
@@ -201,7 +207,7 @@ class CrawlInput {
         try {
           await node.type(CrawlInput.VALUES['inputEmail']);
         } catch ({name, message}) {
-          console.error(chalk.redBright(`\n[ERROR] ${message}`));
+          console.error(chalk.red(`\n[ERROR] ${message}`));
         }
         break;
 
@@ -209,7 +215,7 @@ class CrawlInput {
         try {
           await node.type(CrawlInput.VALUES['inputPassword']);
         } catch ({name, message}) {
-          console.error(chalk.redBright(`\n[ERROR] ${message}`));
+          console.error(chalk.red(`\n[ERROR] ${message}`));
         }
         break;
 
@@ -217,7 +223,7 @@ class CrawlInput {
         try {
           await node.type(CrawlInput.VALUES['inputSearch']);
         } catch ({name, message}) {
-          console.error(chalk.redBright(`\n[ERROR] ${message}`));
+          console.error(chalk.red(`\n[ERROR] ${message}`));
         }
         break;
 
@@ -225,7 +231,7 @@ class CrawlInput {
         try {
           await node.type(CrawlInput.VALUES['inputUrl']);
         } catch ({name, message}) {
-          console.error(chalk.redBright(`\n[ERROR] ${message}`));
+          console.error(chalk.red(`\n[ERROR] ${message}`));
         }
         break;
 
@@ -233,7 +239,7 @@ class CrawlInput {
         try {
           await node.click();
         } catch ({name, message}) {
-          console.error(chalk.redBright(`\n[ERROR] ${message}`));
+          console.error(chalk.red(`\n[ERROR] ${message}`));
         }
         break;
 
@@ -241,7 +247,7 @@ class CrawlInput {
         try {
           await node.click();
         } catch ({name, message}) {
-          console.error(chalk.redBright(`\n[ERROR] ${message}`));
+          console.error(chalk.red(`\n[ERROR] ${message}`));
         }
         break;
 
@@ -250,7 +256,7 @@ class CrawlInput {
         try {
           await node.uploadFile(filePath);
         } catch (error) {
-          console.error(chalk.redBright(`\n[ERROR] ${message}`));
+          console.error(chalk.red(`\n[ERROR] ${message}`));
         }
         break;
 
@@ -264,8 +270,19 @@ class CrawlInput {
    * @param {Page} page
    */
   async textareaHandler(page) {
-    const node = await page.waitForSelector(this.cssPath);
-    await node.type(CrawlInput.VALUES['inputText']);
+    let node;
+    try {
+      node = await page.waitForSelector(this.cssPath);
+    } catch ({name, message}) {
+      console.error(chalk.red(`[ERROR] Could not find a node with the selector: ${this.cssPath}`));
+      console.error(chalk.red(`[ERROR] ${message}`));
+    }
+
+    try {
+      await node.type(CrawlInput.VALUES['inputText']);
+    } catch ({name, message}) {
+      console.error(chalk.red(`\n[ERROR] ${message}`));
+    }
   }
 
   /**
@@ -273,7 +290,14 @@ class CrawlInput {
    * @param {Page} page
    */
   async selectHandler(page) {
-    const node = await page.waitForSelector(this.cssPath);
+    let node;
+    try {
+      node = await page.waitForSelector(this.cssPath);
+    } catch ({name, message}) {
+      console.error(chalk.red(`[ERROR] Could not find a node with the selector: ${this.cssPath}`));
+      console.error(chalk.red(`[ERROR] ${message}`));
+    }
+
     const firstNonEmptyValue = await node.$$eval('option', (nodes) => {
       for (const optionNode of nodes) {
         if (optionNode.value !== null && optionNode.value !== '') {
@@ -284,7 +308,7 @@ class CrawlInput {
     try {
       await page.select(this.cssPath, firstNonEmptyValue);
     } catch ({name, message}) {
-      console.error(chalk.redBright(`\n[ERROR] ${message}`));
+      console.error(chalk.red(`\n[ERROR] ${message}`));
     }
   }
 }

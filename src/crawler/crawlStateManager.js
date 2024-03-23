@@ -7,7 +7,7 @@ class CrawlStateManager {
    * @param {CrawlState} rootState
    */
   constructor(rootState) {
-    this.rootState = rootState;
+    this.rootState = rootState ? rootState : null;
   }
 
   /**
@@ -79,6 +79,37 @@ class CrawlStateManager {
     }
 
     return null;
+  }
+
+  /**
+   * Returns false if CrawlAction with the same cssPath and actionHash is found else true.
+   * @param {string} cssPath
+   * @param {string} actionHash
+   * @return {Boolean}
+   */
+  isCrawlActionUnique(cssPath, actionHash) {
+    if (!this.rootState) {
+      return true;
+    }
+    const stack = [...this.rootState.getCrawlActions()];
+    const visited = new Set();
+
+    while (stack.length) {
+      const currentAction = stack.pop();
+      const childState = currentAction.getChildState();
+
+      if (!visited.has(currentAction.actionId)) {
+        visited.add(currentAction.actionId);
+        if (currentAction.cssPath === cssPath && currentAction.actionHash === actionHash) {
+          return false;
+        }
+        if (childState) {
+          stack.push(...childState.getCrawlActions());
+        }
+      }
+    }
+
+    return true;
   }
 
   /**
