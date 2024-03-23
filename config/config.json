@@ -12,6 +12,7 @@
     "crawler": {
         "entryPoint": "https://security-crawl-maze.app/",
         "eventTimeout": 10000,
+        "eventWait": 0,
         "maxDuration": 600000,
         "elements": [
             "a",

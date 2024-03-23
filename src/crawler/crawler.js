@@ -233,6 +233,8 @@ class Crawler {
         console.error(chalk.red(`\n[ERROR] ${message}`));
       }
     }
+
+    await page.waitForTimeout(this.crawlerConfig.eventWait);
   }
 
   /**
