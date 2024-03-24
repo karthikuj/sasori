@@ -5,7 +5,7 @@
         "proxy": {
             "enabled": false,
             "host": "127.0.0.1",
-            "port": 8081
+            "port": 8080
         },
         "profile": {}
     },
@@ -13,7 +13,7 @@
         "entryPoint": "https://security-crawl-maze.app/",
         "eventTimeout": 10000,
         "eventWait": 0,
-        "maxDuration": 600000,
+        "maxDuration": 0,
         "elements": [
             "a",
             "button",
@@ -29,7 +29,7 @@
             },
             "scriptAuth": {
                 "enabled": false,
-                "pptrRecording": "/home/sup3r541y4n/Dev/foss/sasori/pptr.json"
+                "pptrRecording": "/path/to/pptrRecording.json"
             }
         },
         "includeRegexes": [

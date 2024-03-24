@@ -22,34 +22,14 @@ class Crawler {
 
   /**
    * Crawler class contructor.
+   * @param {string} configPath
    */
-  constructor() {
-    this.crawlerConfig = this.getCrawlerConfig();
+  constructor(configPath) {
+    this.configPath = configPath;
+    this.crawlerConfig = this.getCrawlerConfig(this.configPath);
     this.authInProgress = false;
     this.allUrls = new Set();
     this.allInteractables = [...this.crawlerConfig.elements].concat(CrawlInput.INPUT_FIELDS.map((element) => element.CSS_PATH));
-    this.banner = `
-                              :.            :   
-                             .+              =. 
-                             ++.            .-= 
-                            :++==   .  .   :===:
-                            -+++.   :  :    =++-
-                              ==    .--.   .-=. 
-                               :+: .-:.-. :=:   
-                             .-::--:-::::--:::. 
-                            -: .:-..::::..::. :-
-                            - ::  ..:::: :  :: -
-                              -  -. :--: .-  -  
-                              :  -   --.  :. :  
-                                 :   ..   :     
-
-                                   SASORI
-
-                            Made by @5up3r541y4n 🔥
-
-                                   v1.0.0
-
-    `;
   }
 
   /**
@@ -100,10 +80,11 @@ class Crawler {
 
   /**
    * Fetches and returns crawlConfig
+   * @param {string} configPath
    * @return {Object} crawlConfig
    */
-  getCrawlerConfig() {
-    const configFilePath = new URL('../../config/config.json', import.meta.url);
+  getCrawlerConfig(configPath) {
+    const configFilePath = new URL(configPath, import.meta.url);
     let crawlerConfig = {};
 
     try {
@@ -186,8 +167,8 @@ class Crawler {
     const currentStateHash = await this.getPageHash(page);
     if (currentStateHash !== crawlerAction.parentState.stateHash) {
       const shortestPath = crawlManager.getShortestPath(crawlerAction.parentState);
-      console.log('Shortest path:');
-      console.log(shortestPath.map((action) => action.cssPath));
+      // console.log('Shortest path:');
+      // console.log(shortestPath.map((action) => action.cssPath));
       await page.goto(this.crawlerConfig.entryPoint, {waitUntil: 'domcontentloaded'});
       for (const crawlAction of shortestPath) {
         if (crawlAction.element != CrawlAction.ANCHOR) {
@@ -235,6 +216,10 @@ class Crawler {
     }
 
     await page.waitForTimeout(this.crawlerConfig.eventWait);
+    if (!this.allUrls.has(page.url())) {
+      console.log(chalk.magenta(`[URL] `) + chalk.green(page.url()));
+      this.allUrls.add(page.url());
+    }
   }
 
   /**
@@ -321,14 +306,14 @@ class Crawler {
    * @return {CrawlState}
    */
   async getNewCrawlState(page, crawlDepth, stateHash, crawlManager) {
-    console.log(`Crawl state creator called for page: ${page.url()}`);
+    // console.log(`Crawl state creator called for page: ${page.url()}`);
     const crawlState = new CrawlState(page.url(), stateHash, crawlDepth);
     crawlState.crawlActions = await this.getCrawlActions(page, crawlState, crawlManager);
-    console.log('Crawl actions found:');
-    console.log(crawlState.crawlActions.map((action) => action.cssPath));
+    // console.log('Crawl actions found:');
+    // console.log(crawlState.crawlActions.map((action) => action.cssPath));
     crawlState.crawlInputs = await this.getCrawlInputs(page);
-    console.log(`Crawl inputs found:`);
-    console.log(crawlState.crawlInputs.map((input) => input.cssPath));
+    // console.log(`Crawl inputs found:`);
+    // console.log(crawlState.crawlInputs.map((input) => input.cssPath));
     return crawlState;
   }
 
@@ -344,11 +329,10 @@ class Crawler {
    * Starts the crawling process.
    */
   async startCrawling() {
-    console.log(chalk.greenBright.bold(this.banner));
-    console.log(chalk.greenBright(`\n[INFO] Initializing browser...`));
-    const browser = await Browser.getBrowserInstance();
-    console.log(chalk.greenBright(`\n[INFO] Browser initialized successfully!`));
-    console.log(chalk.greenBright(`\n[INFO] Sasori will now start crawling from ${this.crawlerConfig.entryPoint}`));
+    console.log(chalk.greenBright(`[INFO] Initializing browser...`));
+    const browser = await Browser.getBrowserInstance(this.configPath);
+    console.log(chalk.greenBright(`[INFO] Browser initialized successfully!`));
+    console.log(chalk.greenBright(`[INFO] Sasori will now start crawling from ${this.crawlerConfig.entryPoint}`));
 
     browser.on('targetcreated', async (target)=>{
       const targetBrowser = target.browser();
@@ -362,9 +346,9 @@ class Crawler {
     const startTime = Date.now();
     const endTime = startTime + this.crawlerConfig.maxDuration;
     if (this.crawlerConfig.maxDuration === 0) {
-      console.log(chalk.greenBright(`\n[INFO] Max duration is set to 0, sasori will run indefinitely.`));
+      console.log(chalk.greenBright(`[INFO] Max duration is set to 0, sasori will run indefinitely.`));
     } else {
-      console.log(chalk.greenBright(`\n[INFO] Sasori will stop crawling at ${new Date(endTime).toTimeString()}`));
+      console.log(chalk.greenBright(`[INFO] Sasori will stop crawling at ${new Date(endTime).toTimeString()}`));
     }
     const allPages = await browser.pages();
     const page = allPages[0];
@@ -376,13 +360,16 @@ class Crawler {
     }
 
     // Statically response to out-of-scope requests.
-    console.log(chalk.greenBright(`\n[INFO] Setting up scope manager...`));
+    console.log(chalk.greenBright(`[INFO] Setting up scope manager...`));
     await page.setRequestInterception(true);
     page.on('request', async (interceptedRequest) => {
       if (interceptedRequest.isInterceptResolutionHandled()) return;
 
       if (this.inContext(interceptedRequest.url())) {
-        this.allUrls.add(interceptedRequest.url());
+        if (!this.allUrls.has(interceptedRequest.url())) {
+          console.log(chalk.magentaBright(`[URL] `) + chalk.green(interceptedRequest.url()));
+          this.allUrls.add(interceptedRequest.url());
+        }
       }
 
       if (this.authInProgress) {
@@ -402,15 +389,15 @@ class Crawler {
         });
       } else interceptedRequest.continue();
     });
-    console.log(chalk.greenBright(`\n[INFO] Scope manager started successfully!`));
+    console.log(chalk.greenBright(`[INFO] Scope manager started successfully!`));
 
     // Start authentication if enabled.
     if (this.crawlerConfig.authentication.scriptAuth && this.crawlerConfig.authentication.scriptAuth.enabled) {
-      console.log(chalk.greenBright(`\n[INFO] Running initial authentication...`));
+      console.log(chalk.greenBright(`[INFO] Running initial authentication...`));
       await this.startAuthentication(browser, page);
     }
 
-    console.log(chalk.greenBright(`\n[INFO] Creating crawl state manager...`));
+    console.log(chalk.greenBright(`[INFO] Creating crawl state manager...`));
     const crawlManager = new CrawlStateManager();
 
     await page.goto(this.crawlerConfig.entryPoint, {waitUntil: ['domcontentloaded', 'networkidle0']});
@@ -421,23 +408,23 @@ class Crawler {
 
     let nextCrawlAction = crawlManager.getNextCrawlAction();
 
-    while ((nextCrawlAction = crawlManager.getNextCrawlAction()) && Date.now() < endTime) {
+    while ((nextCrawlAction = crawlManager.getNextCrawlAction()) && (this.crawlerConfig.maxDuration === 0 || Date.now() < endTime)) {
       const currentAction = nextCrawlAction;
-      console.log('\nCurrent Action:');
-      console.log(currentAction.cssPath);
+      // console.log('\nCurrent Action:');
+      // console.log(currentAction.cssPath);
       await this.performAction(crawlManager, currentAction, page);
-      console.log('Action performed');
+      // console.log('Action performed');
       const currentStateHash = await this.getPageHash(page);
-      console.log('Current state hash:');
-      console.log(currentStateHash);
+      // console.log('Current state hash:');
+      // console.log(currentStateHash);
       const existingState = crawlManager.getStateByHash(currentStateHash);
       if (existingState) {
-        console.log('State already exists');
+        // console.log('State already exists');
         currentState = existingState;
         this.removeCrawlActionFromState(currentAction);
       } else {
         if (this.inContext(page.url())) {
-          console.log('State does not exist, creating...');
+          // console.log('State does not exist, creating...');
           currentState = await this.getNewCrawlState(page, currentAction.getParentState().crawlDepth + 1, currentStateHash, crawlManager);
           currentAction.childState = currentState;
         } else {
@@ -455,7 +442,7 @@ class Crawler {
     })());
     // crawlManager.traverse(crawlManager.rootState, [crawlManager.rootState]);
 
-    console.log('Scan completed');
+    console.log(chalk.greenBright.bold('Scan completed'));
     await browser.close();
   }
 

@@ -7,12 +7,13 @@ import {readFileSync} from 'fs';
  */
 class Browser {
   /**
-     * This static method reads the config file and initializes
-     * the browser options to be passed down to puppeteer.
-     * @return {Object}
-     */
-  static getBrowserConfig() {
-    const configFilePath = new URL('../../config/config.json', import.meta.url);
+   * This static method reads the config file and initializes
+   * the browser options to be passed down to puppeteer.
+   * @param {string} configPath
+   * @return {Object}
+   */
+  static getBrowserConfig(configPath) {
+    const configFilePath = new URL(configPath, import.meta.url);
     const browserConfig = {headless: 'new'};
     const args = [];
     let configJson = {};
@@ -42,10 +43,11 @@ class Browser {
 
   /**
      * This static method initializes the browser to be used while crawling.
+     * @param {string} configPath
      * @return {puppeteer.Browser}
      */
-  static async getBrowserInstance() {
-    const browserConfig = this.getBrowserConfig();
+  static async getBrowserInstance(configPath) {
+    const browserConfig = this.getBrowserConfig(configPath);
     const browser = await launch(browserConfig);
     return browser;
   }
