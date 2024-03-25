@@ -1,5 +1,4 @@
-import {launch} from 'puppeteer';
-import {readFileSync} from 'fs';
+const {launch} = require('puppeteer');
 
 /**
  * The Browser class is responsible for instantiating and
@@ -7,21 +6,17 @@ import {readFileSync} from 'fs';
  */
 class Browser {
   /**
-     * This static method reads the config file and initializes
-     * the browser options to be passed down to puppeteer.
-     * @return {Object}
-     */
-  static getBrowserConfig() {
-    const configFilePath = new URL('../../config/config.json', import.meta.url);
+   * This static method reads the config file and initializes
+   * the browser options to be passed down to puppeteer.
+   * @param {Object} config
+   * @return {Object}
+   */
+  static getBrowserConfig(config) {
     const browserConfig = {headless: 'new'};
     const args = [];
     let configJson = {};
 
-    try {
-      configJson = JSON.parse(readFileSync(configFilePath, 'utf-8'))['browser'];
-    } catch (error) {
-      console.error('Error reading/parsing JSON file:', error.message);
-    }
+    configJson = config;
 
     browserConfig.headless = configJson.headless ? 'new' : false;
     if (configJson.maximize) {
@@ -42,13 +37,14 @@ class Browser {
 
   /**
      * This static method initializes the browser to be used while crawling.
+     * @param {Object} config
      * @return {puppeteer.Browser}
      */
-  static async getBrowserInstance() {
-    const browserConfig = this.getBrowserConfig();
+  static async getBrowserInstance(config) {
+    const browserConfig = this.getBrowserConfig(config);
     const browser = await launch(browserConfig);
     return browser;
   }
 }
 
-export default Browser;
+module.exports = Browser;

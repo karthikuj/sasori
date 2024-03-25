@@ -154,4 +154,4 @@ class CrawlStateManager {
   }
 }
 
-export default CrawlStateManager;
+module.exports = CrawlStateManager;
