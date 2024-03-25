@@ -9,7 +9,7 @@ config:
   
   # Specify the current working directory path
   # the default is the current working directory path
-  cwd: /home/sup3r541y4n/Dev/foss/sasori
+  cwd: /home/sup3r541y4n/Desktop
   
   # Export additional ENV variables
   env:
@@ -18,7 +18,6 @@ config:
   # Explicitly set the number of columns
   # or use `auto` to take the current
   # number of columns of your shell
-  # cols: 85
   cols: 120
   
   # Explicitly set the number of rows
@@ -38,7 +37,7 @@ config:
   
   # Delay between frames in ms
   # If the value is `auto` use the actual recording delays
-  frameDelay: auto
+  frameDelay: 100
   
   # Maximum delay between frames in ms
   # Ignored if the `frameDelay` isn't set to `auto`
@@ -114,39 +113,179 @@ config:
 records:
   - delay: 500
     content: "\r\n"
-  - delay: 333
-    content: "\e]0;sup3r541y4n@5up3r541y4n:~/Dev/foss/sasori\e\\\e]7;file://5up3r541y4n/home/sup3r541y4n/Dev/foss/sasori\e\\\e[?2004h\e]0;sup3r541y4n@5up3r541y4n: ~/Dev/foss/sasori\a\e[01;32msup3r541y4n@5up3r541y4n\e[00m:\e[01;34m~/Dev/foss/sasori\e[00m$ "
-  - delay: 930
-    content: 'n'
-  - delay: 255
-    content: p
-  - delay: 255
-    content: m
-  - delay: 154
-    content: ' '
-  - delay: 164
+  - delay: 351
+    content: "\e]0;sup3r541y4n@5up3r541y4n:~/Desktop\e\\\e]7;file://5up3r541y4n/home/sup3r541y4n/Desktop\e\\\e[?2004h\e]0;sup3r541y4n@5up3r541y4n: ~/Desktop\a\e[01;32msup3r541y4n@5up3r541y4n\e[00m:\e[01;34m~/Desktop\e[00m$ "
+  - delay: 1660
     content: s
-  - delay: 108
-    content: t
-  - delay: 123
+  - delay: 310
     content: a
-  - delay: 114
+  - delay: 149
+    content: s
+  - delay: 411
+    content: o
+  - delay: 127
     content: r
-  - delay: 226
-    content: t
-  - delay: 478
+  - delay: 123
+    content: i
+  - delay: 281
     content: "\r\n\e[?2004l\r"
-  - delay: 198
-    content: "\r\n> sasori@1.0.0 start\r\n> npx eslint ./ --fix && node index.js\r\n\r\n"
-  - delay: 1356
-    content: "\e[92m\e[1m\e[22m\e[39m\r\n\e[92m\e[1m                              :.            :   \e[22m\e[39m\r\n\e[92m\e[1m                             .+              =. \e[22m\e[39m\r\n\e[92m\e[1m                             ++.            .-= \e[22m\e[39m\r\n\e[92m\e[1m                            :++==   .  .   :===:\e[22m\e[39m\r\n\e[92m\e[1m                            -+++.   :  :    =++-\e[22m\e[39m\r\n\e[92m\e[1m                              ==    .--.   .-=. \e[22m\e[39m\r\n\e[92m\e[1m                               :+: .-:.-. :=:   \e[22m\e[39m\r\n\e[92m\e[1m                             .-::--:-::::--:::. \e[22m\e[39m\r\n\e[92m\e[1m                            -: .:-..::::..::. :-\e[22m\e[39m\r\n\e[92m\e[1m                            - ::  ..:::: :  :: -\e[22m\e[39m\r\n\e[92m\e[1m                              -  -. :--: .-  -  \e[22m\e[39m\r\n\e[92m\e[1m                              :  -   --.  :. :  \e[22m\e[39m\r\n\e[92m\e[1m                                 :   ..   :     \e[22m\e[39m\r\n\e[92m\e[1m\e[22m\e[39m\r\n\e[92m\e[1m\e[22m\e[39m\r\n\e[92m\e[1m                                   SASORI\e[22m\e[39m\r\n\e[92m\e[1m                                   v1.0.0\e[22m\e[39m\r\n\e[92m\e[1m\e[22m\e[39m\r\n\e[92m\e[1m    \e[22m\e[39m\r\n\e[92m\e[39m\r\n\e[92m[INFO] Initializing browser...\e[39m\r\n"
-  - delay: 2000
-    content: "\e[92m\e[39m\r\n\e[92m[INFO] Browser initialized successfully!\e[39m\r\n\e[92m\e[39m\r\n\e[92m[INFO] Sasori will now start crawling from https://example.com/\e[39m\r\n\e[92m\e[39m\r\n\e[92m[INFO] Sasori will stop crawling at 23:01:13 GMT+0530 (India Standard Time)\e[39m\r\n"
-  - delay: 2000
-    content: "\e[92m\e[39m\r\n\e[92m[INFO] Setting up scope manager...\e[39m\r\n\e[92m\e[39m\r\n\e[92m[INFO] Scope manager started successfully!\e[39m\r\n\e[92m\e[39m\r\n\e[92m[INFO] Running initial authentication...\e[39m\r\n"
-  - delay: 7889
-    content: "\e[92m\e[39m\r\n\e[92m[INFO] Creating crawl state manager...\e[39m\r\n"
-  - delay: 2000
-    content: "\e[92m\e[39m\r\n\e[92m[INFO] Scan completed!\e[39m\r\n"
-  - delay: 291
-    content: "\e]0;sup3r541y4n@5up3r541y4n:~/Dev/foss/sasori\e\\\e]7;file://5up3r541y4n/home/sup3r541y4n/Dev/foss/sasori\e\\\e[?2004h\e]0;sup3r541y4n@5up3r541y4n: ~/Dev/foss/sasori\a\e[01;32msup3r541y4n@5up3r541y4n\e[00m:\e[01;34m~/Dev/foss/sasori\e[00m$ "
+  - delay: 304
+    content: "\e[92m\e[1m\e[22m\e[39m\r\n\e[92m\e[1m                              :.            :   \e[22m\e[39m\r\n\e[92m\e[1m                             .+              =. \e[22m\e[39m\r\n\e[92m\e[1m                             ++.            .-= \e[22m\e[39m\r\n\e[92m\e[1m                            :++==   .  .   :===:\e[22m\e[39m\r\n\e[92m\e[1m                            -+++.   :  :    =++-\e[22m\e[39m\r\n\e[92m\e[1m                              ==    .--.   .-=. \e[22m\e[39m\r\n\e[92m\e[1m                               :+: .-:.-. :=:   \e[22m\e[39m\r\n\e[92m\e[1m                             .-::--:-::::--:::. \e[22m\e[39m\r\n\e[92m\e[1m                            -: .:-..::::..::. :-\e[22m\e[39m\r\n\e[92m\e[1m                            - ::  ..:::: :  :: -\e[22m\e[39m\r\n\e[92m\e[1m                              -  -. :--: .-  -  \e[22m\e[39m\r\n\e[92m\e[1m                              :  -   --.  :. :  \e[22m\e[39m\r\n\e[92m\e[1m                                 :   ..   :     \e[22m\e[39m\r\n\e[92m\e[1m\e[22m\e[39m\r\n\e[92m\e[1m                                   SASORI\e[22m\e[39m\r\n\e[92m\e[1m\e[22m\e[39m\r\n\e[92m\e[1m                            Made by @5up3r541y4n \U0001F525\e[22m\e[39m\r\n\e[92m\e[1m\e[22m\e[39m\r\n\e[92m\e[1m                                   v0.1.0\e[22m\e[39m\r\n\e[92m\e[1m\e[22m\e[39m\r\n\e[92m\e[1m\e[22m\e[39m\r\n"
+  - delay: 9
+    content: "Usage: sasori [command]\r\n\r\nCommands:\r\n  sasori init   Create a configuration file for sasori\r\n  sasori start  Start crawling\r\n\r\nOptions:\r\n  --help     Show help                                                 [boolean]\r\n  --version  Show version number                                       [boolean]\r\n"
+  - delay: 11
+    content: "\e]0;sup3r541y4n@5up3r541y4n:~/Desktop\e\\\e]7;file://5up3r541y4n/home/sup3r541y4n/Desktop\e\\\e[?2004h\e]0;sup3r541y4n@5up3r541y4n: ~/Desktop\a\e[01;32msup3r541y4n@5up3r541y4n\e[00m:\e[01;34m~/Desktop\e[00m$ "
+  - delay: 2149
+    content: s
+  - delay: 94
+    content: a
+  - delay: 108
+    content: s
+  - delay: 523
+    content: o
+  - delay: 161
+    content: r
+  - delay: 93
+    content: i
+  - delay: 156
+    content: ' '
+  - delay: 3549
+    content: i
+  - delay: 183
+    content: 'n'
+  - delay: 143
+    content: i
+  - delay: 105
+    content: t
+  - delay: 223
+    content: "\r\n\e[?2004l\r"
+  - delay: 275
+    content: "\e[92m\e[1m\e[22m\e[39m\r\n\e[92m\e[1m                              :.            :   \e[22m\e[39m\r\n\e[92m\e[1m                             .+              =. \e[22m\e[39m\r\n\e[92m\e[1m                             ++.            .-= \e[22m\e[39m\r\n\e[92m\e[1m                            :++==   .  .   :===:\e[22m\e[39m\r\n\e[92m\e[1m                            -+++.   :  :    =++-\e[22m\e[39m\r\n\e[92m\e[1m                              ==    .--.   .-=. \e[22m\e[39m\r\n\e[92m\e[1m                               :+: .-:.-. :=:   \e[22m\e[39m\r\n\e[92m\e[1m                             .-::--:-::::--:::. \e[22m\e[39m\r\n\e[92m\e[1m                            -: .:-..::::..::. :-\e[22m\e[39m\r\n\e[92m\e[1m                            - ::  ..:::: :  :: -\e[22m\e[39m\r\n\e[92m\e[1m                              -  -. :--: .-  -  \e[22m\e[39m\r\n\e[92m\e[1m                              :  -   --.  :. :  \e[22m\e[39m\r\n\e[92m\e[1m                                 :   ..   :     \e[22m\e[39m\r\n\e[92m\e[1m\e[22m\e[39m\r\n\e[92m\e[1m                                   SASORI\e[22m\e[39m\r\n\e[92m\e[1m\e[22m\e[39m\r\n\e[92m\e[1m                            Made by @5up3r541y4n \U0001F525\e[22m\e[39m\r\n\e[92m\e[1m\e[22m\e[39m\r\n\e[92m\e[1m                                   v0.1.0\e[22m\e[39m\r\n\e[92m\e[1m\e[22m\e[39m\r\n\e[92m\e[1m\e[22m\e[39m\r\n"
+  - delay: 6
+    content: "\e[32m[INFO] Config file created at: /home/sup3r541y4n/Desktop/config.json\e[39m\r\n"
+  - delay: 15
+    content: "\e]0;sup3r541y4n@5up3r541y4n:~/Desktop\e\\\e]7;file://5up3r541y4n/home/sup3r541y4n/Desktop\e\\\e[?2004h\e]0;sup3r541y4n@5up3r541y4n: ~/Desktop\a\e[01;32msup3r541y4n@5up3r541y4n\e[00m:\e[01;34m~/Desktop\e[00m$ "
+  - delay: 1618
+    content: s
+  - delay: 90
+    content: a
+  - delay: 86
+    content: s
+  - delay: 598
+    content: o
+  - delay: 141
+    content: r
+  - delay: 88
+    content: i
+  - delay: 158
+    content: ' '
+  - delay: 1925
+    content: s
+  - delay: 106
+    content: t
+  - delay: 94
+    content: a
+  - delay: 112
+    content: r
+  - delay: 177
+    content: t
+  - delay: 128
+    content: ' '
+  - delay: 480
+    content: '-'
+  - delay: 126
+    content: '-'
+  - delay: 158
+    content: c
+  - delay: 93
+    content: o
+  - delay: 240
+    content: 'n'
+  - delay: 111
+    content: f
+  - delay: 114
+    content: i
+  - delay: 110
+    content: g
+  - delay: 65
+    content: ' '
+  - delay: 391
+    content: .
+  - delay: 174
+    content: /
+  - delay: 144
+    content: c
+  - delay: 153
+    content: o
+  - delay: 142
+    content: 'nfig.json '
+  - delay: 427
+    content: "\r\n\e[?2004l\r"
+  - delay: 297
+    content: "\e[92m\e[1m\e[22m\e[39m\r\n\e[92m\e[1m                              :.            :   \e[22m\e[39m\r\n\e[92m\e[1m                             .+              =. \e[22m\e[39m\r\n\e[92m\e[1m                             ++.            .-= \e[22m\e[39m\r\n\e[92m\e[1m                            :++==   .  .   :===:\e[22m\e[39m\r\n\e[92m\e[1m                            -+++.   :  :    =++-\e[22m\e[39m\r\n\e[92m\e[1m                              ==    .--.   .-=. \e[22m\e[39m\r\n\e[92m\e[1m                               :+: .-:.-. :=:   \e[22m\e[39m\r\n\e[92m\e[1m                             .-::--:-::::--:::. \e[22m\e[39m\r\n\e[92m\e[1m                            -: .:-..::::..::. :-\e[22m\e[39m\r\n\e[92m\e[1m                            - ::  ..:::: :  :: -\e[22m\e[39m\r\n\e[92m\e[1m                              -  -. :--: .-  -  \e[22m\e[39m\r\n\e[92m\e[1m                              :  -   --.  :. :  \e[22m\e[39m\r\n\e[92m\e[1m                                 :   ..   :     \e[22m\e[39m\r\n\e[92m\e[1m\e[22m\e[39m\r\n\e[92m\e[1m                                   SASORI\e[22m\e[39m\r\n\e[92m\e[1m\e[22m\e[39m\r\n\e[92m\e[1m                            Made by @5up3r541y4n \U0001F525\e[22m\e[39m\r\n\e[92m\e[1m\e[22m\e[39m\r\n\e[92m\e[1m                                   v0.1.0\e[22m\e[39m\r\n\e[92m\e[1m\e[22m\e[39m\r\n\e[92m\e[1m\e[22m\e[39m\r\n"
+  - delay: 9
+    content: "\e[32m[INFO] Config file \"./config.json\" exists.\e[39m\r\n"
+  - delay: 24
+    content: "\e[92m[INFO] Initializing browser...\e[39m\r\n"
+  - delay: 549
+    content: "\e[92m[INFO] Browser initialized successfully!\e[39m\r\n\e[92m[INFO] Sasori will now start crawling from https://security-crawl-maze.app/\e[39m\r\n\e[92m[INFO] Max duration is set to 0, sasori will run indefinitely.\e[39m\r\n"
+  - delay: 1071
+    content: "\e[92m[INFO] Setting up scope manager...\e[39m\r\n\e[92m[INFO] Scope manager started successfully!\e[39m\r\n\e[92m[INFO] Creating crawl state manager...\e[39m\r\n"
+  - delay: 7
+    content: "\e[95m[URL] \e[39m\e[32mhttps://security-crawl-maze.app/\e[39m\r\n"
+  - delay: 581
+    content: "\e[95m[URL] \e[39m\e[32mhttps://security-crawl-maze.app/favicon.ico\e[39m\r\n"
+  - delay: 1653
+    content: "\e[95m[URL] \e[39m\e[32mhttps://security-crawl-maze.app/css/\e[39m\r\n"
+  - delay: 416
+    content: "\e[95m[URL] \e[39m\e[32mhttps://security-crawl-maze.app/css/font-face.html\e[39m\r\n"
+  - delay: 318
+    content: "\e[95m[URL] \e[39m\e[32mhttps://security-crawl-maze.app/css/font-face.css\e[39m\r\n"
+  - delay: 732
+    content: "\e[95m[URL] \e[39m\e[32mhttps://security-crawl-maze.app/headers/\e[39m\r\n"
+  - delay: 433
+    content: "\e[95m[URL] \e[39m\e[32mhttps://security-crawl-maze.app/headers/content-location/\e[39m\r\n"
+  - delay: 1045
+    content: "\e[95m[URL] \e[39m\e[32mhttps://security-crawl-maze.app/headers/link/\e[39m\r\n"
+  - delay: 1091
+    content: "\e[95m[URL] \e[39m\e[32mhttps://security-crawl-maze.app/headers/location/\e[39m\r\n"
+  - delay: 300
+    content: "\e[95m[URL] \e[39m\e[32mhttps://security-crawl-maze.app/test/headers/location.found\e[39m\r\n"
+  - delay: 1088
+    content: "\e[95m[URL] \e[39m\e[32mhttps://security-crawl-maze.app/headers/refresh/\e[39m\r\n"
+  - delay: 688
+    content: "\e[95m[URL] \e[39m\e[32mhttps://security-crawl-maze.app/html/\e[39m\r\n"
+  - delay: 419
+    content: "\e[95m[URL] \e[39m\e[32mhttps://security-crawl-maze.app/html/body/\e[39m\r\n"
+  - delay: 452
+    content: "\e[95m[URL] \e[39m\e[32mhttps://security-crawl-maze.app/html/body/a/\e[39m\r\n"
+  - delay: 394
+    content: "\e[95m[URL] \e[39m\e[32mhttps://security-crawl-maze.app/html/body/a/href.html\e[39m\r\n"
+  - delay: 411
+    content: "\e[95m[URL] \e[39m\e[32mhttps://security-crawl-maze.app/test/html/body/a/href.found\e[39m\r\n"
+  - delay: 1702
+    content: "\e[95m[URL] \e[39m\e[32mhttps://security-crawl-maze.app/html/body/a/ping.html\e[39m\r\n"
+  - delay: 1438
+    content: "\e[95m[URL] \e[39m\e[32mhttps://security-crawl-maze.app/html/body/applet/\e[39m\r\n"
+  - delay: 417
+    content: "\e[95m[URL] \e[39m\e[32mhttps://security-crawl-maze.app/html/body/applet/archive.html\e[39m\r\n"
+  - delay: 1720
+    content: "\e[95m[URL] \e[39m\e[32mhttps://security-crawl-maze.app/html/body/applet/codebase.html\e[39m\r\n"
+  - delay: 1380
+    content: "\e[95m[URL] \e[39m\e[32mhttps://security-crawl-maze.app/html/body/audio/\e[39m\r\n"
+  - delay: 420
+    content: "\e[95m[URL] \e[39m\e[32mhttps://security-crawl-maze.app/html/body/audio/source/\e[39m\r\n"
+  - delay: 400
+    content: "\e[95m[URL] \e[39m\e[32mhttps://security-crawl-maze.app/html/body/audio/source/src.html\e[39m\r\n"
+  - delay: 317
+    content: "\e[95m[URL] \e[39m\e[32mhttps://security-crawl-maze.app/test/html/body/audio/source/src.found\e[39m\r\n"
+  - delay: 2058
+    content: "\e[95m[URL] \e[39m\e[32mhttps://security-crawl-maze.app/html/body/audio/source/srcset.html\e[39m\r\n"
+  - delay: 1700
+    content: "\e[95m[URL] \e[39m\e[32mhttps://security-crawl-maze.app/html/body/audio/src.html\e[39m\r\n"
+  - delay: 311
+    content: "\e[95m[URL] \e[39m\e[32mhttps://security-crawl-maze.app/test/html/body/audio/src.found\e[39m\r\n"
+  - delay: 341
+    content: ^C
+  - delay: 12
+    content: "\e]0;sup3r541y4n@5up3r541y4n:~/Desktop\e\\\e]7;file://5up3r541y4n/home/sup3r541y4n/Desktop\e\\\e[?2004h\e]0;sup3r541y4n@5up3r541y4n: ~/Desktop\a\e[01;32msup3r541y4n@5up3r541y4n\e[00m:\e[01;34m~/Desktop\e[00m$ "
