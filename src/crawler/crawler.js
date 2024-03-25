@@ -148,6 +148,7 @@ class Crawler {
    * @param {Page} page
    */
   async performAction(crawlManager, crawlerAction, page) {
+    let node;
     const currentStateHash = await this.getPageHash(page);
     if (currentStateHash !== crawlerAction.parentState.stateHash) {
       const shortestPath = crawlManager.getShortestPath(crawlerAction.parentState);
@@ -158,13 +159,12 @@ class Crawler {
         if (crawlAction.element != CrawlAction.ANCHOR) {
           await this.fillAllInputs(page, crawlAction.parentState.crawlInputs);
         }
-        // let node;
-        // try {
-        const node = await page.waitForSelector(crawlAction.cssPath);
-        // } catch (error) {
-        // this.removeCrawlActionFromState(crawlAction);
-        // return;
-        // }
+        try {
+          node = await page.waitForSelector(crawlAction.cssPath);
+        } catch (error) {
+          this.removeCrawlActionFromState(crawlAction);
+          return;
+        }
         try {
           await node.click();
         } catch ({name, message}) {
@@ -173,9 +173,13 @@ class Crawler {
               await node.evaluate((n) => n.click());
             } catch (error) {
               console.error(chalk.red(`\n[ERROR] ${error.message}`));
+              this.removeCrawlActionFromState(crawlAction);
+              return;
             }
           } else {
             console.error(chalk.red(`\n[ERROR] ${message}`));
+            this.removeCrawlActionFromState(crawlAction);
+            return;
           }
         }
       }
@@ -184,7 +188,12 @@ class Crawler {
     if (crawlerAction.element != CrawlAction.ANCHOR) {
       await this.fillAllInputs(page, crawlerAction.parentState.crawlInputs);
     }
-    const node = await page.waitForSelector(crawlerAction.cssPath);
+    try {
+      node = await page.waitForSelector(crawlerAction.cssPath);
+    } catch (error) {
+      this.removeCrawlActionFromState(crawlerAction);
+      return;
+    }
     try {
       await node.click();
     } catch ({name, message}) {

@@ -127,7 +127,11 @@ Example:
     "eventTimeout": 5000,
     "eventWait": 1000,
     "maxDuration": 60000,
-    "elements": ["a"],
+    "elements": [
+      "a",
+      "button",
+      "input[type=\"submit\"]"
+    ],
     "maxChildren": 10,
     "maxDepth": 5,
     "authentication": {
@@ -138,11 +142,16 @@ Example:
       },
       "scriptAuth": {
         "enabled": false,
-        "pptrRecording": "/path/to/pptr/recording.js"
+        "pptrRecording": "/path/to/pptr/recording.json"
       }
     },
-    "includeRegexes": ["example\\.com"],
-    "excludeRegexes": ["^.*\\.pdf$"]
+    "includeRegexes": [
+      "https?://example\\.com(?:/.*|)"
+    ],
+    "excludeRegexes": [
+      "^.*\\.pdf$",
+      "https?://example\\.com/logout"
+    ]
   }
 }
 ```
