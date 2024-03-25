@@ -29,6 +29,25 @@ Sasori is a powerful and flexible dynamic web crawler built on Puppeteer. It all
 ## Getting Started:
 To get started with Sasori, follow these steps:
 
+### Recommended
+1. Install the package globally:
+```bash
+npm install -g sasori-crawl
+```
+
+2. Create Sasori's configuration file:
+```bash
+sasori init
+```
+
+3. Edit the configuration file. Check [Configuration](#configuration)
+
+4. Run Sasori:
+```bash
+sasori start --config /path/to/config.json
+```
+
+### Alternative
 1. Clone the repository:
 ```bash
 git clone https://github.com/karthikuj/sasori.git
@@ -40,11 +59,11 @@ cd sasori
 npm install
 ```
 
-3. Configure Sasori by editing the configuration file in the `config` directory.
+3. Configure Sasori by editing the configuration file in the `config` directory. Check [Configuration](#configuration).
 
 4. Run Sasori:
 ```bash
-npm start
+node . start --config ./config/config.json
 ```
 
 
@@ -60,8 +79,8 @@ Sasori offers various configuration options to customize its behavior. These inc
 
 
 ## Contributing:
-Contributions to Sasori are welcome! If you encounter any bugs, have feature requests, or would like to contribute code improvements, please follow the guidelines in the CONTRIBUTING.md file.
+Contributions to Sasori are welcome! If you encounter any bugs, have feature requests, or would like to contribute code improvements, please follow the guidelines in the [CONTRIBUTING.md](CONTRIBUTING.md) file.
 
 
 ## License:
-Needs to be updated
+This project is licensed under the [MIT License](LICENSE).
