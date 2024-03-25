@@ -3,16 +3,6 @@
   "version": "0.1.0",
   "description": "Sasori is a dynamic web crawler powered by Puppeteer, designed for lightning-fast endpoint discovery.",
   "main": "bin/index.js",
-  "directories": {
-    "test": "tests"
-  },
-  "bin": {
-    "sasori": "./bin/index.js"
-  },
-  "scripts": {
-    "start": "node ."
-  },
-  "keywords": [],
   "author": "Karthik UJ",
   "contributors": [
     {
@@ -21,7 +11,29 @@
       "url": "https://www.5up3r541y4n.tech/"
     }
   ],
-  "license": "ISC",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/karthikuj/sasori.git"
+  },
+  "bin": {
+    "sasori": "./bin/index.js"
+  },
+  "scripts": {
+    "start": "node ."
+  },
+  "keywords": [
+    "crawler",
+    "crawling",
+    "scraping",
+    "endpoint-discovery",
+    "puppeteer",
+    "dynamic",
+    "automation",
+    "security",
+    "dast",
+    "infosec"
+  ],
   "dependencies": {
     "@puppeteer/replay": "^2.13.4",
     "chalk": "^4",
