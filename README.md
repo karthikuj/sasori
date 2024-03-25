@@ -67,16 +67,85 @@ node . start --config ./config/config.json
 ```
 
 
-## Configuration:
-Sasori offers various configuration options to customize its behavior. These include:
+## Configuration
 
-- Headless and Headful modes.
-- Proxy server settings for integration with Zaproxy or Burp Suite.
-- Customize crawl elements.
-- Authentication recording.
-- Max duration.
-- Regexes for scope management.
+The Sasori configuration consists of two main sections: `browser` and `crawler`. Each section contains specific settings to customize the behavior of the crawler and the browser used for crawling.
 
+### Browser Configuration
+
+The `browser` section contains settings related to the browser used by the crawler.
+
+- **headless**: (boolean) Specifies whether the browser should run in headless mode. Default: `false`.
+- **maximize**: (boolean) Specifies whether the browser window should be maximized. Default: `false`.
+- **proxy**: (object) Configuration for proxy settings.
+  - **enabled**: (boolean) Specifies whether proxy is enabled.
+  - **host**: (string) Hostname of the proxy server. Required if `enabled` is `true`.
+  - **port**: (integer) Port of the proxy server. Required if `enabled` is `true`.
+
+Example:
+
+```json
+{
+  "browser": {
+    "headless": true,
+    "maximize": false,
+    "proxy": {
+      "enabled": true,
+      "host": "proxy.example.com",
+      "port": 8080
+    }
+  }
+}
+```
+
+### Crawler Configuration
+
+The `crawler` section contains settings related to the behavior of the crawler.
+
+- **entryPoint**: (string) URL of the entry point from where the crawling starts. Required.
+- **eventTimeout**: (integer) Timeout (in milliseconds) for waiting for events during crawling. Required.
+- **eventWait**: (integer) Timeout (in milliseconds) for waiting between events during crawling. Required.
+- **maxDuration**: (integer) Maximum duration (in milliseconds) for the crawling process. Required.
+- **elements**: (array of css paths) List of HTML css paths to click during crawling. Required.
+- **maxChildren**: (integer) Maximum number of child elements to crawl from each parent state. Required.
+- **maxDepth**: (integer) Maximum depth of the crawling process. Required.
+- **authentication**: (object) Authentication settings for crawler.
+  - **basicAuth**: (object) Configuration for HTTP basic authentication.
+    - **enabled**: (boolean) Specifies whether basic authentication is enabled.
+    - **username**: (string) Username for basic authentication. Required if `enabled` is `true`.
+    - **password**: (string) Password for basic authentication. Required if `enabled` is `true`.
+  - **scriptAuth**: (object) Configuration for script-based authentication.
+    - **enabled**: (boolean) Specifies whether script-based authentication is enabled.
+    - **pptrRecording**: (string) Path to Puppeteer recording script for authentication. Required if `enabled` is `true`.
+
+Example:
+
+```json
+{
+  "crawler": {
+    "entryPoint": "https://example.com",
+    "eventTimeout": 5000,
+    "eventWait": 1000,
+    "maxDuration": 60000,
+    "elements": ["a"],
+    "maxChildren": 10,
+    "maxDepth": 5,
+    "authentication": {
+      "basicAuth": {
+        "enabled": true,
+        "username": "user",
+        "password": "password"
+      },
+      "scriptAuth": {
+        "enabled": false,
+        "pptrRecording": "/path/to/pptr/recording.js"
+      }
+    },
+    "includeRegexes": ["example\\.com"],
+    "excludeRegexes": ["^.*\\.pdf$"]
+  }
+}
+```
 
 ## Contributing:
 Contributions to Sasori are welcome! If you encounter any bugs, have feature requests, or would like to contribute code improvements, please follow the guidelines in the [CONTRIBUTING.md](CONTRIBUTING.md) file.
