@@ -382,6 +382,12 @@ class Crawler {
         });
       } else interceptedRequest.continue();
     });
+
+    // Dismiss all alerts/popups
+    page.on('dialog', async (dialog) => {
+      await dialog.dismiss();
+    });
+
     console.log(chalk.greenBright(`[INFO] Scope manager started successfully!`));
 
     // Start authentication if enabled.
