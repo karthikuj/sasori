@@ -1,4 +1,4 @@
-import {randomUUID} from 'crypto';
+const {randomUUID} = require('crypto');
 
 /**
  * The CrawlAction class specifies the action to take on an element
@@ -44,4 +44,4 @@ class CrawlAction {
   }
 }
 
-export default CrawlAction;
+module.exports = CrawlAction;

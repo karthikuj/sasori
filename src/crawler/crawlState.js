@@ -1,4 +1,4 @@
-import {randomUUID} from 'crypto';
+const {randomUUID} = require('crypto');
 
 /**
  * The CrawlState class specifies the state of the DOM after an action
@@ -39,4 +39,4 @@ class CrawlState {
   }
 }
 
-export default CrawlState;
+module.exports = CrawlState;

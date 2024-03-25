@@ -1,14 +1,16 @@
-import * as cheerio from 'cheerio';
-import Browser from '../browser/browser.js';
-import CrawlAction from './crawlAction.js';
-import CrawlInput from './crawlInput.js';
-import CrawlState from './crawlState.js';
-import CrawlStateManager from './crawlStateManager.js';
-import DomPath from './domPath.js';
-import authenticate from '../auth/authenticator.js';
-import chalk from 'chalk';
-import {createHash} from 'crypto';
-import {writeFileSync} from 'fs';
+const cheerio = require('cheerio');
+const path = require('path');
+const Browser = require('../browser/browser.js');
+const CrawlAction = require('./crawlAction.js');
+const CrawlInput = require('./crawlInput.js');
+const CrawlState = require('./crawlState.js');
+const CrawlStateManager = require('./crawlStateManager.js');
+const DomPath = require('./domPath.js');
+const authenticate = require('../auth/authenticator.js');
+const chalk = require('chalk');
+const {createHash} = require('crypto');
+const {writeFileSync} = require('fs');
+
 
 /**
  * The Crawler class is responsible for creating and managing the crawler.
@@ -250,7 +252,7 @@ class Crawler {
    */
   async startAuthentication(browser, page) {
     this.authInProgress = true;
-    await authenticate(browser, page, new URL(this.crawlerConfig.authentication.scriptAuth.pptrRecording, import.meta.url));
+    await authenticate(browser, page, path.resolve(__dirname, this.crawlerConfig.authentication.scriptAuth.pptrRecording));
     this.authInProgress = false;
     await this.maximizeViewport(page);
   }
@@ -434,4 +436,4 @@ class Crawler {
   stopCrawling() { }
 }
 
-export default Crawler;
+module.exports = Crawler;

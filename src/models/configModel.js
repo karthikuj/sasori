@@ -1,4 +1,4 @@
-import Joi from 'joi';
+const Joi = require('joi');
 
 /**
  * Proxy model for the proxy configuration of the crawler
@@ -87,4 +87,4 @@ const configModel = Joi.object({
   crawler: crawlerModel,
 });
 
-export default configModel;
+module.exports = configModel;

@@ -333,4 +333,4 @@ class DomPath {
   }
 }
 
-export default DomPath;
+module.exports = DomPath;

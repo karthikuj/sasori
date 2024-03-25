@@ -1,4 +1,4 @@
-import {launch} from 'puppeteer';
+const {launch} = require('puppeteer');
 
 /**
  * The Browser class is responsible for instantiating and
@@ -47,4 +47,4 @@ class Browser {
   }
 }
 
-export default Browser;
+module.exports = Browser;

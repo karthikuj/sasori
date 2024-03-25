@@ -1,5 +1,5 @@
-import chalk from 'chalk';
-import path from 'path';
+const chalk = require('chalk');
+const path = require('path');
 
 /**
  * The CrawlInput class specifies an input element in a CrawlState.
@@ -313,4 +313,4 @@ class CrawlInput {
   }
 }
 
-export default CrawlInput;
+module.exports = CrawlInput;

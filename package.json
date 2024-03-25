@@ -9,7 +9,6 @@
   "bin": {
     "sasori": "./bin/index.js"
   },
-  "type": "module",
   "scripts": {
     "start": "node ."
   },
@@ -25,7 +24,7 @@
   "license": "ISC",
   "dependencies": {
     "@puppeteer/replay": "^2.13.4",
-    "chalk": "^5.3.0",
+    "chalk": "^4",
     "cheerio": "^1.0.0-rc.12",
     "joi": "^17.12.2",
     "puppeteer": "^21.5.1",

@@ -1,5 +1,5 @@
-import {PuppeteerRunnerExtension, createRunner} from '@puppeteer/replay';
-import fs from 'fs';
+const {PuppeteerRunnerExtension, createRunner} = require('@puppeteer/replay');
+const fs = require('fs');
 
 /**
  * The Extension class responsible for running the pptr auth recording.
@@ -57,4 +57,4 @@ async function authenticate(browser, page, pptrJsonRecordingPath) {
   await runner.run();
 }
 
-export default authenticate;
+module.exports = authenticate;

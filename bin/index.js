@@ -1,9 +1,11 @@
-import Crawler from '../src/crawler/crawler.js';
-import chalk from 'chalk';
-import configModel from '../src/models/configModel.js';
-import fs from 'fs';
-import path from 'path';
-import yargs from 'yargs';
+#!/usr/bin/env node
+
+const Crawler = require('../src/crawler/crawler.js');
+const chalk = require('chalk');
+const configModel = require('../src/models/configModel.js');
+const fs = require('fs');
+const path = require('path');
+const yargs = require('yargs');
 
 const configFilePath = path.join('config', 'config.json');
 const version = '0.1.0';
@@ -36,7 +38,9 @@ const yarg = yargs();
 yarg.usage('Usage: sasori [command]');
 yarg.version(version);
 
-// Command to create the config file for sasori.
+/**
+ * Command to create the config file for sasori.
+ */
 yarg.command({
   command: 'init',
   describe: 'Create a configuration file for sasori',
@@ -49,12 +53,14 @@ yarg.command({
 
       console.log(chalk.green(`[INFO] Config file created at: ${destinationPath}`));
     } catch (error) {
-      console.error(chalk.red(`Error moving file: ${error}`));
+      console.error(chalk.red(`[ERROR] Error creating configuration file: ${error}`));
     }
   },
 });
 
-// Command to start crawling
+/**
+ * Command to start crawling.
+ */
 yarg.command({
   command: 'start',
   describe: 'Start crawling',
@@ -77,8 +83,8 @@ yarg.command({
       }
       const crawler = new Crawler(value);
       crawler.startCrawling();
-    } catch (error) {
-      console.error(chalk.red(`File "${argv.config}" does not exist: ${error}`));
+    } catch (err) {
+      console.error(chalk.red(`[ERROR] ${err.message}`));
     }
   },
 });
