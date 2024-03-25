@@ -4,11 +4,11 @@ const Crawler = require('../src/crawler/crawler.js');
 const chalk = require('chalk');
 const configModel = require('../src/models/configModel.js');
 const fs = require('fs');
+const {version} = require('../package.json');
 const path = require('path');
 const yargs = require('yargs');
 
 const configFilePath = path.join(__dirname, '..', 'config', 'config.json');
-const version = '0.1.0';
 const banner = `
                               :.            :   
                              .+              =. 
