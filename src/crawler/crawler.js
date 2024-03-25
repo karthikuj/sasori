@@ -1,5 +1,4 @@
 import * as cheerio from 'cheerio';
-import {readFileSync, writeFileSync} from 'fs';
 import Browser from '../browser/browser.js';
 import CrawlAction from './crawlAction.js';
 import CrawlInput from './crawlInput.js';
@@ -9,6 +8,7 @@ import DomPath from './domPath.js';
 import authenticate from '../auth/authenticator.js';
 import chalk from 'chalk';
 import {createHash} from 'crypto';
+import {writeFileSync} from 'fs';
 
 /**
  * The Crawler class is responsible for creating and managing the crawler.
@@ -22,11 +22,11 @@ class Crawler {
 
   /**
    * Crawler class contructor.
-   * @param {string} configPath
+   * @param {Object} config
    */
-  constructor(configPath) {
-    this.configPath = configPath;
-    this.crawlerConfig = this.getCrawlerConfig(this.configPath);
+  constructor(config) {
+    this.config = config;
+    this.crawlerConfig = config.crawler;
     this.authInProgress = false;
     this.allUrls = new Set();
     this.allInteractables = [...this.crawlerConfig.elements].concat(CrawlInput.INPUT_FIELDS.map((element) => element.CSS_PATH));
@@ -76,24 +76,6 @@ class Crawler {
       const srcValue = $(element).attr('src');
       $(element).attr('src', srcValue.split('?')[0]);
     });
-  }
-
-  /**
-   * Fetches and returns crawlConfig
-   * @param {string} configPath
-   * @return {Object} crawlConfig
-   */
-  getCrawlerConfig(configPath) {
-    const configFilePath = new URL(configPath, import.meta.url);
-    let crawlerConfig = {};
-
-    try {
-      crawlerConfig = JSON.parse(readFileSync(configFilePath, 'utf-8'))['crawler'];
-    } catch (error) {
-      console.error('Error reading/parsing JSON file:', error.message);
-    }
-
-    return crawlerConfig;
   }
 
   /**
@@ -330,7 +312,7 @@ class Crawler {
    */
   async startCrawling() {
     console.log(chalk.greenBright(`[INFO] Initializing browser...`));
-    const browser = await Browser.getBrowserInstance(this.configPath);
+    const browser = await Browser.getBrowserInstance(this.config.browser);
     console.log(chalk.greenBright(`[INFO] Browser initialized successfully!`));
     console.log(chalk.greenBright(`[INFO] Sasori will now start crawling from ${this.crawlerConfig.entryPoint}`));
 

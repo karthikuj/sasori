@@ -1,5 +1,6 @@
 import Crawler from '../src/crawler/crawler.js';
 import chalk from 'chalk';
+import configModel from '../src/models/configModel.js';
 import fs from 'fs';
 import path from 'path';
 import yargs from 'yargs';
@@ -68,7 +69,13 @@ yarg.command({
     try {
       fs.accessSync(argv.config, fs.constants.F_OK);
       console.log(chalk.green(`[INFO] Config file "${argv.config}" exists.`));
-      const crawler = new Crawler(path.resolve(argv.config));
+      const config = JSON.parse(fs.readFileSync(argv.config, 'utf-8'));
+      const {error, value} = configModel.validate(config);
+      if (error) {
+        console.error(chalk.red(`[ERROR] ${error.message}`));
+        return;
+      }
+      const crawler = new Crawler(value);
       crawler.startCrawling();
     } catch (error) {
       console.error(chalk.red(`File "${argv.config}" does not exist: ${error}`));
