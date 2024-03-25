@@ -7,7 +7,7 @@ const fs = require('fs');
 const path = require('path');
 const yargs = require('yargs');
 
-const configFilePath = path.join('config', 'config.json');
+const configFilePath = path.join(__dirname, '..', 'config', 'config.json');
 const version = '0.1.0';
 const banner = `
                               :.            :   
