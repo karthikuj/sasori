@@ -1,5 +1,6 @@
 const chalk = require('chalk');
 const path = require('path');
+const {randomUUID} = require('crypto');
 
 /**
  * The CrawlInput class specifies an input element in a CrawlState.
@@ -127,11 +128,22 @@ class CrawlInput {
    * @param {string} element
    * @param {string} type
    * @param {string} cssPath
+   * @param {CrawlState} parentState
    */
-  constructor(element, type, cssPath) {
+  constructor(element, type, cssPath, parentState) {
+    this.inputId = randomUUID();
     this.element = element;
     this.type = type;
     this.cssPath = cssPath;
+    this.parentState = parentState;
+  }
+
+  /**
+   * Returns the parentState associated with the CrawlAction.
+   * @return {CrawlState}
+   */
+  getParentState() {
+    return this.parentState;
   }
 
   /**

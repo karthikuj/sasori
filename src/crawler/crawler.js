@@ -83,16 +83,17 @@ class Crawler {
   /**
    * Fetches all possible CrawlInputs on a CrawlState and returns them.
    * @param {Page} page
+   * @param {CrawlState} currentState
    * @return {CrawlInput[]}
    */
-  async getCrawlInputs(page) {
+  async getCrawlInputs(page, currentState) {
     const domPath = new DomPath(page);
     const crawlInputs = [];
     for (const input of CrawlInput.INPUT_FIELDS) {
       const cssPath = input.CSS_PATH;
       const cssPaths = await domPath.getCssPaths(cssPath);
       crawlInputs.push(...cssPaths.map((cssPath) => {
-        return new CrawlInput(input.ELEMENT, input.TYPE, cssPath);
+        return new CrawlInput(input.ELEMENT, input.TYPE, cssPath, currentState);
       }));
     }
 
@@ -137,7 +138,12 @@ class Crawler {
    */
   async fillAllInputs(page, crawlInputs) {
     for (const crawlInput of crawlInputs) {
-      await crawlInput.inputFieldHandler(page);
+      try {
+        await crawlInput.inputFieldHandler(page);
+      } catch (error) {
+        console.error(chalk.red(`[ERROR] Could not fill input field: ${crawlInput.cssPath}`));
+        this.removeCrawlInputFromState(crawlInput);
+      }
     }
   }
 
@@ -152,11 +158,13 @@ class Crawler {
     const currentStateHash = await this.getPageHash(page);
     if (currentStateHash !== crawlerAction.parentState.stateHash) {
       const shortestPath = crawlManager.getShortestPath(crawlerAction.parentState);
-      // console.log('Shortest path:');
-      // console.log(shortestPath.map((action) => action.cssPath));
+      console.log('Shortest path:');
+      console.log(shortestPath.map((action) => action.cssPath));
       await page.goto(this.crawlerConfig.entryPoint, {waitUntil: 'domcontentloaded'});
       for (const crawlAction of shortestPath) {
         if (crawlAction.element != CrawlAction.ANCHOR) {
+          console.log('All crawlinputs:');
+          console.log(crawlAction.parentState.crawlInputs);
           await this.fillAllInputs(page, crawlAction.parentState.crawlInputs);
         }
         try {
@@ -272,7 +280,7 @@ class Crawler {
    * @return {string}
    */
   async getPageHash(page) {
-    await page.waitForFunction(()=>document.readyState === 'complete', {timeout: this.crawlerConfig.eventTimeout});
+    await page.waitForFunction(()=>document.readyState === 'complete', {timeout: this.crawlerConfig.navigationTimeout});
     let $;
     try {
       $ = cheerio.load(await page.content(), {xmlMode: true});
@@ -304,7 +312,7 @@ class Crawler {
     crawlState.crawlActions = await this.getCrawlActions(page, crawlState, crawlManager);
     // console.log('Crawl actions found:');
     // console.log(crawlState.crawlActions.map((action) => action.cssPath));
-    crawlState.crawlInputs = await this.getCrawlInputs(page);
+    crawlState.crawlInputs = await this.getCrawlInputs(page, crawlState);
     // console.log(`Crawl inputs found:`);
     // console.log(crawlState.crawlInputs.map((input) => input.cssPath));
     return crawlState;
@@ -316,6 +324,14 @@ class Crawler {
    */
   removeCrawlActionFromState(crawlAction) {
     crawlAction.getParentState().crawlActions = crawlAction.getParentState().crawlActions.filter((value)=>crawlAction.actionId !== value.actionId);
+  }
+
+  /**
+   * Removes the given CrawlAction from the parent CrawlState.
+   * @param {CrawlInput} crawlInput
+   */
+  removeCrawlInputFromState(crawlInput) {
+    crawlInput.getParentState().crawlInputs = crawlInput.getParentState().crawlInputs.filter((value)=>crawlInput.inputId !== value.inputId);
   }
 
   /**
@@ -345,6 +361,8 @@ class Crawler {
     }
     const allPages = await browser.pages();
     const page = allPages[0];
+    page.setDefaultTimeout(this.crawlerConfig.eventTimeout);
+    page.setDefaultNavigationTimeout(this.crawlerConfig.navigationTimeout);
     await this.maximizeViewport(page);
 
     // Authenticate if basic auth is enabled
@@ -409,8 +427,8 @@ class Crawler {
 
     while ((nextCrawlAction = crawlManager.getNextCrawlAction()) && (this.crawlerConfig.maxDuration === 0 || Date.now() < endTime)) {
       const currentAction = nextCrawlAction;
-      // console.log('\nCurrent Action:');
-      // console.log(currentAction.cssPath);
+      console.log('\nCurrent Action:');
+      console.log(currentAction.cssPath);
       await this.performAction(crawlManager, currentAction, page);
       // console.log('Action performed');
       const currentStateHash = await this.getPageHash(page);

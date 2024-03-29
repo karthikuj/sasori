@@ -11,7 +11,8 @@
     "crawler": {
         "entryPoint": "https://security-crawl-maze.app/",
         "eventTimeout": 10000,
-        "eventWait": 0,
+        "navigationTimeout": 30000,
+        "eventWait": 1000,
         "maxDuration": 0,
         "elements": [
             "a",
@@ -19,7 +20,7 @@
             "input[type=\"submit\"]"
         ],
         "maxChildren": 0,
-        "maxDepth": 0,
+        "maxDepth": 10,
         "authentication": {
             "basicAuth": {
                 "enabled": false,
@@ -35,7 +36,7 @@
             "https?://security-crawl-maze.app(?:/.*|)"
         ],
         "excludeRegexes": [
-            "https?://security-crawl-maze.app/misc/known-files.*"
+            ".*logout.*"
         ]
     }
 }

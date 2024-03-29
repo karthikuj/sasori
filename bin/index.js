@@ -66,8 +66,15 @@ yarg.command({
   describe: 'Start crawling',
   builder: {
     config: {
+      alias: 'c',
       describe: 'Config file for sasori',
       demandOption: true,
+      type: 'string',
+    },
+    output: {
+      alias: 'o',
+      describe: 'Output file for the list of URLs',
+      demandOption: false,
       type: 'string',
     },
   },
