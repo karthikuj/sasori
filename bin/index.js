@@ -66,8 +66,15 @@ yarg.command({
   describe: 'Start crawling',
   builder: {
     config: {
+      alias: 'c',
       describe: 'Config file for sasori',
       demandOption: true,
+      type: 'string',
+    },
+    output: {
+      alias: 'o',
+      describe: 'Output file for the list of URLs',
+      demandOption: false,
       type: 'string',
     },
   },
@@ -80,6 +87,11 @@ yarg.command({
       if (error) {
         console.error(chalk.red(`[ERROR] ${error.message}`));
         return;
+      }
+      if (argv.output) {
+        const fullPath = path.resolve(argv.output);
+        fs.writeFileSync(fullPath, '');
+        value.crawler['outputFile'] = argv.output;
       }
       const crawler = new Crawler(value);
       crawler.startCrawling();

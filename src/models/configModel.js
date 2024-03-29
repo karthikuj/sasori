@@ -69,6 +69,7 @@ const browserModel = Joi.object({
 const crawlerModel = Joi.object({
   entryPoint: Joi.string().uri().required(),
   eventTimeout: Joi.number().integer().required(),
+  navigationTimeout: Joi.number().integer().required(),
   eventWait: Joi.number().integer().required(),
   maxDuration: Joi.number().integer().required(),
   elements: Joi.array().items(Joi.string()).min(1).required(),

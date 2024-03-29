@@ -1,16 +1,15 @@
-const cheerio = require('cheerio');
-const path = require('path');
 const Browser = require('../browser/browser.js');
 const CrawlAction = require('./crawlAction.js');
 const CrawlInput = require('./crawlInput.js');
 const CrawlState = require('./crawlState.js');
 const CrawlStateManager = require('./crawlStateManager.js');
 const DomPath = require('./domPath.js');
+const {appendFileSync} = require('fs');
 const authenticate = require('../auth/authenticator.js');
 const chalk = require('chalk');
+const cheerio = require('cheerio');
 const {createHash} = require('crypto');
-const {writeFileSync} = require('fs');
-
+const path = require('path');
 
 /**
  * The Crawler class is responsible for creating and managing the crawler.
@@ -83,16 +82,17 @@ class Crawler {
   /**
    * Fetches all possible CrawlInputs on a CrawlState and returns them.
    * @param {Page} page
+   * @param {CrawlState} currentState
    * @return {CrawlInput[]}
    */
-  async getCrawlInputs(page) {
+  async getCrawlInputs(page, currentState) {
     const domPath = new DomPath(page);
     const crawlInputs = [];
     for (const input of CrawlInput.INPUT_FIELDS) {
       const cssPath = input.CSS_PATH;
       const cssPaths = await domPath.getCssPaths(cssPath);
       crawlInputs.push(...cssPaths.map((cssPath) => {
-        return new CrawlInput(input.ELEMENT, input.TYPE, cssPath);
+        return new CrawlInput(input.ELEMENT, input.TYPE, cssPath, currentState);
       }));
     }
 
@@ -137,7 +137,12 @@ class Crawler {
    */
   async fillAllInputs(page, crawlInputs) {
     for (const crawlInput of crawlInputs) {
-      await crawlInput.inputFieldHandler(page);
+      try {
+        await crawlInput.inputFieldHandler(page);
+      } catch (error) {
+        console.error(chalk.red(`[ERROR] Could not fill input field: ${crawlInput.cssPath}`));
+        this.removeCrawlInputFromState(crawlInput);
+      }
     }
   }
 
@@ -148,6 +153,7 @@ class Crawler {
    * @param {Page} page
    */
   async performAction(crawlManager, crawlerAction, page) {
+    let node;
     const currentStateHash = await this.getPageHash(page);
     if (currentStateHash !== crawlerAction.parentState.stateHash) {
       const shortestPath = crawlManager.getShortestPath(crawlerAction.parentState);
@@ -156,15 +162,16 @@ class Crawler {
       await page.goto(this.crawlerConfig.entryPoint, {waitUntil: 'domcontentloaded'});
       for (const crawlAction of shortestPath) {
         if (crawlAction.element != CrawlAction.ANCHOR) {
+          // console.log('All crawlinputs:');
+          // console.log(crawlAction.parentState.crawlInputs);
           await this.fillAllInputs(page, crawlAction.parentState.crawlInputs);
         }
-        // let node;
-        // try {
-        const node = await page.waitForSelector(crawlAction.cssPath);
-        // } catch (error) {
-        // this.removeCrawlActionFromState(crawlAction);
-        // return;
-        // }
+        try {
+          node = await page.waitForSelector(crawlAction.cssPath);
+        } catch (error) {
+          this.removeCrawlActionFromState(crawlAction);
+          return;
+        }
         try {
           await node.click();
         } catch ({name, message}) {
@@ -173,9 +180,13 @@ class Crawler {
               await node.evaluate((n) => n.click());
             } catch (error) {
               console.error(chalk.red(`\n[ERROR] ${error.message}`));
+              this.removeCrawlActionFromState(crawlAction);
+              return;
             }
           } else {
             console.error(chalk.red(`\n[ERROR] ${message}`));
+            this.removeCrawlActionFromState(crawlAction);
+            return;
           }
         }
       }
@@ -184,7 +195,12 @@ class Crawler {
     if (crawlerAction.element != CrawlAction.ANCHOR) {
       await this.fillAllInputs(page, crawlerAction.parentState.crawlInputs);
     }
-    const node = await page.waitForSelector(crawlerAction.cssPath);
+    try {
+      node = await page.waitForSelector(crawlerAction.cssPath);
+    } catch (error) {
+      this.removeCrawlActionFromState(crawlerAction);
+      return;
+    }
     try {
       await node.click();
     } catch ({name, message}) {
@@ -203,6 +219,9 @@ class Crawler {
     if (!this.allUrls.has(page.url())) {
       console.log(chalk.magenta(`[URL] `) + chalk.green(page.url()));
       this.allUrls.add(page.url());
+      if (this.crawlerConfig.outputFile) {
+        this.appendUrlToOutputFile(page.url());
+      }
     }
   }
 
@@ -263,7 +282,7 @@ class Crawler {
    * @return {string}
    */
   async getPageHash(page) {
-    await page.waitForFunction(()=>document.readyState === 'complete', {timeout: this.crawlerConfig.eventTimeout});
+    await page.waitForFunction(()=>document.readyState === 'complete', {timeout: this.crawlerConfig.navigationTimeout});
     let $;
     try {
       $ = cheerio.load(await page.content(), {xmlMode: true});
@@ -295,7 +314,7 @@ class Crawler {
     crawlState.crawlActions = await this.getCrawlActions(page, crawlState, crawlManager);
     // console.log('Crawl actions found:');
     // console.log(crawlState.crawlActions.map((action) => action.cssPath));
-    crawlState.crawlInputs = await this.getCrawlInputs(page);
+    crawlState.crawlInputs = await this.getCrawlInputs(page, crawlState);
     // console.log(`Crawl inputs found:`);
     // console.log(crawlState.crawlInputs.map((input) => input.cssPath));
     return crawlState;
@@ -307,6 +326,23 @@ class Crawler {
    */
   removeCrawlActionFromState(crawlAction) {
     crawlAction.getParentState().crawlActions = crawlAction.getParentState().crawlActions.filter((value)=>crawlAction.actionId !== value.actionId);
+  }
+
+  /**
+   * Removes the given CrawlInput from the parent CrawlState.
+   * @param {CrawlInput} crawlInput
+   */
+  removeCrawlInputFromState(crawlInput) {
+    crawlInput.getParentState().crawlInputs = crawlInput.getParentState().crawlInputs.filter((value)=>crawlInput.inputId !== value.inputId);
+  }
+
+  /**
+   * Append the given URL to the output file.
+   * @param {string} url
+   */
+  appendUrlToOutputFile(url) {
+    const fullPath = path.resolve(this.crawlerConfig.outputFile);
+    appendFileSync(fullPath, url + '\n');
   }
 
   /**
@@ -336,6 +372,8 @@ class Crawler {
     }
     const allPages = await browser.pages();
     const page = allPages[0];
+    page.setDefaultTimeout(this.crawlerConfig.eventTimeout);
+    page.setDefaultNavigationTimeout(this.crawlerConfig.navigationTimeout);
     await this.maximizeViewport(page);
 
     // Authenticate if basic auth is enabled
@@ -353,6 +391,9 @@ class Crawler {
         if (!this.allUrls.has(interceptedRequest.url())) {
           console.log(chalk.magentaBright(`[URL] `) + chalk.green(interceptedRequest.url()));
           this.allUrls.add(interceptedRequest.url());
+          if (this.crawlerConfig.outputFile) {
+            this.appendUrlToOutputFile(interceptedRequest.url());
+          }
         }
       }
 
@@ -373,6 +414,12 @@ class Crawler {
         });
       } else interceptedRequest.continue();
     });
+
+    // Dismiss all alerts/popups
+    page.on('dialog', async (dialog) => {
+      await dialog.dismiss();
+    });
+
     console.log(chalk.greenBright(`[INFO] Scope manager started successfully!`));
 
     // Start authentication if enabled.
@@ -416,15 +463,6 @@ class Crawler {
         }
       }
     }
-
-    writeFileSync('test.log', (()=>{
-      let urlList = '';
-      for (const url of this.allUrls) {
-        urlList += (url + '\n');
-      }
-      return urlList;
-    })());
-    // crawlManager.traverse(crawlManager.rootState, [crawlManager.rootState]);
 
     console.log(chalk.greenBright.bold('Scan completed'));
     await browser.close();

@@ -104,11 +104,12 @@ The `crawler` section contains settings related to the behavior of the crawler.
 
 - **entryPoint**: (string) URL of the entry point from where the crawling starts. Required.
 - **eventTimeout**: (integer) Timeout (in milliseconds) for waiting for events during crawling. Required.
+- **navigationTimeout**: (integer) Timeout (in milliseconds) for waiting for navigation to complete during crawling. Required.
 - **eventWait**: (integer) Timeout (in milliseconds) for waiting between events during crawling. Required.
-- **maxDuration**: (integer) Maximum duration (in milliseconds) for the crawling process. Required.
+- **maxDuration**: (integer) Maximum duration (in milliseconds) for the crawling process. `0` means crawl indefinitely. Required.
 - **elements**: (array of css paths) List of HTML css paths to click during crawling. Required.
-- **maxChildren**: (integer) Maximum number of child elements to crawl from each parent state. Required.
-- **maxDepth**: (integer) Maximum depth of the crawling process. Required.
+- **maxChildren**: (integer) Maximum number of child elements to crawl from each parent state. `0` means infinite children. Required.
+- **maxDepth**: (integer) Maximum depth of the crawling process. `0` means infinite depth. Required.
 - **authentication**: (object) Authentication settings for crawler.
   - **basicAuth**: (object) Configuration for HTTP basic authentication.
     - **enabled**: (boolean) Specifies whether basic authentication is enabled.
@@ -127,7 +128,11 @@ Example:
     "eventTimeout": 5000,
     "eventWait": 1000,
     "maxDuration": 60000,
-    "elements": ["a"],
+    "elements": [
+      "a",
+      "button",
+      "input[type=\"submit\"]"
+    ],
     "maxChildren": 10,
     "maxDepth": 5,
     "authentication": {
@@ -138,11 +143,16 @@ Example:
       },
       "scriptAuth": {
         "enabled": false,
-        "pptrRecording": "/path/to/pptr/recording.js"
+        "pptrRecording": "/path/to/pptr/recording.json"
       }
     },
-    "includeRegexes": ["example\\.com"],
-    "excludeRegexes": ["^.*\\.pdf$"]
+    "includeRegexes": [
+      "https?://example\\.com(?:/.*|)"
+    ],
+    "excludeRegexes": [
+      "^.*\\.pdf$",
+      "https?://example\\.com/logout"
+    ]
   }
 }
 ```
