@@ -88,6 +88,11 @@ yarg.command({
         console.error(chalk.red(`[ERROR] ${error.message}`));
         return;
       }
+      if (argv.output) {
+        const fullPath = path.resolve(argv.output);
+        fs.writeFileSync(fullPath, '');
+        value.crawler['outputFile'] = argv.output;
+      }
       const crawler = new Crawler(value);
       crawler.startCrawling();
     } catch (err) {

@@ -1,16 +1,15 @@
-const cheerio = require('cheerio');
-const path = require('path');
 const Browser = require('../browser/browser.js');
 const CrawlAction = require('./crawlAction.js');
 const CrawlInput = require('./crawlInput.js');
 const CrawlState = require('./crawlState.js');
 const CrawlStateManager = require('./crawlStateManager.js');
 const DomPath = require('./domPath.js');
+const {appendFileSync} = require('fs');
 const authenticate = require('../auth/authenticator.js');
 const chalk = require('chalk');
+const cheerio = require('cheerio');
 const {createHash} = require('crypto');
-const {writeFileSync} = require('fs');
-
+const path = require('path');
 
 /**
  * The Crawler class is responsible for creating and managing the crawler.
@@ -158,13 +157,13 @@ class Crawler {
     const currentStateHash = await this.getPageHash(page);
     if (currentStateHash !== crawlerAction.parentState.stateHash) {
       const shortestPath = crawlManager.getShortestPath(crawlerAction.parentState);
-      console.log('Shortest path:');
-      console.log(shortestPath.map((action) => action.cssPath));
+      // console.log('Shortest path:');
+      // console.log(shortestPath.map((action) => action.cssPath));
       await page.goto(this.crawlerConfig.entryPoint, {waitUntil: 'domcontentloaded'});
       for (const crawlAction of shortestPath) {
         if (crawlAction.element != CrawlAction.ANCHOR) {
-          console.log('All crawlinputs:');
-          console.log(crawlAction.parentState.crawlInputs);
+          // console.log('All crawlinputs:');
+          // console.log(crawlAction.parentState.crawlInputs);
           await this.fillAllInputs(page, crawlAction.parentState.crawlInputs);
         }
         try {
@@ -220,6 +219,9 @@ class Crawler {
     if (!this.allUrls.has(page.url())) {
       console.log(chalk.magenta(`[URL] `) + chalk.green(page.url()));
       this.allUrls.add(page.url());
+      if (this.crawlerConfig.outputFile) {
+        this.appendUrlToOutputFile(page.url());
+      }
     }
   }
 
@@ -327,11 +329,20 @@ class Crawler {
   }
 
   /**
-   * Removes the given CrawlAction from the parent CrawlState.
+   * Removes the given CrawlInput from the parent CrawlState.
    * @param {CrawlInput} crawlInput
    */
   removeCrawlInputFromState(crawlInput) {
     crawlInput.getParentState().crawlInputs = crawlInput.getParentState().crawlInputs.filter((value)=>crawlInput.inputId !== value.inputId);
+  }
+
+  /**
+   * Append the given URL to the output file.
+   * @param {string} url
+   */
+  appendUrlToOutputFile(url) {
+    const fullPath = path.resolve(this.crawlerConfig.outputFile);
+    appendFileSync(fullPath, url + '\n');
   }
 
   /**
@@ -380,6 +391,9 @@ class Crawler {
         if (!this.allUrls.has(interceptedRequest.url())) {
           console.log(chalk.magentaBright(`[URL] `) + chalk.green(interceptedRequest.url()));
           this.allUrls.add(interceptedRequest.url());
+          if (this.crawlerConfig.outputFile) {
+            this.appendUrlToOutputFile(interceptedRequest.url());
+          }
         }
       }
 
@@ -427,8 +441,8 @@ class Crawler {
 
     while ((nextCrawlAction = crawlManager.getNextCrawlAction()) && (this.crawlerConfig.maxDuration === 0 || Date.now() < endTime)) {
       const currentAction = nextCrawlAction;
-      console.log('\nCurrent Action:');
-      console.log(currentAction.cssPath);
+      // console.log('\nCurrent Action:');
+      // console.log(currentAction.cssPath);
       await this.performAction(crawlManager, currentAction, page);
       // console.log('Action performed');
       const currentStateHash = await this.getPageHash(page);
@@ -449,15 +463,6 @@ class Crawler {
         }
       }
     }
-
-    writeFileSync('test.log', (()=>{
-      let urlList = '';
-      for (const url of this.allUrls) {
-        urlList += (url + '\n');
-      }
-      return urlList;
-    })());
-    // crawlManager.traverse(crawlManager.rootState, [crawlManager.rootState]);
 
     console.log(chalk.greenBright.bold('Scan completed'));
     await browser.close();
