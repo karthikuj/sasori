@@ -1,18 +1,19 @@
 <h1 align="center">
   <br>
-  <a href="https://github.com/karthikuj/sasori"><img src="./resources/sasori-logo.png" alt="Sasori Logo" width="200" /></a>
+  <img src="https://karthikuj.github.io/images/sasori-logo.png" alt="Sasori Logo" width="200" />
   <br>
   Sasori: Dynamic Web Crawler
   <br>
 </h1>
 
-<p align="center"><img src="./resources/sasori.gif" alt="Sasori Demo" width="700" /></p>
+<p align="center"><img src="https://karthikuj.github.io/images/sasori.gif" alt="Sasori Demo" width="700" /></p>
 
 ## Project Description:
+
 Sasori is a powerful and flexible dynamic web crawler built on Puppeteer. It allows you to automate the crawling of web applications, even those behind authentication, offers seamless integration with security testing tools like Zaproxy or Burp Suite and provides customizable configurations for enhanced flexibility.
 
-
 ## Features
+
 - **Dynamic Crawling:** Sasori excels at crawling dynamic web applications, handling AJAX-loaded content, and interacting with complex user interfaces.
 
 - **Authentication Support:** Easily spider applications behind authentication barriers by passing the puppeteer recording for the login sequence.
@@ -25,17 +26,20 @@ Sasori is a powerful and flexible dynamic web crawler built on Puppeteer. It all
 
 - **Crawl Customization:** Allows you to customize what elements to interact with to target specific use cases.
 
-
 ## Getting Started:
+
 To get started with Sasori, follow these steps:
 
 ### Recommended
+
 1. Install the package globally:
+
 ```bash
 npm install -g sasori-crawl
 ```
 
 2. Create Sasori's configuration file:
+
 ```bash
 sasori init
 ```
@@ -43,17 +47,21 @@ sasori init
 3. Edit the configuration file. Check [Configuration](#configuration)
 
 4. Run Sasori:
+
 ```bash
 sasori start --config /path/to/config.json
 ```
 
 ### Alternative
+
 1. Clone the repository:
+
 ```bash
 git clone https://github.com/karthikuj/sasori.git
 ```
 
 2. Install dependencies:
+
 ```bash
 cd sasori
 npm install
@@ -62,10 +70,10 @@ npm install
 3. Configure Sasori by editing the configuration file in the `config` directory. Check [Configuration](#configuration).
 
 4. Run Sasori:
+
 ```bash
 node . start --config ./config/config.json
 ```
-
 
 ## Configuration
 
@@ -128,11 +136,7 @@ Example:
     "eventTimeout": 5000,
     "eventWait": 1000,
     "maxDuration": 60000,
-    "elements": [
-      "a",
-      "button",
-      "input[type=\"submit\"]"
-    ],
+    "elements": ["a", "button", "input[type=\"submit\"]"],
     "maxChildren": 10,
     "maxDepth": 5,
     "authentication": {
@@ -146,20 +150,16 @@ Example:
         "pptrRecording": "/path/to/pptr/recording.json"
       }
     },
-    "includeRegexes": [
-      "https?://example\\.com(?:/.*|)"
-    ],
-    "excludeRegexes": [
-      "^.*\\.pdf$",
-      "https?://example\\.com/logout"
-    ]
+    "includeRegexes": ["https?://example\\.com(?:/.*|)"],
+    "excludeRegexes": ["^.*\\.pdf$", "https?://example\\.com/logout"]
   }
 }
 ```
 
 ## Contributing:
+
 Contributions to Sasori are welcome! If you encounter any bugs, have feature requests, or would like to contribute code improvements, please follow the guidelines in the [CONTRIBUTING.md](CONTRIBUTING.md) file.
 
-
 ## License:
+
 This project is licensed under the [MIT License](LICENSE).
