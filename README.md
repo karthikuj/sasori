@@ -133,9 +133,10 @@ Example:
 {
   "crawler": {
     "entryPoint": "https://example.com",
-    "eventTimeout": 5000,
+    "eventTimeout": 10000,
+    "navigationTimeout": 30000,
     "eventWait": 1000,
-    "maxDuration": 60000,
+    "maxDuration": 600000,
     "elements": ["a", "button", "input[type=\"submit\"]"],
     "maxChildren": 10,
     "maxDepth": 5,
