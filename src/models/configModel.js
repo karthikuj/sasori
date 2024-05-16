@@ -35,9 +35,9 @@ const basicAuthModel = Joi.object({
 }).required();
 
 /**
- * Script auth model for pptr script based auth configurations.
+ * Recorder auth model for pptr recorder based auth configurations.
  */
-const scriptAuthModel = Joi.object({
+const recorderAuthModel = Joi.object({
   enabled: Joi.boolean().required(),
   pptrRecording: Joi.string().when('enabled', {
     is: true,
@@ -51,7 +51,7 @@ const scriptAuthModel = Joi.object({
  */
 const authenticationModel = Joi.object({
   basicAuth: basicAuthModel,
-  scriptAuth: scriptAuthModel,
+  recorderAuth: recorderAuthModel,
 });
 
 /**

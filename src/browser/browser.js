@@ -26,6 +26,7 @@ class Browser {
       args.push(
           `--proxy-server=${configJson.proxy.host}:${configJson.proxy.port}`,
       );
+      args.push('--ignore-certificate-errors');
     }
     if (configJson.slowMo) {
       browserConfig.slowMo = configJson.slowMo;
