@@ -1,4 +1,4 @@
-const { launch } = require('puppeteer');
+const {launch} = require('puppeteer');
 
 /**
  * The Browser class is responsible for instantiating and
@@ -12,7 +12,7 @@ class Browser {
    * @return {Object}
    */
   static getBrowserConfig(config) {
-    const browserConfig = { headless: 'new' };
+    const browserConfig = {headless: 'new'};
     const args = [];
     let configJson = {};
 
@@ -24,7 +24,7 @@ class Browser {
     }
     if (configJson.proxy && configJson.proxy.enabled) {
       args.push(
-        `--proxy-server=${configJson.proxy.host}:${configJson.proxy.port}`,
+          `--proxy-server=${configJson.proxy.host}:${configJson.proxy.port}`,
       );
       args.push('--ignore-certificate-errors');
     }
