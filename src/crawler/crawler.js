@@ -271,7 +271,7 @@ class Crawler {
    */
   async startAuthentication(browser, page) {
     this.authInProgress = true;
-    await authenticate(browser, page, path.resolve(__dirname, this.crawlerConfig.authentication.scriptAuth.pptrRecording));
+    await authenticate(browser, page, path.resolve(__dirname, this.crawlerConfig.authentication.recorderAuth.pptrRecording));
     this.authInProgress = false;
     await this.maximizeViewport(page);
   }
@@ -423,7 +423,7 @@ class Crawler {
     console.log(chalk.greenBright(`[INFO] Scope manager started successfully!`));
 
     // Start authentication if enabled.
-    if (this.crawlerConfig.authentication.scriptAuth && this.crawlerConfig.authentication.scriptAuth.enabled) {
+    if (this.crawlerConfig.authentication.recorderAuth && this.crawlerConfig.authentication.recorderAuth.enabled) {
       console.log(chalk.greenBright(`[INFO] Running initial authentication...`));
       await this.startAuthentication(browser, page);
     }

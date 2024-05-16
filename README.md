@@ -123,9 +123,9 @@ The `crawler` section contains settings related to the behavior of the crawler.
     - **enabled**: (boolean) Specifies whether basic authentication is enabled.
     - **username**: (string) Username for basic authentication. Required if `enabled` is `true`.
     - **password**: (string) Password for basic authentication. Required if `enabled` is `true`.
-  - **scriptAuth**: (object) Configuration for script-based authentication.
-    - **enabled**: (boolean) Specifies whether script-based authentication is enabled.
-    - **pptrRecording**: (string) Path to Puppeteer recording script for authentication. Required if `enabled` is `true`.
+  - **recorderAuth**: (object) Configuration for recorder based authentication.
+    - **enabled**: (boolean) Specifies whether recorder based authentication is enabled.
+    - **pptrRecording**: (string) Path to Puppeteer recording for authentication. Required if `enabled` is `true`.
 
 Example:
 
@@ -146,7 +146,7 @@ Example:
         "username": "user",
         "password": "password"
       },
-      "scriptAuth": {
+      "recorderAuth": {
         "enabled": false,
         "pptrRecording": "/path/to/pptr/recording.json"
       }

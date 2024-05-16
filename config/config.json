@@ -27,7 +27,7 @@
                 "username": "username",
                 "password": "password"
             },
-            "scriptAuth": {
+            "recorderAuth": {
                 "enabled": false,
                 "pptrRecording": "/path/to/pptrRecording.json"
             }
