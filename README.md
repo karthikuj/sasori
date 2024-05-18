@@ -157,6 +157,27 @@ Example:
 }
 ```
 
+### Creating a puppeteer recording
+1. Open DevTools in Google Chrome and click on the 3 dots icon in the top-right corner.
+
+![DevTools Options](https://karthikuj.github.io/images/devtools-options.png)
+
+2. Go to `More tools` > `Recorder`.
+
+![Recorder](https://karthikuj.github.io/images/recorder.png)
+
+3. Click on `Create a new recording`.
+
+4. Give a name to your recording and then click on `Start recording`.
+
+5. Create the recording and then click on `End recording`.
+
+![Create Recording](https://karthikuj.github.io/images/create-recording.gif)
+
+6. Lastly export the recording by clicking on the downward arrow and then choosing `JSON` as the type.
+
+![Export Recording](https://karthikuj.github.io/images/export-recording.png)
+
 ## Contributing:
 
 Contributions to Sasori are welcome! If you encounter any bugs, have feature requests, or would like to contribute code improvements, please follow the guidelines in the [CONTRIBUTING.md](CONTRIBUTING.md) file.
