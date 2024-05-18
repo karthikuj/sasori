@@ -34,13 +34,13 @@ To get started with Sasori, follow these steps:
 
 1. Install the package globally:
 
-```bash
+```console
 npm install -g sasori-crawl
 ```
 
 2. Create Sasori's configuration file:
 
-```bash
+```console
 sasori init
 ```
 
@@ -48,7 +48,7 @@ sasori init
 
 4. Run Sasori:
 
-```bash
+```console
 sasori start --config /path/to/config.json
 ```
 
@@ -56,13 +56,13 @@ sasori start --config /path/to/config.json
 
 1. Clone the repository:
 
-```bash
+```console
 git clone https://github.com/karthikuj/sasori.git
 ```
 
 2. Install dependencies:
 
-```bash
+```console
 cd sasori
 npm install
 ```
@@ -71,7 +71,7 @@ npm install
 
 4. Run Sasori:
 
-```bash
+```console
 node . start --config ./config/config.json
 ```
 
