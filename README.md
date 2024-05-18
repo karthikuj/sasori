@@ -125,7 +125,7 @@ The `crawler` section contains settings related to the behavior of the crawler.
     - **password**: (string) Password for basic authentication. Required if `enabled` is `true`.
   - **recorderAuth**: (object) Configuration for recorder based authentication.
     - **enabled**: (boolean) Specifies whether recorder based authentication is enabled.
-    - **pptrRecording**: (string) Path to Puppeteer recording for authentication. Required if `enabled` is `true`.
+    - **pptrRecording**: (string) Path to [Puppeteer recording](#creating-a-puppeteer-recording) for authentication. Required if `enabled` is `true`.
 
 Example:
 
