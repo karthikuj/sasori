@@ -125,7 +125,7 @@ The `crawler` section contains settings related to the behavior of the crawler.
     - **password**: (string) Password for basic authentication. Required if `enabled` is `true`.
   - **recorderAuth**: (object) Configuration for recorder based authentication.
     - **enabled**: (boolean) Specifies whether recorder based authentication is enabled.
-    - **pptrRecording**: (string) Path to Puppeteer recording for authentication. Required if `enabled` is `true`.
+    - **pptrRecording**: (string) Path to [Puppeteer recording](#creating-a-puppeteer-recording) for authentication. Required if `enabled` is `true`.
 
 Example:
 
@@ -156,6 +156,35 @@ Example:
   }
 }
 ```
+
+### Creating a puppeteer recording
+1. Open DevTools in Google Chrome and click on the 3 dots icon in the top-right corner.
+<figure align="center">
+  <img src="https://karthikuj.github.io/images/devtools-options.png" alt="DevTools Options">
+  <figcaption>DevTools Options</figcaption>
+</figure>
+
+2. Go to `More tools` > `Recorder`.
+<figure align="center">
+  <img src="https://karthikuj.github.io/images/recorder.png" alt="Recorder">
+  <figcaption>Opening the recorder</figcaption>
+</figure>
+
+3. Click on `Create a new recording`.
+
+4. Give a name to your recording and then click on `Start recording`.
+
+5. Create the recording and then click on `End recording`.
+<figure align="center">
+  <img src="https://karthikuj.github.io/images/create-recording.gif" alt="Create Recording">
+  <figcaption>Creating the recording for sasori</figcaption>
+</figure>
+
+6. Lastly export the recording by clicking on the downward arrow and then choosing `JSON` as the type.
+<figure align="center">
+  <img src="https://karthikuj.github.io/images/export-recording.png" alt="Export Recording">
+  <figcaption>Exporting the recording in JSON format</figcaption>
+</figure>
 
 ## Contributing:
 
