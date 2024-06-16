@@ -30,7 +30,7 @@
             },
             "recorderAuth": {
                 "enabled": false,
-                "pptrRecording": "C:\\Users\\5up3r541y4n\\Dev\\login-recordings\\hypejab.pptr.json"
+                "pptrRecording": "/path/to/login/recording"
             }
         },
         "includeRegexes": [
