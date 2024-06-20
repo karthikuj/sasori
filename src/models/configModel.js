@@ -61,7 +61,7 @@ const browserModel = Joi.object({
   headless: Joi.boolean(),
   maximize: Joi.boolean(),
   proxy: proxyModel,
-  instances: Joi.number().integer().required()
+  instances: Joi.number().integer().required(),
 });
 
 /**

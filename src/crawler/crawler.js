@@ -346,7 +346,14 @@ class Crawler {
     appendFileSync(fullPath, url + '\n');
   }
 
-  async handleCrawl (crawlManager, browser, page, currentState) {
+  /**
+   * This function handles all the asynchronous crawling.
+   * @param {CrawlStateManager} crawlManager
+   * @param {Browser} browser
+   * @param {Page} page
+   * @param {CrawlState} currentState
+   */
+  async handleCrawl(crawlManager, browser, page, currentState) {
     let nextCrawlAction;
     while ((nextCrawlAction = crawlManager.getNextCrawlAction()) && (this.crawlerConfig.maxDuration === 0 || Date.now() < this.endTime)) {
       const currentAction = nextCrawlAction;
@@ -432,7 +439,7 @@ class Crawler {
       await page.setRequestInterception(true);
       page.on('request', async (interceptedRequest) => {
         if (interceptedRequest.isInterceptResolutionHandled()) return;
-  
+
         if (this.inContext(interceptedRequest.url())) {
           if (!this.allUrls.has(interceptedRequest.url())) {
             console.log(chalk.magentaBright(`[URL] `) + chalk.green(interceptedRequest.url()));
@@ -442,7 +449,7 @@ class Crawler {
             }
           }
         }
-  
+
         if (this.authInProgress) {
           const parsedUrl = new URL(interceptedRequest.url());
           const authority = parsedUrl.host;
@@ -451,7 +458,7 @@ class Crawler {
             this.crawlerConfig.includeRegexes.push(includeRegex);
           }
         }
-  
+
         if ((this.authInProgress == false && !this.inContext(interceptedRequest.url()))) {
           interceptedRequest.respond({
             status: 403,
@@ -475,9 +482,9 @@ class Crawler {
     if (this.crawlerConfig.authentication.recorderAuth && this.crawlerConfig.authentication.recorderAuth.enabled) {
       console.log(chalk.greenBright(`[INFO] Running initial authentication...`));
       await Promise.all(
-        Array.from({length: browsers.length}).map(
-          (v, i) => this.startAuthentication(browsers[i], allPages[i]),
-        ),
+          Array.from({length: browsers.length}).map(
+              (v, i) => this.startAuthentication(browsers[i], allPages[i]),
+          ),
       );
     }
 
@@ -492,9 +499,9 @@ class Crawler {
     // let nextCrawlAction = crawlManager.getNextCrawlAction();
 
     await Promise.all(
-      Array.from({length: browsers.length}).map(
-        (v, i) => this.handleCrawl(crawlManager, browsers[i], allPages[i], rootState),
-      ),
+        Array.from({length: browsers.length}).map(
+            (v, i) => this.handleCrawl(crawlManager, browsers[i], allPages[i], rootState),
+        ),
     );
     console.log(chalk.greenBright.bold('Scan completed'));
   }
