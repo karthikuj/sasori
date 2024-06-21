@@ -20,7 +20,8 @@
     "sasori": "bin/index.js"
   },
   "scripts": {
-    "start": "node ."
+    "start": "node .",
+    "lint": "npx eslint . --fix"
   },
   "keywords": [
     "crawler",

@@ -8,6 +8,7 @@ class CrawlStateManager {
    */
   constructor(rootState) {
     this.rootState = rootState ? rootState : null;
+    this.visitedActions = new Set();
   }
 
   /**
@@ -73,7 +74,10 @@ class CrawlStateManager {
         if (childState) {
           stack.push(...childState.getCrawlActions());
         } else {
-          return currentAction;
+          if (!this.visitedActions.has(currentAction.actionId)) {
+            this.visitedActions.add(currentAction.actionId);
+            return currentAction;
+          }
         }
       }
     }
