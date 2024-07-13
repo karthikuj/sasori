@@ -6,13 +6,14 @@
             "enabled": false,
             "host": "127.0.0.1",
             "port": 8080
-        }
+        },
+        "instances": 4
     },
     "crawler": {
         "entryPoint": "https://security-crawl-maze.app/",
         "eventTimeout": 10000,
         "navigationTimeout": 30000,
-        "eventWait": 1000,
+        "eventWait": 0,
         "maxDuration": 0,
         "elements": [
             "a",
@@ -29,7 +30,7 @@
             },
             "recorderAuth": {
                 "enabled": false,
-                "pptrRecording": "/path/to/pptrRecording.json"
+                "pptrRecording": "/path/to/login/recording"
             }
         },
         "includeRegexes": [
