@@ -226,7 +226,14 @@ class Crawler {
       }
     }
 
-    await page.waitForTimeout(this.crawlerConfig.eventWait);
+    await page.waitForFunction(
+        async (eventWait) => await new Promise((resolve) => setTimeout(()=>{
+          resolve(true);
+        }, eventWait)),
+        {timeout: this.crawlerConfig.navigationTimeout},
+        this.crawlerConfig.eventWait,
+    );
+
     if (!this.allUrls.has(page.url())) {
       console.log(chalk.magenta(`[URL] `) + chalk.green(page.url()));
       this.allUrls.add(page.url());
