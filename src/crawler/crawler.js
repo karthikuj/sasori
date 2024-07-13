@@ -32,6 +32,7 @@ class Crawler {
     this.allUrls = new Set();
     this.allInteractables = [...this.crawlerConfig.elements].concat(CrawlInput.INPUT_FIELDS.map((element) => element.CSS_PATH));
     this.endTime = null;
+    this.browserStartDelays = 1000; // 1 millisecond(s)
   }
 
   /**
@@ -119,11 +120,19 @@ class Crawler {
     for (const element of this.crawlerConfig.elements) {
       const cssPaths = await domPath.getCssPaths(element);
       for (const cssPath of cssPaths) {
-        const node = await page.$eval(cssPath, (el) => el.outerHTML);
-        const actionHash = createHash('sha256').update(node).digest('hex');
-        if (crawlManager.isCrawlActionUnique(cssPath, actionHash)) {
-          crawlActions.push(new CrawlAction(element, 'click', cssPath, actionHash, currentState));
+        const node = await page.$eval(cssPath, (el) => {
+          return {
+            outerHTML: el.outerHTML,
+            tagName: el.tagName,
+          };
+        });
+        const actionHash = createHash('sha256').update(node.outerHTML).digest('hex');
+        if (node.tagName === CrawlAction.ANCHOR) {
+          if (crawlManager.isCrawlActionUnique(cssPath, actionHash)) {
+            crawlActions.push(new CrawlAction(node.tagName, 'click', cssPath, actionHash, currentState));
+          }
         } else {
+          crawlActions.push(new CrawlAction(node.tagName, 'click', cssPath, actionHash, currentState));
         }
       }
     }
@@ -161,6 +170,7 @@ class Crawler {
       // console.log('Shortest path:');
       // console.log(shortestPath.map((action) => action.cssPath));
       await page.goto(this.crawlerConfig.entryPoint, {waitUntil: 'domcontentloaded'});
+      await page.waitForFunction(()=>document.readyState === 'complete', {timeout: this.crawlerConfig.navigationTimeout});
       for (const crawlAction of shortestPath) {
         if (crawlAction.element != CrawlAction.ANCHOR) {
           // console.log('All crawlinputs:');
@@ -413,7 +423,7 @@ class Crawler {
     if (this.crawlerConfig.maxDuration === 0) {
       console.log(chalk.greenBright(`[INFO] Max duration is set to 0, sasori will run indefinitely.`));
     } else {
-      console.log(chalk.greenBright(`[INFO] Sasori will stop crawling at ${new Date(endTime).toTimeString()}`));
+      console.log(chalk.greenBright(`[INFO] Sasori will stop crawling at ${new Date(this.endTime).toTimeString()}`));
     }
 
     const allPages = [];
@@ -491,18 +501,18 @@ class Crawler {
     console.log(chalk.greenBright(`[INFO] Creating crawl state manager...`));
     const crawlManager = new CrawlStateManager();
 
-    await allPages[0].goto(this.crawlerConfig.entryPoint, {waitUntil: ['domcontentloaded', 'networkidle0']});
+    await allPages[0].goto(this.crawlerConfig.entryPoint, {waitUntil: ['domcontentloaded']});
+    await allPages[0].waitForFunction(()=>document.readyState === 'complete', {timeout: this.crawlerConfig.navigationTimeout});
     const rootStateHash = await this.getPageHash(allPages[0]);
     const rootState = await this.getNewCrawlState(allPages[0], 0, rootStateHash, crawlManager);
     crawlManager.rootState = rootState;
 
-    // let nextCrawlAction = crawlManager.getNextCrawlAction();
-
-    await Promise.all(
-        Array.from({length: browsers.length}).map(
-            (v, i) => this.handleCrawl(crawlManager, browsers[i], allPages[i], rootState),
-        ),
-    );
+    const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+    const handleCrawls = browsers.map((browser, index) => async () => {
+      await delay(index * this.browserStartDelays);
+      return this.handleCrawl(crawlManager, browser, allPages[index], rootState);
+    });
+    await Promise.all(handleCrawls.map((handleCrawl) => handleCrawl()));
     console.log(chalk.greenBright.bold('Scan completed'));
   }
 

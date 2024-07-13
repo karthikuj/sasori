@@ -6,7 +6,7 @@ const {randomUUID} = require('crypto');
  */
 class CrawlAction {
   static {
-    this.ANCHOR = 'a';
+    this.ANCHOR = 'A';
   }
 
   /**
