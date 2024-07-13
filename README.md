@@ -180,6 +180,12 @@ Example:
   <img src="https://karthikuj.github.io/images/create-recording.gif" alt="Create Recording">
 </p>
 
+7. If you want to execute a custom JS script while authenticating, add another step in the auth flow, set the type as `customStep`, set the name as `executeScript` and lastly in the `parameters` field add a JSON object with a `target` key and the value should be the script that you want to run.
+
+<p align="center">
+  <img src="https://karthikuj.github.io/images/custom-js.png" alt="Create Recording">
+</p>
+
 6. Lastly export the recording by clicking on the downward arrow and then choosing `JSON` as the type.
 
 <p align="center">
