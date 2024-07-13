@@ -4,9 +4,11 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+## [1.0.0] - 2024-07-13
 ### Added
 - Multi-browser support
 - Wait till `document.readyState` is equal to `complete`.
+- Support to run custom JS while authenticating.
 
 ### Fixed
 - `CrawlAction` element name bug.

@@ -6,6 +6,27 @@ const fs = require('fs');
  */
 class Extension extends PuppeteerRunnerExtension {
   /**
+   *
+   * @param {@puppeteer/replay.Step} step
+   * @param {Puppeteer.Page} page
+   */
+  static executeScriptHandler = async (step, page) => {
+    if (Object.hasOwnProperty.call(step, 'parameters')) {
+      const parameters = step['parameters'];
+      if (parameters !== null && typeof parameters === 'object' && !Array.isArray(parameters)) {
+        if (Object.hasOwnProperty.call(parameters, 'target')) {
+          await page.evaluate(parameters['target']);
+        }
+      }
+    }
+  };
+
+  static customStepHandler = {
+    executeScript: this.executeScriptHandler,
+  };
+
+
+  /**
    * This defines what is to be executed before all other steps.
    * @param {@puppeteer/replay.UserFlow} flow
    */
@@ -19,6 +40,9 @@ class Extension extends PuppeteerRunnerExtension {
    * @param {@puppeteer/replay.UserFlow} flow
    */
   async beforeEachStep(step, flow) {
+    if (step.type === 'customStep' && Object.hasOwnProperty.call(Extension.customStepHandler, step.name)) {
+      await Extension.customStepHandler[step.name](step, this.page);
+    }
     await super.beforeEachStep(step, flow);
   }
 
