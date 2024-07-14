@@ -89,6 +89,7 @@ The `browser` section contains settings related to the browser used by the crawl
   - **enabled**: (boolean) Specifies whether proxy is enabled.
   - **host**: (string) Hostname of the proxy server. Required if `enabled` is `true`.
   - **port**: (integer) Port of the proxy server. Required if `enabled` is `true`.
+- **instances**: (integer): Number of browser instances to use simultaneously for crawling.
 
 Example:
 
@@ -101,7 +102,8 @@ Example:
       "enabled": true,
       "host": "proxy.example.com",
       "port": 8080
-    }
+    },
+    "instances": 4
   }
 }
 ```
