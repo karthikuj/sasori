@@ -1,0 +1,35 @@
+name: 🤙🏻 Deploy on Comment
+
+run-name: 🚀 ${{ github.actor }} deploying with comment 🚀
+
+on:
+  issue_comment:
+    types: [created]
+
+jobs: 
+  Build: 
+    runs-on: ubuntu-latest
+    permissions:
+      contents: 'read'
+      id-token: 'write'
+    if: github.event.issue.pull_request && contains(github.event.comment.body, '--deploy')
+    environment: staging
+    outputs:
+        final_version: ${{ steps.pre-build.outputs.final_version }}
+    steps:
+        - name: Get PR branch
+          id: get_base_branch
+          run: |
+            export BASE_BRANCH=$(jq -r .ref "$GITHUB_EVENT_PATH")
+            export COMMIT_ID=$(jq -r .after "$GITHUB_EVENT_PATH")
+            echo "BASE_BRANCH=$BASE_BRANCH" >> "$GITHUB_ENV"
+            echo "COMMIT_ID_SHORT=${COMMIT_ID::7}" >> "$GITHUB_ENV"
+            echo "COMMIT_ID=$COMMIT_ID" >> "$GITHUB_ENV"
+
+        - name: Display base branch
+          run: echo "The base branch is ${{ env.BASE_BRANCH }} with ${{ env.COMMIT_ID }}  ${{ env.COMMIT_ID_SHORT }}"
+
+        - name: Checkout
+          uses: actions/checkout@v4
+          with:
+            ref: ${{ env.BASE_BRANCH }}
