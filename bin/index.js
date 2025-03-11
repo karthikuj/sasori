@@ -71,6 +71,13 @@ yarg.command({
       demandOption: true,
       type: 'string',
     },
+    url:{
+      alias: 'u',
+      describe: "Url to start Crawling",
+      type: "string",
+      demandOption: false,
+      type: 'string',
+    },
     output: {
       alias: 'o',
       describe: 'Output file for the list of URLs',
@@ -83,6 +90,12 @@ yarg.command({
       fs.accessSync(argv.config, fs.constants.F_OK);
       console.log(chalk.green(`[INFO] Config file "${argv.config}" exists.`));
       const config = JSON.parse(fs.readFileSync(argv.config, 'utf-8'));
+      if(argv.url){
+        const urlObj = new URL(argv.url);
+        const domainRegex = `https?://${urlObj.hostname}(?:/.*|)`;
+        config.crawler.entryPoint = argv.url;
+        config.crawler.includeRegexes = [domainRegex];
+      }
       const {error, value} = configModel.validate(config);
       if (error) {
         console.error(chalk.red(`[ERROR] ${error.message}`));

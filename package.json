@@ -2,27 +2,6 @@
   "name": "sasori-crawl",
   "version": "1.0.0",
   "description": "Sasori is a dynamic web crawler powered by Puppeteer, designed for lightning-fast endpoint discovery.",
-  "main": "bin/index.js",
-  "author": "Karthik UJ",
-  "contributors": [
-    {
-      "name": "Karthik UJ",
-      "email": "karthikuj2001@gmail.com",
-      "url": "https://www.5up3r541y4n.tech/"
-    }
-  ],
-  "license": "MIT",
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/karthikuj/sasori.git"
-  },
-  "bin": {
-    "sasori": "bin/index.js"
-  },
-  "scripts": {
-    "start": "node .",
-    "lint": "npx eslint . --fix"
-  },
   "keywords": [
     "crawler",
     "crawling",
@@ -35,6 +14,32 @@
     "dast",
     "infosec"
   ],
+  "homepage": "https://github.com/karthikuj/sasori#readme",
+  "bugs": {
+    "url": "https://github.com/karthikuj/sasori/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/karthikuj/sasori.git"
+  },
+  "license": "MIT",
+  "author": "Karthik UJ",
+  "contributors": [
+    {
+      "name": "Karthik UJ",
+      "email": "karthikuj2001@gmail.com",
+      "url": "https://www.5up3r541y4n.tech/"
+    }
+  ],
+  "type": "commonjs",
+  "main": "bin/index.js",
+  "bin": {
+    "sasori": "bin/index.js"
+  },
+  "scripts": {
+    "start": "node .",
+    "lint": "npx eslint . --fix"
+  },
   "dependencies": {
     "@puppeteer/replay": "^2.13.4",
     "chalk": "^4",
