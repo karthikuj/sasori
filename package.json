@@ -36,11 +36,11 @@
     "infosec"
   ],
   "dependencies": {
-    "@puppeteer/replay": "^2.13.4",
+    "@puppeteer/replay": "^3.1.1",
     "chalk": "^4",
     "cheerio": "^1.0.0-rc.12",
     "joi": "^17.12.2",
-    "puppeteer": "^22.13.0",
+    "puppeteer": "^24.10.0",
     "yargs": "^17.7.2"
   },
   "devDependencies": {
