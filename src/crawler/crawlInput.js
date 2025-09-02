@@ -177,20 +177,20 @@ class CrawlInput {
    */
   async inputFieldHandler(page) {
     switch (this.element) {
-      case 'input':
-        await this.inputHandler(page);
-        break;
+    case 'input':
+      await this.inputHandler(page);
+      break;
 
-      case 'textarea':
-        await this.textareaHandler(page);
-        break;
+    case 'textarea':
+      await this.textareaHandler(page);
+      break;
 
-      case 'select':
-        await this.selectHandler(page);
-        break;
+    case 'select':
+      await this.selectHandler(page);
+      break;
 
-      default:
-        break;
+    default:
+      break;
     }
   }
 
@@ -207,73 +207,73 @@ class CrawlInput {
       console.error(chalk.red(`[ERROR] ${message}`));
     }
     switch (this.type) {
-      case 'text':
-        try {
-          await node.type(CrawlInput.VALUES['inputText']);
-        } catch ({name, message}) {
-          console.error(chalk.red(`\n[ERROR] ${message}`));
-        }
-        break;
+    case 'text':
+      try {
+        await node.type(CrawlInput.VALUES['inputText']);
+      } catch ({name, message}) {
+        console.error(chalk.red(`\n[ERROR] ${message}`));
+      }
+      break;
 
-      case 'email':
-        try {
-          await node.type(CrawlInput.VALUES['inputEmail']);
-        } catch ({name, message}) {
-          console.error(chalk.red(`\n[ERROR] ${message}`));
-        }
-        break;
+    case 'email':
+      try {
+        await node.type(CrawlInput.VALUES['inputEmail']);
+      } catch ({name, message}) {
+        console.error(chalk.red(`\n[ERROR] ${message}`));
+      }
+      break;
 
-      case 'password':
-        try {
-          await node.type(CrawlInput.VALUES['inputPassword']);
-        } catch ({name, message}) {
-          console.error(chalk.red(`\n[ERROR] ${message}`));
-        }
-        break;
+    case 'password':
+      try {
+        await node.type(CrawlInput.VALUES['inputPassword']);
+      } catch ({name, message}) {
+        console.error(chalk.red(`\n[ERROR] ${message}`));
+      }
+      break;
 
-      case 'search':
-        try {
-          await node.type(CrawlInput.VALUES['inputSearch']);
-        } catch ({name, message}) {
-          console.error(chalk.red(`\n[ERROR] ${message}`));
-        }
-        break;
+    case 'search':
+      try {
+        await node.type(CrawlInput.VALUES['inputSearch']);
+      } catch ({name, message}) {
+        console.error(chalk.red(`\n[ERROR] ${message}`));
+      }
+      break;
 
-      case 'url':
-        try {
-          await node.type(CrawlInput.VALUES['inputUrl']);
-        } catch ({name, message}) {
-          console.error(chalk.red(`\n[ERROR] ${message}`));
-        }
-        break;
+    case 'url':
+      try {
+        await node.type(CrawlInput.VALUES['inputUrl']);
+      } catch ({name, message}) {
+        console.error(chalk.red(`\n[ERROR] ${message}`));
+      }
+      break;
 
-      case 'checkbox':
-        try {
-          await node.click();
-        } catch ({name, message}) {
-          console.error(chalk.red(`\n[ERROR] ${message}`));
-        }
-        break;
+    case 'checkbox':
+      try {
+        await node.click();
+      } catch ({name, message}) {
+        console.error(chalk.red(`\n[ERROR] ${message}`));
+      }
+      break;
 
-      case 'radio':
-        try {
-          await node.click();
-        } catch ({name, message}) {
-          console.error(chalk.red(`\n[ERROR] ${message}`));
-        }
-        break;
+    case 'radio':
+      try {
+        await node.click();
+      } catch ({name, message}) {
+        console.error(chalk.red(`\n[ERROR] ${message}`));
+      }
+      break;
 
-      case 'file':
-        const filePath = await this.getFilePath(page, this.cssPath);
-        try {
-          await node.uploadFile(filePath);
-        } catch (error) {
-          console.error(chalk.red(`\n[ERROR] ${message}`));
-        }
-        break;
+    case 'file':
+      const filePath = await this.getFilePath(page, this.cssPath);
+      try {
+        await node.uploadFile(filePath);
+      } catch (error) {
+        console.error(chalk.red(`\n[ERROR] ${message}`));
+      }
+      break;
 
-      default:
-        break;
+    default:
+      break;
     }
   }
 

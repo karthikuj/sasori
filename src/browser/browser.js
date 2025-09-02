@@ -24,7 +24,7 @@ class Browser {
     }
     if (configJson.proxy && configJson.proxy.enabled) {
       args.push(
-          `--proxy-server=${configJson.proxy.host}:${configJson.proxy.port}`,
+        `--proxy-server=${configJson.proxy.host}:${configJson.proxy.port}`,
       );
       args.push('--ignore-certificate-errors');
     }

@@ -51,13 +51,13 @@ class Crawler {
       const tagName = element.name && element.name.toUpperCase();
       const allowedAttributes = [];
       switch (tagName) {
-        case 'A':
-        case 'BASE':
-          allowedAttributes.push('href');
-          break;
-        case 'SCRIPT':
-          allowedAttributes.push('src');
-          break;
+      case 'A':
+      case 'BASE':
+        allowedAttributes.push('href');
+        break;
+      case 'SCRIPT':
+        allowedAttributes.push('src');
+        break;
       }
       Object.keys(element.attribs).forEach((attrName) => {
         if (!allowedAttributes.includes(attrName)) {
@@ -227,15 +227,15 @@ class Crawler {
     }
 
     await page.waitForFunction(
-        async (eventWait) => await new Promise((resolve) => setTimeout(()=>{
-          resolve(true);
-        }, eventWait)),
-        {timeout: this.crawlerConfig.navigationTimeout},
-        this.crawlerConfig.eventWait,
+      async (eventWait) => await new Promise((resolve) => setTimeout(()=>{
+        resolve(true);
+      }, eventWait)),
+      {timeout: this.crawlerConfig.navigationTimeout},
+      this.crawlerConfig.eventWait,
     );
 
     if (!this.allUrls.has(page.url())) {
-      console.log(chalk.magenta(`[URL] `) + chalk.green(page.url()));
+      console.log(chalk.magenta('[URL] ') + chalk.green(page.url()));
       this.allUrls.add(page.url());
       if (this.crawlerConfig.outputFile) {
         this.appendUrlToOutputFile(page.url());
@@ -404,14 +404,14 @@ class Crawler {
    * Starts the crawling process.
    */
   async startCrawling() {
-    console.log(chalk.greenBright(`[INFO] Initializing browser...`));
+    console.log(chalk.greenBright('[INFO] Initializing browser...'));
     // const browser = await Browser.getBrowserInstance(this.config.browser);
     const browsers = await Promise.all(
-        Array.from({length: this.config.browser.instances}).map(
-            () => Browser.getBrowserInstance(this.config.browser),
-        ),
+      Array.from({length: this.config.browser.instances}).map(
+        () => Browser.getBrowserInstance(this.config.browser),
+      ),
     );
-    console.log(chalk.greenBright(`[INFO] Browser(s) initialized successfully!`));
+    console.log(chalk.greenBright('[INFO] Browser(s) initialized successfully!'));
     console.log(chalk.greenBright(`[INFO] Sasori will now start crawling from ${this.crawlerConfig.entryPoint}`));
 
     for (const browser of browsers) {
@@ -428,7 +428,7 @@ class Crawler {
     const startTime = Date.now();
     this.endTime = startTime + this.crawlerConfig.maxDuration;
     if (this.crawlerConfig.maxDuration === 0) {
-      console.log(chalk.greenBright(`[INFO] Max duration is set to 0, sasori will run indefinitely.`));
+      console.log(chalk.greenBright('[INFO] Max duration is set to 0, sasori will run indefinitely.'));
     } else {
       console.log(chalk.greenBright(`[INFO] Sasori will stop crawling at ${new Date(this.endTime).toTimeString()}`));
     }
@@ -451,7 +451,7 @@ class Crawler {
     }
 
     // Statically respond to out-of-scope requests.
-    console.log(chalk.greenBright(`[INFO] Setting up scope manager...`));
+    console.log(chalk.greenBright('[INFO] Setting up scope manager...'));
     for (const page of allPages) {
       await page.setRequestInterception(true);
       page.on('request', async (interceptedRequest) => {
@@ -459,7 +459,7 @@ class Crawler {
 
         if (this.inContext(interceptedRequest.url())) {
           if (!this.allUrls.has(interceptedRequest.url())) {
-            console.log(chalk.magentaBright(`[URL] `) + chalk.green(interceptedRequest.url()));
+            console.log(chalk.magentaBright('[URL] ') + chalk.green(interceptedRequest.url()));
             this.allUrls.add(interceptedRequest.url());
             if (this.crawlerConfig.outputFile) {
               this.appendUrlToOutputFile(interceptedRequest.url());
@@ -484,28 +484,28 @@ class Crawler {
           });
         } else interceptedRequest.continue();
       });
-    };
+    }
 
     // Dismiss all alerts/popups
     for (const page of allPages) {
       page.on('dialog', async (dialog) => {
         await dialog.dismiss();
       });
-    };
+    }
 
-    console.log(chalk.greenBright(`[INFO] Scope manager started successfully!`));
+    console.log(chalk.greenBright('[INFO] Scope manager started successfully!'));
 
     // Start authentication if enabled.
     if (this.crawlerConfig.authentication.recorderAuth && this.crawlerConfig.authentication.recorderAuth.enabled) {
-      console.log(chalk.greenBright(`[INFO] Running initial authentication...`));
+      console.log(chalk.greenBright('[INFO] Running initial authentication...'));
       await Promise.all(
-          Array.from({length: browsers.length}).map(
-              (v, i) => this.startAuthentication(browsers[i], allPages[i]),
-          ),
+        Array.from({length: browsers.length}).map(
+          (v, i) => this.startAuthentication(browsers[i], allPages[i]),
+        ),
       );
     }
 
-    console.log(chalk.greenBright(`[INFO] Creating crawl state manager...`));
+    console.log(chalk.greenBright('[INFO] Creating crawl state manager...'));
     const crawlManager = new CrawlStateManager();
 
     await allPages[0].goto(this.crawlerConfig.entryPoint, {waitUntil: ['domcontentloaded']});

@@ -270,31 +270,31 @@ class DomPath {
           } // Error.
 
           switch (node.nodeType) {
-            case Node.ELEMENT_NODE:
-              if (optimized && node.getAttribute('id')) {
-                return new Step('//*[@id="' + node.getAttribute('id') + '"]', true);
-              }
-              ownValue = node.localName;
-              break;
-            case Node.ATTRIBUTE_NODE:
-              ownValue = '@' + node.nodeName;
-              break;
-            case Node.TEXT_NODE:
-            case Node.CDATA_SECTION_NODE:
-              ownValue = 'text()';
-              break;
-            case Node.PROCESSING_INSTRUCTION_NODE:
-              ownValue = 'processing-instruction()';
-              break;
-            case Node.COMMENT_NODE:
-              ownValue = 'comment()';
-              break;
-            case Node.DOCUMENT_NODE:
-              ownValue = '';
-              break;
-            default:
-              ownValue = '';
-              break;
+          case Node.ELEMENT_NODE:
+            if (optimized && node.getAttribute('id')) {
+              return new Step('//*[@id="' + node.getAttribute('id') + '"]', true);
+            }
+            ownValue = node.localName;
+            break;
+          case Node.ATTRIBUTE_NODE:
+            ownValue = '@' + node.nodeName;
+            break;
+          case Node.TEXT_NODE:
+          case Node.CDATA_SECTION_NODE:
+            ownValue = 'text()';
+            break;
+          case Node.PROCESSING_INSTRUCTION_NODE:
+            ownValue = 'processing-instruction()';
+            break;
+          case Node.COMMENT_NODE:
+            ownValue = 'comment()';
+            break;
+          case Node.DOCUMENT_NODE:
+            ownValue = '';
+            break;
+          default:
+            ownValue = '';
+            break;
           }
 
           if (ownIndex > 0) {

@@ -72,10 +72,10 @@ class Extension extends PuppeteerRunnerExtension {
  */
 async function authenticate(browser, page, pptrJsonRecordingPath) {
   const pptrJson = fs.readFileSync(pptrJsonRecordingPath,
-      {encoding: 'utf8', flag: 'r'});
+    {encoding: 'utf8', flag: 'r'});
   const runner = await createRunner(
-      JSON.parse(pptrJson),
-      new Extension(browser, page, 30000),
+    JSON.parse(pptrJson),
+    new Extension(browser, page, 30000),
   );
 
   await runner.run();
