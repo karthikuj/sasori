@@ -1,19 +1,12 @@
 import { Page } from 'puppeteer';
-import { CrawlInput, CrawlAction } from './input';
+import { CrawlInput, CrawlAction, CrawlState } from './input';
 import { BrowserConfig } from './browser';
 import { AuthenticationConfig } from './auth';
 
 /**
  * Represents the state of the DOM after an action (vertex in crawl graph)
+ * This interface is now defined in input.ts to avoid circular dependencies
  */
-export interface CrawlState {
-    stateId: string;
-    url: string;
-    stateHash: string;
-    crawlDepth: number;
-    crawlInputs: CrawlInput[];
-    crawlActions: CrawlAction[];
-}
 
 /**
  * Main Crawler class interface
@@ -29,19 +22,19 @@ export interface CrawlerInterface {
 
     startCrawling(): Promise<void>;
     stripDOM($: any): void;
-    getCrawlInputs(page: Page, currentState: any): Promise<CrawlInput[]>;
-    getCrawlActions(page: Page, currentState: any): Promise<CrawlAction[]>;
+    getCrawlInputs(page: Page, currentState: CrawlState): Promise<CrawlInput[]>;
+    getCrawlActions(page: Page, currentState: CrawlState): Promise<CrawlAction[]>;
 }
 
 /**
  * Crawler state manager interface
  */
 export interface CrawlStateManagerInterface {
-    states: Map<string, any>; // Will be CrawlState when imported
-    addState(state: any): void; // Will be CrawlState when imported
-    getState(stateId: string): any | undefined; // Will be CrawlState when imported
+    states: Map<string, CrawlState>;
+    addState(state: CrawlState): void;
+    getState(stateId: string): CrawlState | undefined;
     hasState(stateId: string): boolean;
-    getAllStates(): any[]; // Will be CrawlState[] when imported
+    getAllStates(): CrawlState[];
 }
 
 /**

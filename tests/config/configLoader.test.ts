@@ -71,7 +71,8 @@ describe('Configuration Loader', () => {
     describe('loadDefault', () => {
         it('should load default configuration file', async () => {
             const mockConfig = testUtils.createValidConfig();
-            const expectedPath = path.join(__dirname, '..', '..', 'config', 'config.json');
+            // The actual implementation resolves to config/config.json from the project root
+            const expectedPath = path.resolve(process.cwd(), 'config', 'config.json');
 
             mockFs.access.mockResolvedValue(undefined);
             mockFs.readFile.mockResolvedValue(JSON.stringify(mockConfig));

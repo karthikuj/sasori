@@ -2,11 +2,12 @@ import { Page } from 'puppeteer';
 
 // DOM types for browser environment
 declare global {
-    interface Element {
+    interface Element extends Node {
         localName?: string;
         nodeName: string;
         nodeType: number;
         getAttribute(name: string): string | null;
+        parentNode: Element | null;
     }
 
     interface Node {
@@ -14,7 +15,32 @@ declare global {
         localName?: string;
         nodeName: string;
         parentNode: Node | null;
+        children: NodeListOf<Element>;
     }
+
+    interface NodeListOf<T> {
+        readonly length: number;
+        item(index: number): T | null;
+        [index: number]: T;
+    }
+
+    // CSS global object
+    interface CSS {
+        escape(ident: string): string;
+    }
+
+    const CSS: CSS;
+
+    // Node constants
+    const Node: {
+        readonly ELEMENT_NODE: 1;
+        readonly ATTRIBUTE_NODE: 2;
+        readonly TEXT_NODE: 3;
+        readonly CDATA_SECTION_NODE: 4;
+        readonly PROCESSING_INSTRUCTION_NODE: 7;
+        readonly COMMENT_NODE: 8;
+        readonly DOCUMENT_NODE: 9;
+    };
 }
 
 /**
@@ -35,14 +61,6 @@ export interface PathStep {
     toString(): string;
 }
 
-/**
- * Node types for DOM manipulation
- */
-export enum NodeType {
-    ELEMENT_NODE = 1,
-    TEXT_NODE = 3,
-    COMMENT_NODE = 8,
-}
 
 /**
  * DOM manipulation utilities interface

@@ -1,4 +1,4 @@
-import { Browser as PuppeteerBrowser } from 'puppeteer';
+import { Browser as PuppeteerBrowser, LaunchOptions } from 'puppeteer';
 
 /**
  * Browser configuration interface
@@ -24,38 +24,14 @@ export interface ProxyConfig {
  * Browser class interface for Puppeteer browser management
  */
 export interface BrowserInterface {
-    getBrowserConfig(config: BrowserConfig): PuppeteerBrowserConfig;
+    getBrowserConfig(config: BrowserConfig): LaunchOptions;
     getBrowserInstance(config: BrowserConfig): Promise<PuppeteerBrowser>;
 }
 
 /**
- * Browser configuration interface
+ * Puppeteer browser configuration (alias for LaunchOptions)
  */
-export interface BrowserConfig {
-    headless: boolean;
-    maximize: boolean;
-    proxy: ProxyConfig;
-    instances: number;
-    slowMo?: number;
-}
-
-/**
- * Proxy configuration interface
- */
-export interface ProxyConfig {
-    enabled: boolean;
-    host?: string;
-    port?: number;
-}
-
-/**
- * Puppeteer browser configuration
- */
-export interface PuppeteerBrowserConfig {
-    headless: boolean | 'new';
-    args: string[];
-    slowMo?: number;
-}
+export type PuppeteerBrowserConfig = LaunchOptions;
 
 /**
  * Browser instance management interface

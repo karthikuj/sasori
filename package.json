@@ -11,7 +11,6 @@
       "url": "https://www.5up3r541y4n.tech/"
     }
   ],
-  "license": "MIT",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/karthikuj/sasori.git"
@@ -21,6 +20,7 @@
   },
   "scripts": {
     "build": "tsc",
+    "postbuild": "cp -r config dist/",
     "dev": "tsc --watch",
     "start": "node dist/bin/index.js",
     "start:dev": "node .",

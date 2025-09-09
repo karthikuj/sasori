@@ -1,6 +1,24 @@
 import { Page } from 'puppeteer';
 
 /**
+ * Represents the state of the DOM after an action (vertex in crawl graph)
+ */
+export interface CrawlState {
+    stateId: string;
+    url: string;
+    stateHash: string;
+    crawlDepth: number;
+    crawlInputs: CrawlInput[];
+    crawlActions: CrawlAction[];
+
+    getCrawlActions(): CrawlAction[];
+    getCrawlDepth(): number;
+    getCrawlInputs(): CrawlInput[];
+    toString(): string;
+    toJSON(): Partial<CrawlState>;
+}
+
+/**
  * Represents an input element in a CrawlState
  */
 export interface CrawlInput {
@@ -8,7 +26,7 @@ export interface CrawlInput {
     element: InputElementType;
     type: InputType | null;
     cssPath: string;
-    parentState: any; // Will be CrawlState when imported
+    parentState: CrawlState;
 }
 
 /**
@@ -17,8 +35,11 @@ export interface CrawlInput {
 export interface CrawlAction {
     actionId: string;
     element: string;
+    action: string;
     cssPath: string;
-    parentState: any; // Will be CrawlState when imported
+    actionHash: string;
+    parentState: CrawlState;
+    childState: CrawlState | null;
 }
 
 /**
@@ -68,6 +89,22 @@ export interface InputValues {
 }
 
 /**
+ * CrawlAction class interface
+ */
+export interface CrawlActionInterface {
+    actionId: string;
+    element: string;
+    action: string;
+    cssPath: string;
+    actionHash: string;
+    parentState: CrawlState;
+    childState: CrawlState | null;
+
+    getParentState(): CrawlState;
+    getChildState(): CrawlState | null;
+}
+
+/**
  * CrawlInput class interface
  */
 export interface CrawlInputInterface {
@@ -75,9 +112,9 @@ export interface CrawlInputInterface {
     element: InputElementType;
     type: InputType | null;
     cssPath: string;
-    parentState: any; // Will be CrawlState when imported
+    parentState: CrawlState;
 
-    getParentState(): any; // Will be CrawlState when imported
+    getParentState(): CrawlState;
     getFilePath(page: Page, cssPath: string): Promise<string>;
     inputFieldHandler(page: Page): Promise<void>;
     inputHandler(page: Page): Promise<void>;
