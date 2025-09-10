@@ -157,7 +157,8 @@ export const configPresets = {
             maximize: false,
             proxy: { enabled: false, host: '', port: 0 },
             instances: 4,
-            slowMo: 100,
+            // slowMo disabled by default in production for speed
+            // Note: omitted to keep undefined as expected by tests
         },
         crawler: {
             entryPoint: 'https://example.com/',

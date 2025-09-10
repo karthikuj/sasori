@@ -1,7 +1,7 @@
 import { randomUUID } from 'crypto';
 import CrawlInput from './crawlInput';
 import CrawlAction from './crawlAction';
-import { CrawlState as CrawlStateInterface } from '../types/input';
+import { CrawlState as CrawlStateInterface, ArrivalType } from '../types/input';
 
 /**
  * The CrawlState class specifies the state of the DOM after an action
@@ -29,6 +29,11 @@ class CrawlState implements CrawlStateInterface {
     public readonly crawlDepth: number;
 
     /**
+     * How this state was achieved: via a link navigation or DOM interaction
+     */
+    public readonly arrivalType: ArrivalType;
+
+    /**
      * List of input elements found in this state
      */
     public crawlInputs: CrawlInput[];
@@ -50,6 +55,7 @@ class CrawlState implements CrawlStateInterface {
         url: string,
         stateHash: string,
         crawlDepth: number,
+        arrivalType: ArrivalType,
         crawlInputs?: CrawlInput[],
         crawlActions?: CrawlAction[]
     ) {
@@ -68,6 +74,7 @@ class CrawlState implements CrawlStateInterface {
         this.url = url;
         this.stateHash = stateHash;
         this.crawlDepth = crawlDepth;
+        this.arrivalType = arrivalType;
         this.crawlInputs = crawlInputs || [];
         this.crawlActions = crawlActions || [];
     }
@@ -114,6 +121,7 @@ class CrawlState implements CrawlStateInterface {
             url: this.url,
             stateHash: this.stateHash,
             crawlDepth: this.crawlDepth,
+            arrivalType: this.arrivalType,
             crawlInputs: this.crawlInputs,
             crawlActions: this.crawlActions,
         };
