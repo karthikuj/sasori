@@ -60,6 +60,7 @@ describe('CrawlState', () => {
                 'https://example.com',
                 'state-hash-123',
                 1,
+                'link',
                 mockCrawlInputs,
                 mockCrawlActions
             );
@@ -76,7 +77,8 @@ describe('CrawlState', () => {
             const crawlState = new CrawlState(
                 'https://example.com',
                 'state-hash-123',
-                0
+                0,
+                'link'
             );
 
             expect(crawlState.crawlInputs).toEqual([]);
@@ -85,85 +87,85 @@ describe('CrawlState', () => {
 
         it('should throw error for empty URL', () => {
             expect(() => {
-                new CrawlState('', 'state-hash-123', 1);
+                new CrawlState('', 'state-hash-123', 1, 'link');
             }).toThrow('URL must be a non-empty string');
         });
 
         it('should throw error for null URL', () => {
             expect(() => {
-                new CrawlState(null as any, 'state-hash-123', 1);
+                new CrawlState(null as any, 'state-hash-123', 1, 'link');
             }).toThrow('URL must be a non-empty string');
         });
 
         it('should throw error for undefined URL', () => {
             expect(() => {
-                new CrawlState(undefined as any, 'state-hash-123', 1);
+                new CrawlState(undefined as any, 'state-hash-123', 1, 'link');
             }).toThrow('URL must be a non-empty string');
         });
 
         it('should throw error for whitespace-only URL', () => {
             expect(() => {
-                new CrawlState('   ', 'state-hash-123', 1);
+                new CrawlState('   ', 'state-hash-123', 1, 'link');
             }).toThrow('URL must be a non-empty string');
         });
 
         it('should throw error for non-string URL', () => {
             expect(() => {
-                new CrawlState(123 as any, 'state-hash-123', 1);
+                new CrawlState(123 as any, 'state-hash-123', 1, 'link');
             }).toThrow('URL must be a non-empty string');
         });
 
         it('should throw error for empty stateHash', () => {
             expect(() => {
-                new CrawlState('https://example.com', '', 1);
+                new CrawlState('https://example.com', '', 1, 'link');
             }).toThrow('State hash must be a non-empty string');
         });
 
         it('should throw error for null stateHash', () => {
             expect(() => {
-                new CrawlState('https://example.com', null as any, 1);
+                new CrawlState('https://example.com', null as any, 1, 'link');
             }).toThrow('State hash must be a non-empty string');
         });
 
         it('should throw error for undefined stateHash', () => {
             expect(() => {
-                new CrawlState('https://example.com', undefined as any, 1);
+                new CrawlState('https://example.com', undefined as any, 1, 'link');
             }).toThrow('State hash must be a non-empty string');
         });
 
         it('should throw error for whitespace-only stateHash', () => {
             expect(() => {
-                new CrawlState('https://example.com', '   ', 1);
+                new CrawlState('https://example.com', '   ', 1, 'link');
             }).toThrow('State hash must be a non-empty string');
         });
 
         it('should throw error for non-string stateHash', () => {
             expect(() => {
-                new CrawlState('https://example.com', 123 as any, 1);
+                new CrawlState('https://example.com', 123 as any, 1, 'link');
             }).toThrow('State hash must be a non-empty string');
         });
 
         it('should throw error for negative crawlDepth', () => {
             expect(() => {
-                new CrawlState('https://example.com', 'state-hash-123', -1);
+                new CrawlState('https://example.com', 'state-hash-123', -1, 'link');
             }).toThrow('Crawl depth must be a non-negative integer');
         });
 
         it('should throw error for non-integer crawlDepth', () => {
             expect(() => {
-                new CrawlState('https://example.com', 'state-hash-123', 1.5);
+                new CrawlState('https://example.com', 'state-hash-123', 1.5, 'link');
             }).toThrow('Crawl depth must be a non-negative integer');
         });
 
         it('should throw error for non-number crawlDepth', () => {
             expect(() => {
-                new CrawlState('https://example.com', 'state-hash-123', '1' as any);
+                new CrawlState('https://example.com', 'state-hash-123', '1' as any, 'link');
             }).toThrow('Crawl depth must be a non-negative integer');
         });
 
         it('should accept zero crawlDepth', () => {
             expect(() => {
-                new CrawlState('https://example.com', 'state-hash-123', 0);
+                new CrawlState('https://example.com', 'state-hash-123', 0, 'link');
             }).not.toThrow();
         });
     });
@@ -176,6 +178,7 @@ describe('CrawlState', () => {
                 'https://example.com',
                 'state-hash-123',
                 2,
+                'link',
                 mockCrawlInputs,
                 mockCrawlActions
             );
@@ -218,6 +221,7 @@ describe('CrawlState', () => {
                 'https://example.com/products',
                 'products-state-hash',
                 3,
+                'link',
                 mockCrawlInputs,
                 mockCrawlActions
             );
@@ -245,6 +249,7 @@ describe('CrawlState', () => {
                     url: 'https://example.com/products',
                     stateHash: 'products-state-hash',
                     crawlDepth: 3,
+                    arrivalType: 'link',
                     crawlInputs: mockCrawlInputs,
                     crawlActions: mockCrawlActions,
                 });
@@ -268,6 +273,7 @@ describe('CrawlState', () => {
                 'https://example.com',
                 'state-hash-123',
                 1,
+                'link',
                 mockCrawlInputs,
                 mockCrawlActions
             );
@@ -332,42 +338,42 @@ describe('CrawlState', () => {
         it('should handle very long URLs', () => {
             const longUrl = 'https://example.com/' + 'a'.repeat(1000);
             expect(() => {
-                new CrawlState(longUrl, 'state-hash-123', 1);
+                new CrawlState(longUrl, 'state-hash-123', 1, 'link');
             }).not.toThrow();
         });
 
         it('should handle very long state hashes', () => {
             const longHash = 'hash-' + 'a'.repeat(1000);
             expect(() => {
-                new CrawlState('https://example.com', longHash, 1);
+                new CrawlState('https://example.com', longHash, 1, 'link');
             }).not.toThrow();
         });
 
         it('should handle special characters in URL', () => {
             const specialUrl = 'https://example.com/path?query=value&other=test#fragment';
             expect(() => {
-                new CrawlState(specialUrl, 'state-hash-123', 1);
+                new CrawlState(specialUrl, 'state-hash-123', 1, 'link');
             }).not.toThrow();
         });
 
         it('should handle special characters in state hash', () => {
             const specialHash = 'hash-with-special-chars-!@#$%^&*()';
             expect(() => {
-                new CrawlState('https://example.com', specialHash, 1);
+                new CrawlState('https://example.com', specialHash, 1, 'link');
             }).not.toThrow();
         });
 
         it('should handle unicode characters in URL', () => {
             const unicodeUrl = 'https://example.com/中文路径';
             expect(() => {
-                new CrawlState(unicodeUrl, 'state-hash-123', 1);
+                new CrawlState(unicodeUrl, 'state-hash-123', 1, 'link');
             }).not.toThrow();
         });
 
         it('should handle unicode characters in state hash', () => {
             const unicodeHash = 'hash-中文';
             expect(() => {
-                new CrawlState('https://example.com', unicodeHash, 1);
+                new CrawlState('https://example.com', unicodeHash, 1, 'link');
             }).not.toThrow();
         });
     });
@@ -378,6 +384,7 @@ describe('CrawlState', () => {
                 'https://example.com/products',
                 'products-state-hash',
                 1,
+                'link',
                 mockCrawlInputs,
                 mockCrawlActions
             );
@@ -394,6 +401,7 @@ describe('CrawlState', () => {
                 'https://example.com',
                 'state-hash-123',
                 2,
+                'link',
                 mockCrawlInputs,
                 mockCrawlActions
             );

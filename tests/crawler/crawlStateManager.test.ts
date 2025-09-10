@@ -23,6 +23,7 @@ describe('CrawlStateManager', () => {
             'https://example.com/page1',
             'child-hash',
             1,
+            'dom',
             [],
             []
         );
@@ -32,6 +33,7 @@ describe('CrawlStateManager', () => {
             'https://example.com',
             'root-hash',
             0,
+            'link',
             [],
             []
         );
@@ -97,7 +99,7 @@ describe('CrawlStateManager', () => {
         });
 
         it('should handle empty state graph', () => {
-            const emptyState = new CrawlState('https://empty.com', 'empty-hash', 0, [], []);
+            const emptyState = new CrawlState('https://empty.com', 'empty-hash', 0, 'link', [], []);
             const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
             const visited: CrawlState[] = [];
 
@@ -213,7 +215,7 @@ describe('CrawlStateManager', () => {
         });
 
         it('should return null when no path exists', () => {
-            const isolatedState = new CrawlState('https://isolated.com', 'isolated-hash', 0, [], []);
+            const isolatedState = new CrawlState('https://isolated.com', 'isolated-hash', 0, 'link', [], []);
             const result = stateManager.getShortestPath(isolatedState);
             expect(result).toBeNull();
         });

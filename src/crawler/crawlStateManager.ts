@@ -12,7 +12,11 @@ export interface CrawlStateManagerInterface {
     getStateByHash(stateHash: string): CrawlState | null;
     getNextCrawlAction(): CrawlAction | null;
     isCrawlActionUnique(cssPath: string, actionHash: string): boolean;
+    /**
+     * @deprecated Use getOptimizedReplayPlan instead
+     */
     getShortestPath(destinationState: CrawlState): CrawlAction[] | null;
+    getOptimizedReplayPlan(destinationState: CrawlState): ReplayPlan | null;
 }
 
 /**
@@ -361,6 +365,103 @@ export class CrawlStateManager implements CrawlStateManagerInterface {
     }
 
     /**
+     * Computes an optimized replay plan to reach a destination state.
+     *
+     * Strategy:
+     * - Find a path (via BFS) from the root to the destination state.
+     * - Along that path, identify the last child state that was reached via a full page navigation
+     *   (i.e., its `arrivalType` is 'link'). We call this the "baseline" state.
+     * - Return a plan consisting of:
+     *   - baselineUrl: URL of that baseline state (or root URL if no link-based state exists yet).
+     *   - actionsToReplay: only the actions that come after that baseline in the path (typically DOM interactions).
+     *
+     * Benefits:
+     * - Jumping directly to a link-reached ancestor drastically reduces the amount of replay required
+     *   versus always starting from the root and replaying all actions.
+     * - DOM actions (forms, buttons, etc.) are then replayed from that nearer baseline.
+     */
+    public getOptimizedReplayPlan(destinationState: CrawlState): ReplayPlan | null {
+        if (!this.isValidCrawlState(destinationState)) {
+            throw new Error('Invalid destinationState provided to getOptimizedReplayPlan method');
+        }
+
+        if (!this.rootState) {
+            return null;
+        }
+
+        // If already at the root, there is nothing to replay.
+        if (this.rootState === destinationState) {
+            return { baselineUrl: this.rootState.url, actionsToReplay: [] };
+        }
+
+        // Use BFS to find the shortest action path from root to destination.
+        // Each queue entry carries the current state and the sequence of actions taken to reach it.
+        const queue: { state: CrawlState; actions: CrawlAction[]; actionCount: number }[] = [{
+            state: this.rootState,
+            actions: [],
+            actionCount: 0
+        }];
+        const visited = new Set<string>();
+        let queueIndex = 0;
+
+        while (queueIndex < queue.length) {
+            const current = queue[queueIndex++];
+            if (!current) continue;
+
+            const { state: currentState, actions: currentActions, actionCount } = current;
+
+            if (!visited.has(currentState.stateId)) {
+                visited.add(currentState.stateId);
+
+                if (currentState === destinationState) {
+                    // Found a path. Compute the optimized baseline:
+                    // Walk the action list, and track the last child state that arrived via a link.
+                    let lastLinkIndex = -1;
+                    let baselineUrl = this.rootState.url;
+                    for (const [i, action] of currentActions.entries()) {
+                        const child = action.childState;
+                        if (child && child.arrivalType === 'link') {
+                            lastLinkIndex = i;
+                            baselineUrl = child.url;
+                        }
+                    }
+                    // Actions after the baseline are the only ones we need to replay.
+                    const actionsToReplay = currentActions.slice(lastLinkIndex + 1);
+                    return { baselineUrl, actionsToReplay };
+                }
+
+                try {
+                    const crawlActions = currentState.getCrawlActions();
+                    if (crawlActions) {
+                        // Explore child states by extending the action path.
+                        for (const action of crawlActions) {
+                            if (this.isValidCrawlAction(action) &&
+                                action.childState &&
+                                this.isValidCrawlState(action.childState) &&
+                                !visited.has(action.childState.stateId)) {
+
+                                const newActions = currentActions.slice(0, actionCount);
+                                newActions.push(action);
+
+                                queue.push({
+                                    state: action.childState,
+                                    actions: newActions,
+                                    actionCount: actionCount + 1
+                                });
+                            }
+                        }
+                    }
+                } catch (error) {
+                    console.warn('Error getting actions for optimized BFS:', error);
+                }
+            }
+        }
+
+        // No path found.
+        return null;
+    }
+
+    /**
      * Clears the visited actions set, allowing all actions to be considered again
      */
     public clearVisitedActions(): void {
@@ -382,6 +483,11 @@ export class CrawlStateManager implements CrawlStateManagerInterface {
     public toString(): string {
         return `CrawlStateManager(rootState: ${this.rootState ? this.rootState.url : 'null'}, visitedActions: ${this.visitedActions.size})`;
     }
+}
+
+export interface ReplayPlan {
+    baselineUrl: string;
+    actionsToReplay: CrawlAction[];
 }
 
 export default CrawlStateManager;

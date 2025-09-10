@@ -13,6 +13,7 @@ import CrawlStateManager from './crawlStateManager';
 import DomPath from './domPath';
 import authenticate from '../auth/authenticator';
 import { CrawlerConfig, CrawlerSettings } from '../types/crawler';
+import { ArrivalType } from '../types/input';
 
 /**
  * The Crawler class is responsible for creating and managing the crawler.
@@ -323,18 +324,17 @@ class Crawler {
         let node;
         const currentStateHash = await this.getPageHash(page);
         if (currentStateHash !== crawlerAction.parentState.stateHash) {
-            const shortestPath = crawlManager.getShortestPath(crawlerAction.parentState);
-            if (!shortestPath) return;
-            // console.log('Shortest path:');
-            // console.log(shortestPath.map((action) => action.cssPath));
+            const replayPlan = crawlManager.getOptimizedReplayPlan(crawlerAction.parentState);
+            if (!replayPlan) return;
             try {
-                await page.goto(this.crawlerConfig.entryPoint, { waitUntil: 'domcontentloaded' });
+                await page.goto(replayPlan.baselineUrl, { waitUntil: 'domcontentloaded' });
                 await page.waitForFunction(() => (globalThis as any).document.readyState === 'complete', { timeout: this.crawlerConfig.navigationTimeout });
             } catch (error) {
-                console.error(chalk.red(`[ERROR] Failed to navigate to entry point: ${error instanceof Error ? error.message : 'Unknown error'}`));
+                console.error(chalk.red(`[ERROR] Failed to navigate to baseline state: ${error instanceof Error ? error.message : 'Unknown error'}`));
                 return;
             }
-            for (const crawlAction of shortestPath) {
+
+            for (const crawlAction of replayPlan.actionsToReplay) {
                 if (crawlAction.element !== CrawlAction.ANCHOR) {
                     // console.log('All crawlinputs:');
                     // console.log(crawlAction.parentState.crawlInputs);
@@ -501,9 +501,9 @@ class Crawler {
      * @param crawlManager - Crawl state manager instance
      * @return Promise resolving to a new CrawlState object
      */
-    async getNewCrawlState(page: Page, crawlDepth: number, stateHash: string, crawlManager: CrawlStateManager): Promise<CrawlState> {
+    async getNewCrawlState(page: Page, crawlDepth: number, stateHash: string, crawlManager: CrawlStateManager, arrivalType: ArrivalType): Promise<CrawlState> {
         // console.log(`Crawl state creator called for page: ${page.url()}`);
-        const crawlState = new CrawlState(page.url(), stateHash, crawlDepth);
+        const crawlState = new CrawlState(page.url(), stateHash, crawlDepth, arrivalType);
         crawlState.crawlActions = await this.getCrawlActions(page, crawlState, crawlManager);
         // console.log('Crawl actions found:');
         // console.log(crawlState.crawlActions.map((action) => action.cssPath));
@@ -568,7 +568,11 @@ class Crawler {
             } else {
                 if (this.inContext(page.url())) {
                     // console.log('State does not exist, creating...');
-                    currentState = await this.getNewCrawlState(page, currentAction.getParentState().crawlDepth + 1, currentStateHash, crawlManager);
+                    // Determine how the new state was achieved
+                    const previousUrl = currentAction.getParentState().url.split('#')[0];
+                    const newUrl = page.url().split('#')[0];
+                    const arrivalType: ArrivalType = (currentAction.element === CrawlAction.ANCHOR && previousUrl !== newUrl) ? 'link' : 'dom';
+                    currentState = await this.getNewCrawlState(page, currentAction.getParentState().crawlDepth + 1, currentStateHash, crawlManager, arrivalType);
                     currentAction.childState = currentState;
                 } else {
                     this.removeCrawlActionFromState(currentAction);
@@ -717,7 +721,7 @@ class Crawler {
             throw new Error(`Crawler initialization failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
         }
         const rootStateHash = await this.getPageHash(firstPage);
-        const rootState = await this.getNewCrawlState(firstPage, 0, rootStateHash, crawlManager);
+        const rootState = await this.getNewCrawlState(firstPage, 0, rootStateHash, crawlManager, 'link');
         crawlManager.rootState = rootState;
 
         const delay = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));

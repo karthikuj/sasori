@@ -8,6 +8,7 @@ export interface CrawlState {
     url: string;
     stateHash: string;
     crawlDepth: number;
+    arrivalType: ArrivalType;
     crawlInputs: CrawlInput[];
     crawlActions: CrawlAction[];
 
@@ -59,6 +60,12 @@ export type InputType =
     | 'checkbox'
     | 'radio'
     | 'file';
+
+/**
+ * How a state was achieved: via a full page navigation by clicking a link, or via in-page DOM interactions.
+ * Note: Root state is considered 'link'.
+ */
+export type ArrivalType = 'link' | 'dom';
 
 /**
  * Input field definition for static configuration
