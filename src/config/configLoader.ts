@@ -99,6 +99,7 @@ export class ConfigLoader {
                     port: 8080,
                 },
                 instances: 4,
+                slowMo: 100,
             },
             crawler: {
                 entryPoint: 'https://example.com/',
@@ -106,7 +107,7 @@ export class ConfigLoader {
                 navigationTimeout: 30000,
                 eventWait: 0,
                 maxDuration: 0,
-                elements: ['a', 'button', 'input[type="submit"]'],
+                elements: ['a', 'button', 'input[type="submit"]', '[click]'],
                 maxChildren: 0,
                 maxDepth: 10,
                 authentication: {

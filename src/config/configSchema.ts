@@ -157,6 +157,7 @@ export const configPresets = {
             maximize: false,
             proxy: { enabled: false, host: '', port: 0 },
             instances: 4,
+            slowMo: 100,
         },
         crawler: {
             entryPoint: 'https://example.com/',
@@ -164,7 +165,7 @@ export const configPresets = {
             navigationTimeout: 30000,
             eventWait: 0,
             maxDuration: 1800000, // 30 minutes
-            elements: ['a', 'button', 'input[type="submit"]'],
+            elements: ['a', 'button', 'input[type="submit"]', '[click]'],
             maxChildren: 0,
             maxDepth: 10,
             authentication: {
@@ -193,7 +194,7 @@ export const configPresets = {
             navigationTimeout: 45000,
             eventWait: 2000,
             maxDuration: 3600000, // 1 hour
-            elements: ['a', 'button', 'input[type="submit"]', 'input[type="text"]', 'input[type="password"]'],
+            elements: ['a', 'button', 'input[type="submit"]', 'input[type="text"]', 'input[type="password"]', '[click]'],
             maxChildren: 0,
             maxDepth: 15,
             authentication: {

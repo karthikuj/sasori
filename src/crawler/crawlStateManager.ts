@@ -99,11 +99,9 @@ export class CrawlStateManager implements CrawlStateManagerInterface {
                     continue;
                 }
 
-                const childState = action.childState;
-
-                if (childState && !visited.includes(childState)) {
-                    visited.push(childState);
-                    this.traverse(childState, visited);
+                if (action.childState && !visited.includes(action.childState)) {
+                    visited.push(action.childState);
+                    this.traverse(action.childState, visited);
                 }
             }
         } catch (error) {
@@ -165,11 +163,11 @@ export class CrawlStateManager implements CrawlStateManagerInterface {
                     const crawlActions = currentState.getCrawlActions();
                     if (Array.isArray(crawlActions)) {
                         for (const action of crawlActions) {
-                            if (this.isValidCrawlAction(action)) {
-                                const childState = action.childState;
-                                if (childState && this.isValidCrawlState(childState) && !visited.has(childState.stateId)) {
-                                    stack.push(childState);
-                                }
+                            if (this.isValidCrawlAction(action) &&
+                                action.childState &&
+                                this.isValidCrawlState(action.childState) &&
+                                !visited.has(action.childState.stateId)) {
+                                stack.push(action.childState);
                             }
                         }
                     }
@@ -308,31 +306,48 @@ export class CrawlStateManager implements CrawlStateManagerInterface {
             return [];
         }
 
-        const queue: { state: CrawlState; actions: CrawlAction[] }[] = [{ state: this.rootState, actions: [] }];
+        // Use a queue structure to store the current state, actions, and action count
+        const queue: { state: CrawlState; actions: CrawlAction[]; actionCount: number }[] = [{
+            state: this.rootState,
+            actions: [],
+            actionCount: 0
+        }];
         const visited = new Set<string>();
+        let queueIndex = 0;
 
-        while (queue.length > 0) {
-            const { state: currentState, actions: currentActions } = queue.shift()!;
+        while (queueIndex < queue.length) {
+            const current = queue[queueIndex++];
+            if (!current) continue;
+
+            const { state: currentState, actions: currentActions, actionCount } = current;
 
             if (!visited.has(currentState.stateId)) {
                 visited.add(currentState.stateId);
 
+                // If the current state is the destination state, return the actions
                 if (currentState === destinationState) {
                     return currentActions;
                 }
 
                 try {
                     const crawlActions = currentState.getCrawlActions();
-                    if (Array.isArray(crawlActions)) {
+                    if (crawlActions) {
+                        // If the crawl actions are valid, add the actions to the queue
                         for (const action of crawlActions) {
-                            if (this.isValidCrawlAction(action)) {
-                                const childState = action.childState;
-                                if (childState &&
-                                    this.isValidCrawlState(childState) &&
-                                    !visited.has(childState.stateId)) {
-                                    const newActions = [...currentActions, action];
-                                    queue.push({ state: childState, actions: newActions });
-                                }
+                            if (this.isValidCrawlAction(action) &&
+                                action.childState &&
+                                this.isValidCrawlState(action.childState) &&
+                                !visited.has(action.childState.stateId)) {
+
+                                // Reuse currentActions array and push new action to the queue
+                                const newActions = currentActions.slice(0, actionCount);
+                                newActions.push(action);
+
+                                queue.push({
+                                    state: action.childState,
+                                    actions: newActions,
+                                    actionCount: actionCount + 1
+                                });
                             }
                         }
                     }

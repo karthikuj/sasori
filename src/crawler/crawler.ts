@@ -1,4 +1,4 @@
-import { Browser as PuppeteerBrowser, Page } from 'puppeteer';
+import { Browser as PuppeteerBrowser, Page, CDPSession } from 'puppeteer';
 import { appendFileSync } from 'fs';
 import { createHash } from 'crypto';
 import path from 'path';
@@ -81,14 +81,17 @@ class Crawler {
      * @param $ - Cheerio API instance
      */
     stripDOM($: cheerio.CheerioAPI): void {
-        // Remove text nodes
-        $('*').contents().filter((_: number, node: any) => node.nodeType === Crawler.TEXT_NODE).remove();
+        // Get all elements once and process them in a single pass
+        const allElements = $('*');
 
-        // Remove comment nodes
-        $('*').contents().filter((_: number, node: any) => node.nodeType === Crawler.COMMENT_NODE).remove();
+        // Remove text and comment nodes
+        allElements.contents().filter((_: number, node: any) =>
+            node.nodeType === Crawler.TEXT_NODE || node.nodeType === Crawler.COMMENT_NODE
+        ).remove();
 
-        // Remove attributes except href for <a> and <base>, and src for <script>
-        $('*').each((_: number, element: any) => {
+        // Process each element for attributes and interactability in one pass
+        allElements.each((_: number, element: any) => {
+            // Remove attributes except href for <a> and <base>, and src for <script>
             const tagName = element.name && element.name.toUpperCase();
             const allowedAttributes: string[] = [];
             switch (tagName) {
@@ -105,10 +108,8 @@ class Crawler {
                     $(element).removeAttr(attrName);
                 }
             });
-        });
 
-        // Remove nodes if none of the CSS paths are found
-        $('*').each((_: number, element: any) => {
+            // Remove nodes if none of the CSS paths are found
             const found = this.allInteractables.some((cssPath) =>
                 ($(element).is(cssPath) || $(element).find(cssPath).length > 0)
             );
@@ -136,16 +137,78 @@ class Crawler {
     async getCrawlInputs(page: Page, currentState: CrawlState): Promise<CrawlInput[]> {
         const domPath = new DomPath(page);
         const crawlInputs: CrawlInput[] = [];
+        let cssPaths: string[];
 
         for (const input of CrawlInput.INPUT_FIELDS) {
-            const cssPath = input.CSS_PATH;
-            const cssPaths = await domPath.getCssPaths(cssPath);
+            cssPaths = await domPath.getCssPaths(input.CSS_PATH);
             crawlInputs.push(...cssPaths.map((cssPath) => {
                 return new CrawlInput(input.ELEMENT, input.TYPE, cssPath, currentState);
             }));
         }
 
         return (crawlInputs.length !== 0) ? crawlInputs : [];
+    }
+
+    /**
+     * Function to find all nodes with click event listeners
+     * @param client - CDP session client
+     * @param event - Event type to search for
+     * @return Promise resolving to array of CSS selectors
+     */
+    async findNodesWithClickListeners(client: CDPSession, event: string): Promise<string[]> {
+        const { root } = await client.send('DOM.getDocument', { depth: -1 });
+        const { nodeIds } = await client.send('DOM.querySelectorAll', {
+            nodeId: root.nodeId,
+            selector: '*',
+        });
+
+        const clickListeners: string[] = [];
+        for (const nodeId of nodeIds) {
+            try {
+                // Get the RemoteObjectId for the node
+                const { object } = await client.send('DOM.resolveNode', { nodeId: nodeId });
+                const remoteObjectId = object.objectId;
+
+                if (!remoteObjectId) {
+                    continue;
+                }
+
+                // Get event listeners for the node
+                const { listeners } = await client.send('DOMDebugger.getEventListeners', { objectId: remoteObjectId });
+                if (listeners.some((listener: any) => listener.type === event)) {
+                    const { node } = await client.send('DOM.describeNode', { nodeId: nodeId });
+                    let cssPath = '';
+                    if (node.attributes && node.attributes.length > 0) {
+                        const excludedAttrNameChars = ['.'];
+                        const excludedAttrValueChars = ['"', '\n'];
+                        for (let i = 0; i < node.attributes.length; i += 2) {
+                            const attrName = node.attributes[i];
+                            const attrValue = node.attributes[i + 1];
+                            // Continue if the attribute name has an excluded character.
+                            if (attrName && excludedAttrNameChars.some((element) => attrName.includes(element))) {
+                                continue;
+                            }
+                            // Continue if attribute value has some excluded character.
+                            if (attrValue && excludedAttrValueChars.some((element) => attrValue.includes(element))) {
+                                continue;
+                            }
+                            if (attrName && attrValue) {
+                                cssPath += `[${attrName}="${attrValue}"]`;
+                            }
+                        }
+
+                        if (cssPath && node.localName) {
+                            cssPath = node.localName + cssPath;
+                            clickListeners.push(cssPath);
+                        }
+                    }
+                }
+            } catch (error) {
+                // do nothing
+            }
+        }
+
+        return clickListeners;
     }
 
     /**
@@ -158,36 +221,80 @@ class Crawler {
     async getCrawlActions(page: Page, currentState: CrawlState, crawlManager: CrawlStateManager): Promise<CrawlAction[]> {
         const domPath = new DomPath(page);
         const crawlActions: CrawlAction[] = [];
+        let cssPaths = new Set<string>();
 
         // If max crawl depth has been reached then no need to fetch more actions for the given state.
         if (this.crawlerConfig.maxDepth && currentState.getCrawlDepth() >= this.crawlerConfig.maxDepth) {
             return crawlActions;
         }
 
+        const allCssPaths: string[] = [];
+
         for (const element of this.crawlerConfig.elements) {
-            const cssPaths = await domPath.getCssPaths(element);
-            for (const cssPath of cssPaths) {
+            // Check if the selector is for an event (like [click]) or element.
+            if (/^\[\w+\]$/.test(element)) {
+                const event = element.substr(1, element.length - 2);
+                // Enable the Debugger
+                const client = await page.target().createCDPSession();
+                await client.send('DOM.enable');
+                await client.send('Runtime.enable');
+                const allClickListeners = await this.findNodesWithClickListeners(client, event);
+                for (const clickListener of allClickListeners) {
+                    try {
+                        allCssPaths.push(...(await domPath.getCssPaths(clickListener)));
+                    } catch (error) {
+                        // The query selector is invalid.
+                    }
+                }
+            } else {
+                allCssPaths.push(...(await domPath.getCssPaths(element)));
+            }
+        }
+
+        // Create Set once after collecting all paths
+        cssPaths = new Set(allCssPaths);
+
+        for (const cssPath of cssPaths) {
+            try {
                 const node = await page.$eval(cssPath, (el: any) => {
                     return {
                         outerHTML: el.outerHTML,
                         tagName: el.tagName,
+                        prevElementOuterHTML: el.previousElementSibling ? el.previousElementSibling.outerHTML : null,
+                        nextElementOuterHTML: el.nextElementSibling ? el.nextElementSibling.outerHTML : null,
                     };
                 });
-                const actionHash = createHash('sha256').update(node.outerHTML).digest('hex');
-                if (node.tagName === CrawlAction.ANCHOR) {
-                    if (crawlManager.isCrawlActionUnique(cssPath, actionHash)) {
-                        crawlActions.push(new CrawlAction(node.tagName, 'click', cssPath, actionHash, currentState));
-                    }
+
+                const nodeCheerio = cheerio.load(node.outerHTML, { xmlMode: true });
+                this.stripDOM(nodeCheerio as cheerio.CheerioAPI);
+                let prevElementStrippedDOM = '';
+                let nextElementStrippedDOM = '';
+
+                if (node.prevElementOuterHTML) {
+                    const prevNodeCheerio = cheerio.load(node.prevElementOuterHTML, { xmlMode: true });
+                    this.stripDOM(prevNodeCheerio as cheerio.CheerioAPI);
+                    prevElementStrippedDOM = prevNodeCheerio.html();
+                }
+
+                if (node.nextElementOuterHTML) {
+                    const nextNodeCheerio = cheerio.load(node.nextElementOuterHTML, { xmlMode: true });
+                    this.stripDOM(nextNodeCheerio as cheerio.CheerioAPI);
+                    nextElementStrippedDOM = nextNodeCheerio.html();
+                }
+
+                const actionHash = createHash('sha256').update(prevElementStrippedDOM + nodeCheerio.html() + nextElementStrippedDOM).digest('hex');
+                if (crawlManager.isCrawlActionUnique(cssPath, actionHash)) {
+                    crawlActions.push(new CrawlAction(node.tagName, 'click', cssPath, actionHash, currentState));
                 } else {
                     crawlActions.push(new CrawlAction(node.tagName, 'click', cssPath, actionHash, currentState));
                 }
+            } catch (error) {
+                console.error(error);
+                continue;
             }
         }
 
-        return (crawlActions.length !== 0) ?
-            (this.crawlerConfig.maxChildren ?
-                crawlActions.slice(0, this.crawlerConfig.maxChildren).reverse() :
-                crawlActions.reverse()) : [];
+        return (crawlActions.length !== 0) ? (this.crawlerConfig.maxChildren ? crawlActions.slice(0, this.crawlerConfig.maxChildren).reverse() : crawlActions.reverse()) : [];
     }
 
     /**
@@ -220,8 +327,13 @@ class Crawler {
             if (!shortestPath) return;
             // console.log('Shortest path:');
             // console.log(shortestPath.map((action) => action.cssPath));
-            await page.goto(this.crawlerConfig.entryPoint, { waitUntil: 'domcontentloaded' });
-            await page.waitForFunction(() => (globalThis as any).document.readyState === 'complete', { timeout: this.crawlerConfig.navigationTimeout });
+            try {
+                await page.goto(this.crawlerConfig.entryPoint, { waitUntil: 'domcontentloaded' });
+                await page.waitForFunction(() => (globalThis as any).document.readyState === 'complete', { timeout: this.crawlerConfig.navigationTimeout });
+            } catch (error) {
+                console.error(chalk.red(`[ERROR] Failed to navigate to entry point: ${error instanceof Error ? error.message : 'Unknown error'}`));
+                return;
+            }
             for (const crawlAction of shortestPath) {
                 if (crawlAction.element !== CrawlAction.ANCHOR) {
                     // console.log('All crawlinputs:');
@@ -472,7 +584,6 @@ class Crawler {
      */
     async startCrawling(): Promise<void> {
         console.log(chalk.greenBright('[INFO] Initializing browser...'));
-        // const browser = await Browser.getBrowserInstance(this.config.browser);
         const browsers = await Promise.all(
             Array.from({ length: this.config.browser.instances }).map(
                 () => Browser.getBrowserInstance(this.config.browser),
@@ -482,6 +593,7 @@ class Crawler {
         console.log(chalk.greenBright(`[INFO] Sasori will now start crawling from ${this.crawlerConfig.entryPoint}`));
 
         for (const browser of browsers) {
+            // If a new tab is opened while crawling, close it
             browser.on('targetcreated', async (target) => {
                 const targetBrowser = target.browser();
                 const allTargetBrowserPages = await targetBrowser.pages();
@@ -597,8 +709,13 @@ class Crawler {
             throw new Error('No pages available for crawling');
         }
 
-        await firstPage.goto(this.crawlerConfig.entryPoint, { waitUntil: ['domcontentloaded'] });
-        await firstPage.waitForFunction(() => (globalThis as any).document.readyState === 'complete', { timeout: this.crawlerConfig.navigationTimeout });
+        try {
+            await firstPage.goto(this.crawlerConfig.entryPoint, { waitUntil: ['domcontentloaded'] });
+            await firstPage.waitForFunction(() => (globalThis as any).document.readyState === 'complete', { timeout: this.crawlerConfig.navigationTimeout });
+        } catch (error) {
+            console.error(chalk.red(`[ERROR] Failed to navigate to entry point during initialization: ${error instanceof Error ? error.message : 'Unknown error'}`));
+            throw new Error(`Crawler initialization failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        }
         const rootStateHash = await this.getPageHash(firstPage);
         const rootState = await this.getNewCrawlState(firstPage, 0, rootStateHash, crawlManager);
         crawlManager.rootState = rootState;

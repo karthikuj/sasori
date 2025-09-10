@@ -18,7 +18,8 @@
         "elements": [
             "a",
             "button",
-            "input[type=\"submit\"]"
+            "input[type=\"submit\"]",
+            "[click]"
         ],
         "maxChildren": 0,
         "maxDepth": 10,
