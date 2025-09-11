@@ -106,6 +106,7 @@ export class ConfigLoader {
                 eventTimeout: 10000,
                 navigationTimeout: 30000,
                 eventWait: 0,
+                maxActionRetries: 3,
                 maxDuration: 0,
                 elements: ['a', 'button', 'input[type="submit"]', '[click]'],
                 maxChildren: 0,

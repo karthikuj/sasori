@@ -326,12 +326,26 @@ class Crawler {
         if (currentStateHash !== crawlerAction.parentState.stateHash) {
             const replayPlan = crawlManager.getOptimizedReplayPlan(crawlerAction.parentState);
             if (!replayPlan) return;
-            try {
-                await page.goto(replayPlan.baselineUrl, { waitUntil: 'domcontentloaded' });
-                await page.waitForFunction(() => (globalThis as any).document.readyState === 'complete', { timeout: this.crawlerConfig.navigationTimeout });
-            } catch (error) {
-                console.error(chalk.red(`[ERROR] Failed to navigate to baseline state: ${error instanceof Error ? error.message : 'Unknown error'}`));
-                return;
+            {
+                const maxRetries = this.crawlerConfig.maxActionRetries ?? 3;
+                let success = false;
+                for (let attempt = 1; attempt <= maxRetries; attempt++) {
+                    try {
+                        await page.goto(replayPlan.baselineUrl, { waitUntil: 'domcontentloaded' });
+                        await page.waitForFunction(() => (globalThis as any).document.readyState === 'complete', { timeout: this.crawlerConfig.navigationTimeout });
+                        success = true;
+                        break;
+                    } catch (error) {
+                        console.error(chalk.red(`[ERROR] Failed to navigate to baseline (attempt ${attempt}/${maxRetries}): ${error instanceof Error ? error.message : 'Unknown error'}`));
+                        if (attempt < maxRetries) {
+                            await new Promise(resolve => setTimeout(resolve, 500));
+                        }
+                    }
+                }
+                if (!success) {
+                    console.error(chalk.red('[ERROR] Exhausted retries navigating to baseline state'));
+                    return;
+                }
             }
 
             for (const crawlAction of replayPlan.actionsToReplay) {
@@ -574,6 +588,9 @@ class Crawler {
                     const arrivalType: ArrivalType = (currentAction.element === CrawlAction.ANCHOR && previousUrl !== newUrl) ? 'link' : 'dom';
                     currentState = await this.getNewCrawlState(page, currentAction.getParentState().crawlDepth + 1, currentStateHash, crawlManager, arrivalType);
                     currentAction.childState = currentState;
+                    if (currentState) {
+                        currentState.parentAction = currentAction;
+                    }
                 } else {
                     this.removeCrawlActionFromState(currentAction);
                 }
@@ -713,12 +730,25 @@ class Crawler {
             throw new Error('No pages available for crawling');
         }
 
-        try {
-            await firstPage.goto(this.crawlerConfig.entryPoint, { waitUntil: ['domcontentloaded'] });
-            await firstPage.waitForFunction(() => (globalThis as any).document.readyState === 'complete', { timeout: this.crawlerConfig.navigationTimeout });
-        } catch (error) {
-            console.error(chalk.red(`[ERROR] Failed to navigate to entry point during initialization: ${error instanceof Error ? error.message : 'Unknown error'}`));
-            throw new Error(`Crawler initialization failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        {
+            const maxRetries = this.crawlerConfig.maxActionRetries ?? 3;
+            let success = false;
+            for (let attempt = 1; attempt <= maxRetries; attempt++) {
+                try {
+                    await firstPage.goto(this.crawlerConfig.entryPoint, { waitUntil: ['domcontentloaded'] });
+                    await firstPage.waitForFunction(() => (globalThis as any).document.readyState === 'complete', { timeout: this.crawlerConfig.navigationTimeout });
+                    success = true;
+                    break;
+                } catch (error) {
+                    console.error(chalk.red(`[ERROR] Failed to navigate to entry point (attempt ${attempt}/${maxRetries}): ${error instanceof Error ? error.message : 'Unknown error'}`));
+                    if (attempt < maxRetries) {
+                        await new Promise(resolve => setTimeout(resolve, 500));
+                    }
+                }
+            }
+            if (!success) {
+                throw new Error('Crawler initialization failed: exhausted retries navigating to entry point');
+            }
         }
         const rootStateHash = await this.getPageHash(firstPage);
         const rootState = await this.getNewCrawlState(firstPage, 0, rootStateHash, crawlManager, 'link');

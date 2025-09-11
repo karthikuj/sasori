@@ -78,6 +78,7 @@ export const crawlerSchema = Joi.object<CrawlerSettings>({
     eventTimeout: Joi.number().integer().min(1000).max(300000).required(),
     navigationTimeout: Joi.number().integer().min(1000).max(300000).required(),
     eventWait: Joi.number().integer().min(0).max(10000).required(),
+    maxActionRetries: Joi.number().integer().min(0).max(10).optional(),
     maxDuration: Joi.number().integer().min(0).max(3600000).required(), // 1 hour max
     elements: Joi.array().items(Joi.string().min(1)).min(1).required(),
     maxChildren: Joi.number().integer().min(0).max(1000).required(),
@@ -135,6 +136,7 @@ export const configPresets = {
             eventTimeout: 5000,
             navigationTimeout: 15000,
             eventWait: 1000,
+            maxActionRetries: 3,
             maxDuration: 300000, // 5 minutes
             elements: ['a', 'button', 'input[type="submit"]'],
             maxChildren: 10,
@@ -165,6 +167,7 @@ export const configPresets = {
             eventTimeout: 10000,
             navigationTimeout: 30000,
             eventWait: 0,
+            maxActionRetries: 3,
             maxDuration: 1800000, // 30 minutes
             elements: ['a', 'button', 'input[type="submit"]', '[click]'],
             maxChildren: 0,
@@ -194,6 +197,7 @@ export const configPresets = {
             eventTimeout: 15000,
             navigationTimeout: 45000,
             eventWait: 2000,
+            maxActionRetries: 3,
             maxDuration: 3600000, // 1 hour
             elements: ['a', 'button', 'input[type="submit"]', 'input[type="text"]', 'input[type="password"]', '[click]'],
             maxChildren: 0,

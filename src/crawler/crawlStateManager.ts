@@ -394,71 +394,39 @@ export class CrawlStateManager implements CrawlStateManagerInterface {
             return { baselineUrl: this.rootState.url, actionsToReplay: [] };
         }
 
-        // Use BFS to find the shortest action path from root to destination.
-        // Each queue entry carries the current state and the sequence of actions taken to reach it.
-        const queue: { state: CrawlState; actions: CrawlAction[]; actionCount: number }[] = [{
-            state: this.rootState,
-            actions: [],
-            actionCount: 0
-        }];
-        const visited = new Set<string>();
-        let queueIndex = 0;
+        // Walk up from destination to find the nearest link ancestor
+        const reversePath: CrawlAction[] = [];
+        let currentState: CrawlState | null = destinationState;
+        let baselineUrl = this.rootState.url;
+        let foundLinkAncestor = false;
 
-        while (queueIndex < queue.length) {
-            const current = queue[queueIndex++];
-            if (!current) continue;
-
-            const { state: currentState, actions: currentActions, actionCount } = current;
-
-            if (!visited.has(currentState.stateId)) {
-                visited.add(currentState.stateId);
-
-                if (currentState === destinationState) {
-                    // Found a path. Compute the optimized baseline:
-                    // Walk the action list, and track the last child state that arrived via a link.
-                    let lastLinkIndex = -1;
-                    let baselineUrl = this.rootState.url;
-                    for (const [i, action] of currentActions.entries()) {
-                        const child = action.childState;
-                        if (child && child.arrivalType === 'link') {
-                            lastLinkIndex = i;
-                            baselineUrl = child.url;
-                        }
-                    }
-                    // Actions after the baseline are the only ones we need to replay.
-                    const actionsToReplay = currentActions.slice(lastLinkIndex + 1);
-                    return { baselineUrl, actionsToReplay };
-                }
-
-                try {
-                    const crawlActions = currentState.getCrawlActions();
-                    if (crawlActions) {
-                        // Explore child states by extending the action path.
-                        for (const action of crawlActions) {
-                            if (this.isValidCrawlAction(action) &&
-                                action.childState &&
-                                this.isValidCrawlState(action.childState) &&
-                                !visited.has(action.childState.stateId)) {
-
-                                const newActions = currentActions.slice(0, actionCount);
-                                newActions.push(action);
-
-                                queue.push({
-                                    state: action.childState,
-                                    actions: newActions,
-                                    actionCount: actionCount + 1
-                                });
-                            }
-                        }
-                    }
-                } catch (error) {
-                    console.warn('Error getting actions for optimized BFS:', error);
-                }
+        while (currentState && currentState !== this.rootState) {
+            // Use the parentAction pointer on the state to move upward efficiently
+            const parentAction: CrawlAction | null = currentState.parentAction ?? null;
+            if (!parentAction) {
+                break; // No path found
             }
+
+            // If this state arrived via link, we found our baseline
+            if (currentState.arrivalType === 'link') {
+                baselineUrl = currentState.url;
+                foundLinkAncestor = true;
+                break; // Stop here - we found the nearest link ancestor
+            }
+
+            reversePath.unshift(parentAction); // Add to beginning for correct order
+
+            // Move to parent state via the action
+            currentState = parentAction.parentState;
         }
 
-        // No path found.
-        return null;
+        // If we didn't reach root and didn't find a link ancestor, no valid path exists
+        if (currentState !== this.rootState && !foundLinkAncestor) {
+            return null;
+        }
+
+        // Return replay plan (same in both cases)
+        return { baselineUrl, actionsToReplay: reversePath };
     }
 
     /**

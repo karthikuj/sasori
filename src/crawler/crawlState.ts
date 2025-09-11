@@ -44,6 +44,12 @@ class CrawlState implements CrawlStateInterface {
     public crawlActions: CrawlAction[];
 
     /**
+     * Action that led to this state (parent edge in the crawl graph)
+     * Not included in JSON to avoid circular references
+     */
+    public parentAction?: CrawlAction | null;
+
+    /**
      * CrawlState object constructor
      * @param url - URL of the page in this state
      * @param stateHash - Hash representing the DOM state
@@ -77,6 +83,7 @@ class CrawlState implements CrawlStateInterface {
         this.arrivalType = arrivalType;
         this.crawlInputs = crawlInputs || [];
         this.crawlActions = crawlActions || [];
+        this.parentAction = null;
     }
 
     /**
