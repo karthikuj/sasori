@@ -55,6 +55,7 @@ export interface CrawlerSettings {
     eventTimeout: number;
     navigationTimeout: number;
     eventWait: number;
+    maxActionRetries?: number;
     maxDuration: number;
     elements: string[];
     maxChildren: number;

@@ -10,10 +10,11 @@
         "instances": 4
     },
     "crawler": {
-        "entryPoint": "https://security-crawl-maze.app/",
+        "entryPoint": "https://demo.testfire.net/bank/main.jsp",
         "eventTimeout": 10000,
         "navigationTimeout": 30000,
         "eventWait": 0,
+        "maxActionRetries": 3,
         "maxDuration": 0,
         "elements": [
             "a",
@@ -30,12 +31,12 @@
                 "password": "password"
             },
             "recorderAuth": {
-                "enabled": false,
-                "pptrRecording": "/path/to/login/recording"
+                "enabled": true,
+                "pptrRecording": "/home/sup3r541y4n/Dev/sasori-private/coverage/testfire.pptr.json"
             }
         },
         "includeRegexes": [
-            "https?://security-crawl-maze.app(?:/.*|)"
+            "https?://demo.testfire.net(?:/.*|)"
         ],
         "excludeRegexes": [
             ".*logout.*"

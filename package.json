@@ -46,7 +46,7 @@
     "infosec"
   ],
   "dependencies": {
-    "@puppeteer/replay": "^2.13.4",
+    "@puppeteer/replay": "^3.1.3",
     "chalk": "^4",
     "cheerio": "^1.0.0-rc.12",
     "joi": "^17.12.2",
