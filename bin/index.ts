@@ -3,6 +3,7 @@
 import Crawler from '../src/crawler/crawler.js';
 import chalk from 'chalk';
 import { ConfigValidator } from '../src/config/configLoader.js';
+import { startApiServer } from '../src/api/startApiServer.js';
 import fs from 'fs';
 import path from 'path';
 import yargs from 'yargs';
@@ -101,6 +102,44 @@ yarg.command({
             crawler.startCrawling();
         } catch (err: any) {
             console.error(chalk.red(`[ERROR] ${err.message}`));
+        }
+    },
+});
+
+/**
+ * Run HTTP API server for concurrent scans (POST config per scan).
+ */
+yarg.command({
+    command: 'api',
+    describe: 'Start REST API server for multiple concurrent scans',
+    builder: {
+        host: {
+            describe: 'Bind address',
+            type: 'string',
+            default: '0.0.0.0',
+        },
+        port: {
+            describe: 'Listen port',
+            type: 'number',
+            default: 8080,
+        },
+    },
+    async handler(argv: any) {
+        try {
+            const { port, host } = await startApiServer({ host: argv.host as string, port: argv.port as number });
+            console.log(
+                chalk.greenBright(
+                    `[INFO] Sasori API listening on http://${host === '0.0.0.0' ? '127.0.0.1' : host}:${port} (bound ${host}:${port})`,
+                ),
+            );
+            console.log(chalk.cyan(`  POST   /api/v1/scans   — start scan (JSON body = crawler config)`));
+            console.log(chalk.cyan(`  GET    /api/v1/scans   — list scans`));
+            console.log(chalk.cyan(`  GET    /api/v1/scans/:id`));
+            console.log(chalk.cyan(`  DELETE /api/v1/scans/:id — stop scan`));
+            console.log(chalk.cyan(`  GET    /health`));
+        } catch (err: unknown) {
+            console.error(chalk.red(`[ERROR] ${err instanceof Error ? err.message : err}`));
+            process.exitCode = 1;
         }
     },
 });

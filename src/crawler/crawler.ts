@@ -81,6 +81,16 @@ class Crawler {
     public browserStartDelays: number;
 
     /**
+     * Cooperative cancellation for API mode and graceful shutdown.
+     */
+    private readonly abortController = new AbortController();
+
+    /**
+     * Browsers launched while this crawl is active (so {@link stopCrawling} can close them).
+     */
+    private activeBrowsers: PuppeteerBrowser[] = [];
+
+    /**
      * Crawler class constructor.
      * @param config - Configuration object containing browser and crawler settings
      */
@@ -94,6 +104,13 @@ class Crawler {
         );
         this.endTime = null;
         this.browserStartDelays = 1000; // 1 millisecond(s)
+    }
+
+    /**
+     * Whether {@link stopCrawling} was called (or the signal was aborted).
+     */
+    wasStopped(): boolean {
+        return this.abortController.signal.aborted;
     }
 
     /**
@@ -640,213 +657,249 @@ class Crawler {
      */
     async handleCrawl(crawlManager: CrawlStateManager, browser: PuppeteerBrowser, page: Page, currentState: CrawlState): Promise<void> {
         let nextCrawlAction: CrawlAction | null;
-        while ((nextCrawlAction = crawlManager.getNextCrawlAction()) && (this.crawlerConfig.maxDuration === 0 || Date.now() < this.endTime!)) {
-            const currentAction = nextCrawlAction;
-            // console.log('\nCurrent Action:');
-            // console.log(currentAction.cssPath);
-            await this.performAction(crawlManager, currentAction, page);
-            // console.log('Action performed');
-            const currentStateHash = await this.getPageHash(page);
-            // console.log('Current state hash:');
-            // console.log(currentStateHash);
-            const existingState = crawlManager.getStateByHash(currentStateHash);
-            if (existingState) {
-                // console.log('State already exists');
-                currentState = existingState;
-                this.removeCrawlActionFromState(crawlManager, currentAction);
-            } else {
-                if (this.inContext(page.url())) {
-                    // console.log('State does not exist, creating...');
-                    // Determine how the new state was achieved
-                    const previousUrl = currentAction.getParentState().url.split('#')[0];
-                    const newUrl = page.url().split('#')[0];
-                    const arrivalType: ArrivalType = (currentAction.element === CrawlAction.ANCHOR && previousUrl !== newUrl) ? 'link' : 'dom';
-                    currentState = await this.getNewCrawlState(page, currentAction.getParentState().crawlDepth + 1, currentStateHash, crawlManager, arrivalType);
-                    currentAction.childState = currentState;
-                    if (currentState) {
-                        currentState.parentAction = currentAction;
+        try {
+            while (
+                !this.abortController.signal.aborted &&
+                (nextCrawlAction = crawlManager.getNextCrawlAction()) &&
+                (this.crawlerConfig.maxDuration === 0 || Date.now() < this.endTime!)
+            ) {
+                const currentAction = nextCrawlAction;
+                try {
+                    await this.performAction(crawlManager, currentAction, page);
+                } catch (err) {
+                    if (this.abortController.signal.aborted) {
+                        break;
                     }
-                } else {
+                    throw err;
+                }
+                const currentStateHash = await this.getPageHash(page);
+                const existingState = crawlManager.getStateByHash(currentStateHash);
+                if (existingState) {
+                    currentState = existingState;
                     this.removeCrawlActionFromState(crawlManager, currentAction);
+                } else {
+                    if (this.inContext(page.url())) {
+                        const previousUrl = currentAction.getParentState().url.split('#')[0];
+                        const newUrl = page.url().split('#')[0];
+                        const arrivalType: ArrivalType = (currentAction.element === CrawlAction.ANCHOR && previousUrl !== newUrl) ? 'link' : 'dom';
+                        currentState = await this.getNewCrawlState(page, currentAction.getParentState().crawlDepth + 1, currentStateHash, crawlManager, arrivalType);
+                        currentAction.childState = currentState;
+                        if (currentState) {
+                            currentState.parentAction = currentAction;
+                        }
+                    } else {
+                        this.removeCrawlActionFromState(crawlManager, currentAction);
+                    }
                 }
             }
+        } catch (err) {
+            if (!this.abortController.signal.aborted) {
+                throw err;
+            }
+        } finally {
+            await browser.close().catch(() => undefined);
         }
-
-        await browser.close();
     }
 
     /**
      * Starts the crawling process.
      */
     async startCrawling(): Promise<void> {
-        console.log(chalk.greenBright('[INFO] Initializing browser...'));
-        const browsers = await Promise.all(
-            Array.from({ length: this.config.browser.instances }).map(
-                () => Browser.getBrowserInstance(this.config.browser),
-            ),
-        );
-        console.log(chalk.greenBright('[INFO] Browser(s) initialized successfully!'));
-        console.log(chalk.greenBright(`[INFO] Sasori will now start crawling from ${this.crawlerConfig.entryPoint}`));
-
-        for (const browser of browsers) {
-            // If a new tab is opened while crawling, close it
-            browser.on('targetcreated', async (target) => {
-                const targetBrowser = target.browser();
-                const allTargetBrowserPages = await targetBrowser.pages();
-                const targetPage = await target.page();
-                if (targetPage && target.type() === 'page' && allTargetBrowserPages.length > 1) {
-                    await targetPage.close();
-                }
-            });
-        }
-
-        const startTime = Date.now();
-        this.endTime = startTime + this.crawlerConfig.maxDuration;
-        if (this.crawlerConfig.maxDuration === 0) {
-            console.log(chalk.greenBright('[INFO] Max duration is set to 0, sasori will run indefinitely.'));
-        } else {
-            console.log(chalk.greenBright(`[INFO] Sasori will stop crawling at ${new Date(this.endTime).toTimeString()}`));
-        }
-
-        const allPages: Page[] = [];
-        for (const browser of browsers) {
-            const pages = await browser.pages();
-            const page = pages[0];
-            if (!page) continue;
-            page.setDefaultTimeout(this.crawlerConfig.eventTimeout);
-            page.setDefaultNavigationTimeout(this.crawlerConfig.navigationTimeout);
-            await this.maximizeViewport(page);
-            allPages.push(page);
-        }
-
-        // Authenticate if basic auth is enabled
-        if (this.crawlerConfig.authentication.basicAuth && this.crawlerConfig.authentication.basicAuth.enabled) {
-            for (const page of allPages) {
-                await page.authenticate({
-                    username: this.crawlerConfig.authentication.basicAuth.username!,
-                    password: this.crawlerConfig.authentication.basicAuth.password!
-                });
-            }
-        }
-
-        // Statically respond to out-of-scope requests.
-        console.log(chalk.greenBright('[INFO] Setting up scope manager...'));
-        for (const page of allPages) {
-            await page.setRequestInterception(true);
-            page.on('request', async (interceptedRequest) => {
-                if (interceptedRequest.isInterceptResolutionHandled()) return;
-
-                if (this.inContext(interceptedRequest.url())) {
-                    if (!this.allUrls.has(interceptedRequest.url())) {
-                        console.log(chalk.magentaBright('[URL] ') + chalk.green(interceptedRequest.url()));
-                        this.allUrls.add(interceptedRequest.url());
-                        if (this.crawlerConfig.outputFile) {
-                            this.appendUrlToOutputFile(interceptedRequest.url());
-                        }
-                    }
-                }
-
-                if (this.authInProgress) {
-                    const parsedUrl = new URL(interceptedRequest.url());
-                    const authority = parsedUrl.host;
-                    const includeRegex = `https?://${authority}(?:/.*|)`;
-                    if (!this.crawlerConfig.includeRegexes.includes(includeRegex)) {
-                        this.crawlerConfig.includeRegexes.push(includeRegex);
-                    }
-                }
-
-                if ((this.authInProgress === false && !this.inContext(interceptedRequest.url()))) {
-                    interceptedRequest.respond({
-                        status: 403,
-                        contentType: 'text/plain',
-                        body: 'Out of Sasori\'s scope',
-                    });
-                } else {
-                    interceptedRequest.continue();
-                }
-            });
-        }
-
-        // Dismiss all alerts/popups
-        for (const page of allPages) {
-            page.on('dialog', async (dialog) => {
-                await dialog.dismiss();
-            });
-        }
-
-        console.log(chalk.greenBright('[INFO] Scope manager started successfully!'));
-
-        // Start authentication if enabled.
-        if (this.crawlerConfig.authentication.recorderAuth && this.crawlerConfig.authentication.recorderAuth.enabled) {
-            console.log(chalk.greenBright('[INFO] Running initial authentication...'));
-            await Promise.all(
-                Array.from({ length: browsers.length }).map(
-                    (_, i) => {
-                        const browser = browsers[i];
-                        const page = allPages[i];
-                        if (browser && page) {
-                            return this.startAuthentication(browser, page);
-                        }
-                        return Promise.resolve();
-                    },
+        try {
+            console.log(chalk.greenBright('[INFO] Initializing browser...'));
+            const browsers = await Promise.all(
+                Array.from({ length: this.config.browser.instances }).map(
+                    () => Browser.getBrowserInstance(this.config.browser),
                 ),
             );
-        }
+            this.activeBrowsers = browsers;
+            console.log(chalk.greenBright('[INFO] Browser(s) initialized successfully!'));
+            console.log(chalk.greenBright(`[INFO] Sasori will now start crawling from ${this.crawlerConfig.entryPoint}`));
 
-        console.log(chalk.greenBright('[INFO] Creating crawl state manager...'));
-        const crawlManager = new CrawlStateManager();
-
-        if (allPages.length === 0) {
-            throw new Error('No pages available for crawling');
-        }
-
-        const firstPage = allPages[0];
-        if (!firstPage) {
-            throw new Error('No pages available for crawling');
-        }
-
-        {
-            const maxRetries = this.crawlerConfig.maxActionRetries ?? 3;
-            let success = false;
-            for (let attempt = 1; attempt <= maxRetries; attempt++) {
-                try {
-                    await firstPage.goto(this.crawlerConfig.entryPoint, { waitUntil: ['domcontentloaded'] });
-                    await firstPage.waitForFunction(() => (globalThis as any).document.readyState === 'complete', { timeout: this.crawlerConfig.navigationTimeout });
-                    success = true;
-                    break;
-                } catch (error) {
-                    console.error(chalk.red(`[ERROR] Failed to navigate to entry point (attempt ${attempt}/${maxRetries}): ${error instanceof Error ? error.message : 'Unknown error'}`));
-                    if (attempt < maxRetries) {
-                        await new Promise(resolve => setTimeout(resolve, 500));
+            for (const browser of browsers) {
+                // If a new tab is opened while crawling, close it
+                browser.on('targetcreated', async (target) => {
+                    const targetBrowser = target.browser();
+                    const allTargetBrowserPages = await targetBrowser.pages();
+                    const targetPage = await target.page();
+                    if (targetPage && target.type() === 'page' && allTargetBrowserPages.length > 1) {
+                        await targetPage.close();
                     }
+                });
+            }
+
+            const startTime = Date.now();
+            this.endTime = startTime + this.crawlerConfig.maxDuration;
+            if (this.crawlerConfig.maxDuration === 0) {
+                console.log(chalk.greenBright('[INFO] Max duration is set to 0, sasori will run indefinitely.'));
+            } else {
+                console.log(chalk.greenBright(`[INFO] Sasori will stop crawling at ${new Date(this.endTime).toTimeString()}`));
+            }
+
+            const allPages: Page[] = [];
+            for (const browser of browsers) {
+                const pages = await browser.pages();
+                const page = pages[0];
+                if (!page) continue;
+                page.setDefaultTimeout(this.crawlerConfig.eventTimeout);
+                page.setDefaultNavigationTimeout(this.crawlerConfig.navigationTimeout);
+                await this.maximizeViewport(page);
+                allPages.push(page);
+            }
+
+            // Authenticate if basic auth is enabled
+            if (this.crawlerConfig.authentication.basicAuth && this.crawlerConfig.authentication.basicAuth.enabled) {
+                for (const page of allPages) {
+                    await page.authenticate({
+                        username: this.crawlerConfig.authentication.basicAuth.username!,
+                        password: this.crawlerConfig.authentication.basicAuth.password!
+                    });
                 }
             }
-            if (!success) {
-                throw new Error('Crawler initialization failed: exhausted retries navigating to entry point');
-            }
-        }
-        const rootStateHash = await this.getPageHash(firstPage);
-        const rootState = await this.getNewCrawlState(firstPage, 0, rootStateHash, crawlManager, 'link');
-        crawlManager.attachRootState(rootState);
 
-        const delay = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
-        const handleCrawls = browsers.map((browser, index) => async () => {
-            await delay(index * this.browserStartDelays);
-            const page = allPages[index];
-            if (browser && page) {
-                return this.handleCrawl(crawlManager, browser, page, rootState);
+            // Statically respond to out-of-scope requests.
+            console.log(chalk.greenBright('[INFO] Setting up scope manager...'));
+            for (const page of allPages) {
+                await page.setRequestInterception(true);
+                page.on('request', async (interceptedRequest) => {
+                    if (interceptedRequest.isInterceptResolutionHandled()) return;
+
+                    if (this.inContext(interceptedRequest.url())) {
+                        if (!this.allUrls.has(interceptedRequest.url())) {
+                            console.log(chalk.magentaBright('[URL] ') + chalk.green(interceptedRequest.url()));
+                            this.allUrls.add(interceptedRequest.url());
+                            if (this.crawlerConfig.outputFile) {
+                                this.appendUrlToOutputFile(interceptedRequest.url());
+                            }
+                        }
+                    }
+
+                    if (this.authInProgress) {
+                        const parsedUrl = new URL(interceptedRequest.url());
+                        const authority = parsedUrl.host;
+                        const includeRegex = `https?://${authority}(?:/.*|)`;
+                        if (!this.crawlerConfig.includeRegexes.includes(includeRegex)) {
+                            this.crawlerConfig.includeRegexes.push(includeRegex);
+                        }
+                    }
+
+                    if ((this.authInProgress === false && !this.inContext(interceptedRequest.url()))) {
+                        interceptedRequest.respond({
+                            status: 403,
+                            contentType: 'text/plain',
+                            body: 'Out of Sasori\'s scope',
+                        });
+                    } else {
+                        interceptedRequest.continue();
+                    }
+                });
             }
-            return Promise.resolve();
-        });
-        await Promise.all(handleCrawls.map((handleCrawl) => handleCrawl()));
-        console.log(chalk.greenBright.bold('Scan completed'));
+
+            // Dismiss all alerts/popups
+            for (const page of allPages) {
+                page.on('dialog', async (dialog) => {
+                    await dialog.dismiss();
+                });
+            }
+
+            console.log(chalk.greenBright('[INFO] Scope manager started successfully!'));
+
+            // Start authentication if enabled.
+            if (this.crawlerConfig.authentication.recorderAuth && this.crawlerConfig.authentication.recorderAuth.enabled) {
+                console.log(chalk.greenBright('[INFO] Running initial authentication...'));
+                await Promise.all(
+                    Array.from({ length: browsers.length }).map(
+                        (_, i) => {
+                            const browser = browsers[i];
+                            const page = allPages[i];
+                            if (browser && page) {
+                                return this.startAuthentication(browser, page);
+                            }
+                            return Promise.resolve();
+                        },
+                    ),
+                );
+            }
+
+            console.log(chalk.greenBright('[INFO] Creating crawl state manager...'));
+            const crawlManager = new CrawlStateManager();
+
+            if (allPages.length === 0) {
+                throw new Error('No pages available for crawling');
+            }
+
+            const firstPage = allPages[0];
+            if (!firstPage) {
+                throw new Error('No pages available for crawling');
+            }
+
+            {
+                const maxRetries = this.crawlerConfig.maxActionRetries ?? 3;
+                let success = false;
+                for (let attempt = 1; attempt <= maxRetries; attempt++) {
+                    if (this.abortController.signal.aborted) {
+                        return;
+                    }
+                    try {
+                        await firstPage.goto(this.crawlerConfig.entryPoint, { waitUntil: ['domcontentloaded'] });
+                        await firstPage.waitForFunction(() => (globalThis as any).document.readyState === 'complete', { timeout: this.crawlerConfig.navigationTimeout });
+                        success = true;
+                        break;
+                    } catch (error) {
+                        console.error(chalk.red(`[ERROR] Failed to navigate to entry point (attempt ${attempt}/${maxRetries}): ${error instanceof Error ? error.message : 'Unknown error'}`));
+                        if (attempt < maxRetries) {
+                            await new Promise(resolve => setTimeout(resolve, 500));
+                        }
+                    }
+                }
+                if (!success) {
+                    throw new Error('Crawler initialization failed: exhausted retries navigating to entry point');
+                }
+            }
+            if (this.abortController.signal.aborted) {
+                return;
+            }
+            const rootStateHash = await this.getPageHash(firstPage);
+            const rootState = await this.getNewCrawlState(firstPage, 0, rootStateHash, crawlManager, 'link');
+            crawlManager.attachRootState(rootState);
+
+            const delay = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
+            const handleCrawls = browsers.map((browser, index) => async () => {
+                await delay(index * this.browserStartDelays);
+                const page = allPages[index];
+                if (browser && page) {
+                    return this.handleCrawl(crawlManager, browser, page, rootState);
+                }
+                return Promise.resolve();
+            });
+            try {
+                await Promise.all(handleCrawls.map((handleCrawl) => handleCrawl()));
+            } catch (err) {
+                if (!this.abortController.signal.aborted) {
+                    throw err;
+                }
+            }
+            if (this.abortController.signal.aborted) {
+                console.log(chalk.yellow('[INFO] Crawl stopped by request'));
+                return;
+            }
+            console.log(chalk.greenBright.bold('Scan completed'));
+        } finally {
+            this.activeBrowsers = [];
+        }
     }
 
     /**
      * Stop the crawling process.
      */
     stopCrawling(): void {
-        // Implementation for stopping crawling if needed
+        if (this.abortController.signal.aborted) {
+            return;
+        }
+        this.abortController.abort();
+        for (const browser of this.activeBrowsers) {
+            void browser.close().catch(() => undefined);
+        }
     }
 }
 

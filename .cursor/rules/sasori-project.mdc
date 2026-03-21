@@ -17,6 +17,7 @@ Source-of-truth for **sasori-private** / **sasori-crawl**: a Puppeteer-based dyn
 | Auth replay | **@puppeteer/replay** (JSON recordings + custom `executeScript` steps) |
 | HTML parsing | **Cheerio** |
 | CLI | **yargs** |
+| HTTP API (optional mode) | **Express** 4 |
 | Config validation | **Joi** |
 | Logging / UX | **chalk** |
 
@@ -24,9 +25,10 @@ Source-of-truth for **sasori-private** / **sasori-crawl**: a Puppeteer-based dyn
 
 ```
 sasori-private/
-├── bin/index.ts          # CLI entry (`sasori init`, `sasori start --config …`)
+├── bin/index.ts          # CLI entry (`sasori init`, `sasori start`, `sasori api`)
 ├── config/config.json    # Default config (copied to dist on build)
 ├── src/
+│   ├── api/                # REST API: `createApiApp`, `ScanRegistry`, `startApiServer`
 │   ├── auth/authenticator.ts   # Replay Puppeteer recorder JSON for login
 │   ├── browser/browser.ts      # launch() options from BrowserConfig
 │   ├── config/
@@ -49,10 +51,12 @@ sasori-private/
 ## Entry Points & CLI
 
 - **Build**: `npm run build` → `tsc`; `postbuild` copies `config/` into `dist/`.
+- **Makefile** (same repo root): `make help` — `build`, `clean`, `install`, `run-cli` (`CONFIG=…`), `run-api` (`HOST` / `PORT`), `test`, `test-coverage`, `ci`, etc. (mirrors Nara-style grouped targets).
 - **Run (built)**: `node dist/bin/index.js start --config /path/to/config.json` or global `sasori`.
 - **Commands** (`bin/index.ts`):
   - `init` — copies packaged `config/config.json` to cwd.
-  - `start --config <file> [--output <file>]` — validates config, optional URL output file.
+  - `start --config <file> [--output <file>]` — validates config, optional URL output file (single CLI crawl).
+  - `api [--host 0.0.0.0] [--port 8080]` — HTTP server for **concurrent** scans: `POST /api/v1/scans` with JSON body = full `CrawlerConfig`; `GET /api/v1/scans`, `GET /api/v1/scans/:id`, `DELETE /api/v1/scans/:id` (stop); `GET /health`.
 
 ## Configuration
 
@@ -83,6 +87,12 @@ sasori-private/
 
 - **`Browser.getBrowserConfig` / `getBrowserInstance`** — headless, `--start-maximized`, optional proxy args, `slowMo`.
 - **`crawler.startCrawling`** launches **N** browser instances (`browser.instances`), staggers starts with `browserStartDelays`, and runs **`handleCrawl` in parallel** on a **shared** `CrawlStateManager`.
+- **Stop / API**: **`crawler.stopCrawling()`** aborts an internal `AbortController`, closes **`activeBrowsers`**, and exits the main crawl loop cooperatively; **`wasStopped()`** reflects completion via stop vs natural finish. Used by **`DELETE /api/v1/scans/:id`**.
+
+## HTTP API (`src/api/`)
+
+- **`ScanRegistry`** — in-memory `Map` of `scanId` → scan metadata + optional live **`Crawler`**; injectable **`CrawlerFactory`** for tests.
+- **`createApiApp(registry)`** — Express app with JSON body parser; **`startApiServer`** binds and returns `{ server, registry, port, host }`.
 
 ## Auth (`src/auth/authenticator.ts`)
 
