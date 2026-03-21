@@ -16,6 +16,20 @@ import { CrawlerConfig, CrawlerSettings } from '../types/crawler';
 import { ArrivalType } from '../types/input';
 
 /**
+ * One batched `page.evaluate` result per CSS path (failures do not abort siblings).
+ */
+type BatchActionNodeSnapshot =
+    | {
+        ok: true;
+        cssPath: string;
+        outerHTML: string;
+        tagName: string;
+        prevElementOuterHTML: string | null;
+        nextElementOuterHTML: string | null;
+    }
+    | { ok: false; cssPath: string; error: string };
+
+/**
  * The Crawler class is responsible for creating and managing the crawler.
  */
 class Crawler {
@@ -25,6 +39,11 @@ class Crawler {
     static readonly TEXT_NODE = 3;
     static readonly COMMENT_NODE = 8;
     static readonly ELEMENT_NODE = 1;
+
+    /**
+     * Max CSS selectors per `page.evaluate` batch (limits payload / eval time per round-trip).
+     */
+    private static readonly BATCH_ACTION_SELECTOR_CHUNK_SIZE = 100;
 
     /**
      * Crawler configuration
@@ -213,6 +232,60 @@ class Crawler {
     }
 
     /**
+     * Fetches outerHTML / sibling context for many selectors in one or more `page.evaluate` calls.
+     * Each path is isolated with try/catch in the page context so one bad selector does not fail the batch.
+     */
+    private async batchFetchActionNodeSnapshots(page: Page, cssPaths: string[]): Promise<BatchActionNodeSnapshot[]> {
+        if (cssPaths.length === 0) {
+            return [];
+        }
+
+        const all: BatchActionNodeSnapshot[] = [];
+        const chunkSize = Crawler.BATCH_ACTION_SELECTOR_CHUNK_SIZE;
+
+        for (let offset = 0; offset < cssPaths.length; offset += chunkSize) {
+            const chunk = cssPaths.slice(offset, offset + chunkSize);
+            const batch = await page.evaluate((paths: string[]) => {
+                const out: BatchActionNodeSnapshot[] = [];
+                const doc = (globalThis as unknown as { document: { querySelector: (s: string) => unknown } }).document;
+                for (const cssPath of paths) {
+                    try {
+                        const el = doc.querySelector(cssPath) as {
+                            outerHTML: string;
+                            tagName: string;
+                            previousElementSibling: { outerHTML: string } | null;
+                            nextElementSibling: { outerHTML: string } | null;
+                        } | null;
+                        if (!el) {
+                            out.push({ ok: false, cssPath, error: 'not found' });
+                            continue;
+                        }
+                        out.push({
+                            ok: true,
+                            cssPath,
+                            outerHTML: el.outerHTML,
+                            tagName: el.tagName,
+                            prevElementOuterHTML: el.previousElementSibling
+                                ? el.previousElementSibling.outerHTML
+                                : null,
+                            nextElementOuterHTML: el.nextElementSibling
+                                ? el.nextElementSibling.outerHTML
+                                : null,
+                        });
+                    } catch (e: unknown) {
+                        const msg = e instanceof Error ? e.message : String(e);
+                        out.push({ ok: false, cssPath, error: msg });
+                    }
+                }
+                return out;
+            }, chunk);
+            all.push(...batch);
+        }
+
+        return all;
+    }
+
+    /**
      * Fetches all possible CrawlActions on a CrawlState and returns them.
      * @param page - Puppeteer page instance
      * @param currentState - Current crawl state
@@ -254,17 +327,18 @@ class Crawler {
 
         // Create Set once after collecting all paths
         cssPaths = new Set(allCssPaths);
+        const pathList = Array.from(cssPaths);
+        const snapshots = await this.batchFetchActionNodeSnapshots(page, pathList);
 
-        for (const cssPath of cssPaths) {
+        for (const snap of snapshots) {
+            if (!snap.ok) {
+                console.error(chalk.red(`[ERROR] batch action snapshot failed for ${snap.cssPath}: ${snap.error}`));
+                continue;
+            }
+
             try {
-                const node = await page.$eval(cssPath, (el: any) => {
-                    return {
-                        outerHTML: el.outerHTML,
-                        tagName: el.tagName,
-                        prevElementOuterHTML: el.previousElementSibling ? el.previousElementSibling.outerHTML : null,
-                        nextElementOuterHTML: el.nextElementSibling ? el.nextElementSibling.outerHTML : null,
-                    };
-                });
+                const node = snap;
+                const cssPath = snap.cssPath;
 
                 const nodeCheerio = cheerio.load(node.outerHTML, { xmlMode: true });
                 this.stripDOM(nodeCheerio as cheerio.CheerioAPI);
@@ -286,8 +360,7 @@ class Crawler {
                 const actionHash = createHash('sha256').update(prevElementStrippedDOM + nodeCheerio.html() + nextElementStrippedDOM).digest('hex');
                 if (crawlManager.isCrawlActionUnique(cssPath, actionHash)) {
                     crawlActions.push(new CrawlAction(node.tagName, 'click', cssPath, actionHash, currentState));
-                } else {
-                    crawlActions.push(new CrawlAction(node.tagName, 'click', cssPath, actionHash, currentState));
+                    crawlManager.registerActionSignature(cssPath, actionHash);
                 }
             } catch (error) {
                 console.error(error);
@@ -357,11 +430,11 @@ class Crawler {
                 try {
                     node = await page.waitForSelector(crawlAction.cssPath);
                 } catch (error) {
-                    this.removeCrawlActionFromState(crawlAction);
+                    this.removeCrawlActionFromState(crawlManager, crawlAction);
                     return;
                 }
                 if (!node) {
-                    this.removeCrawlActionFromState(crawlAction);
+                    this.removeCrawlActionFromState(crawlManager, crawlAction);
                     return;
                 }
                 try {
@@ -373,12 +446,12 @@ class Crawler {
                             await node.evaluate((n: any) => n.click());
                         } catch (evalError) {
                             console.error(chalk.red(`\n[ERROR] ${evalError instanceof Error ? evalError.message : 'Unknown error'}`));
-                            this.removeCrawlActionFromState(crawlAction);
+                            this.removeCrawlActionFromState(crawlManager, crawlAction);
                             return;
                         }
                     } else {
                         console.error(chalk.red(`\n[ERROR] ${message}`));
-                        this.removeCrawlActionFromState(crawlAction);
+                        this.removeCrawlActionFromState(crawlManager, crawlAction);
                         return;
                     }
                 }
@@ -391,11 +464,11 @@ class Crawler {
         try {
             node = await page.waitForSelector(crawlerAction.cssPath);
         } catch (error) {
-            this.removeCrawlActionFromState(crawlerAction);
+            this.removeCrawlActionFromState(crawlManager, crawlerAction);
             return;
         }
         if (!node) {
-            this.removeCrawlActionFromState(crawlerAction);
+            this.removeCrawlActionFromState(crawlManager, crawlerAction);
             return;
         }
         try {
@@ -524,6 +597,7 @@ class Crawler {
         crawlState.crawlInputs = await this.getCrawlInputs(page, crawlState);
         // console.log(`Crawl inputs found:`);
         // console.log(crawlState.crawlInputs.map((input) => input.cssPath));
+        crawlManager.registerState(crawlState);
         return crawlState;
     }
 
@@ -531,7 +605,8 @@ class Crawler {
      * Removes the given CrawlAction from the parent CrawlState.
      * @param crawlAction - The action to remove
      */
-    removeCrawlActionFromState(crawlAction: CrawlAction): void {
+    removeCrawlActionFromState(crawlManager: CrawlStateManager, crawlAction: CrawlAction): void {
+        crawlManager.unregisterActionSignature(crawlAction.cssPath, crawlAction.actionHash);
         crawlAction.getParentState().crawlActions = crawlAction.getParentState().crawlActions.filter((value) =>
             crawlAction.actionId !== value.actionId
         );
@@ -578,7 +653,7 @@ class Crawler {
             if (existingState) {
                 // console.log('State already exists');
                 currentState = existingState;
-                this.removeCrawlActionFromState(currentAction);
+                this.removeCrawlActionFromState(crawlManager, currentAction);
             } else {
                 if (this.inContext(page.url())) {
                     // console.log('State does not exist, creating...');
@@ -592,7 +667,7 @@ class Crawler {
                         currentState.parentAction = currentAction;
                     }
                 } else {
-                    this.removeCrawlActionFromState(currentAction);
+                    this.removeCrawlActionFromState(crawlManager, currentAction);
                 }
             }
         }
@@ -752,7 +827,7 @@ class Crawler {
         }
         const rootStateHash = await this.getPageHash(firstPage);
         const rootState = await this.getNewCrawlState(firstPage, 0, rootStateHash, crawlManager, 'link');
-        crawlManager.rootState = rootState;
+        crawlManager.attachRootState(rootState);
 
         const delay = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
         const handleCrawls = browsers.map((browser, index) => async () => {
