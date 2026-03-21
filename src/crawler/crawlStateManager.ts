@@ -9,20 +9,20 @@ export interface CrawlStateManagerInterface {
     visitedActions: Set<string>;
 
     traverse(rootState: CrawlState, visited: CrawlState[]): void;
+    attachRootState(root: CrawlState | null): void;
+    registerState(state: CrawlState): void;
+    registerActionSignature(cssPath: string, actionHash: string): void;
+    unregisterActionSignature(cssPath: string, actionHash: string): void;
     getStateByHash(stateHash: string): CrawlState | null;
     getNextCrawlAction(): CrawlAction | null;
     isCrawlActionUnique(cssPath: string, actionHash: string): boolean;
-    /**
-     * @deprecated Use getOptimizedReplayPlan instead
-     */
-    getShortestPath(destinationState: CrawlState): CrawlAction[] | null;
     getOptimizedReplayPlan(destinationState: CrawlState): ReplayPlan | null;
 }
 
 /**
  * The CrawlStateManager is responsible for creating and managing the crawl graph.
  * It provides methods to traverse the state graph, find states by hash, get next actions,
- * check action uniqueness, and find shortest paths between states.
+ * check action uniqueness, and compute replay plans between states.
  */
 export class CrawlStateManager implements CrawlStateManagerInterface {
     /**
@@ -34,6 +34,29 @@ export class CrawlStateManager implements CrawlStateManagerInterface {
      * Set of action IDs that have been visited to avoid duplicate processing
      */
     public visitedActions: Set<string>;
+
+    /**
+     * Index: stripped DOM hash → state (amortized O(1) lookup).
+     * {@link CrawlState.stateHash} remains the canonical field on each vertex.
+     */
+    private readonly stateByHash: Map<string, CrawlState> = new Map();
+
+    /**
+     * Ref-count of (cssPath, actionHash) signatures across all actions in the graph.
+     * Used for O(1) duplicate detection; decremented when actions are removed from a state.
+     */
+    private readonly actionSignatureRefCount: Map<string, number> = new Map();
+
+    /**
+     * LIFO frontier of pending actions (array end = stack top). New states enqueue via
+     * {@link registerState}; {@link reindexFromRoot} reseeds from the root only.
+     */
+    private readonly pendingFrontier: CrawlAction[] = [];
+
+    /**
+     * Action IDs already placed on the frontier (prevents duplicate queue entries).
+     */
+    private readonly queuedActionIds: Set<string> = new Set();
 
     /**
      * CrawlStateManager object constructor.
@@ -50,6 +73,162 @@ export class CrawlStateManager implements CrawlStateManagerInterface {
 
         this.rootState = rootState ?? null;
         this.visitedActions = new Set<string>();
+        if (this.rootState) {
+            this.reindexFromRoot();
+        }
+    }
+
+    /**
+     * Stable key for (cssPath, actionHash) — avoids delimiter collisions inside selectors.
+     */
+    public static makeActionSignatureKey(cssPath: string, actionHash: string): string {
+        return JSON.stringify([cssPath, actionHash]);
+    }
+
+    /**
+     * Sets the root and rebuilds hash / action-signature indexes from the crawl tree.
+     * Use after the root state is fully constructed (e.g. after Crawler builds the initial state).
+     */
+    public attachRootState(root: CrawlState | null): void {
+        if (root !== null && root !== undefined && !this.isValidCrawlState(root)) {
+            throw new Error('Invalid CrawlState provided to attachRootState');
+        }
+        this.rootState = root ?? null;
+        this.reindexFromRoot();
+    }
+
+    /**
+     * Registers a vertex by {@link CrawlState.stateHash} (one canonical hash per state object).
+     */
+    public registerState(state: CrawlState): void {
+        if (!this.isValidCrawlState(state)) {
+            throw new Error('Invalid CrawlState provided to registerState');
+        }
+        this.stateByHash.set(state.stateHash, state);
+        this.enqueueActionsForState(state);
+    }
+
+    /**
+     * Pushes this state's crawl actions onto the frontier (end of array = stack top).
+     * Order matches the previous DFS stack built from `[...actions]` then pop (last action first).
+     */
+    private enqueueActionsForState(state: CrawlState): void {
+        try {
+            const crawlActions = state.getCrawlActions();
+            if (!Array.isArray(crawlActions)) {
+                return;
+            }
+            for (const action of crawlActions) {
+                if (!this.isValidCrawlAction(action)) {
+                    continue;
+                }
+                if (this.queuedActionIds.has(action.actionId)) {
+                    continue;
+                }
+                this.queuedActionIds.add(action.actionId);
+                this.pendingFrontier.push(action);
+            }
+        } catch (error) {
+            console.warn('Error enqueueing crawl actions for state:', state.stateId, error);
+        }
+    }
+
+    /**
+     * Clears the frontier and re-enqueues only the root state's actions (children arrive via
+     * {@link registerState} when discovered). Used after {@link reindexFromRoot} rebuilds maps.
+     */
+    private rebuildPendingFrontierFromRoot(): void {
+        this.pendingFrontier.length = 0;
+        this.queuedActionIds.clear();
+        if (!this.rootState || !this.isValidCrawlState(this.rootState)) {
+            return;
+        }
+        this.enqueueActionsForState(this.rootState);
+    }
+
+    /**
+     * Increments the global ref-count for an action signature when an action is added to the graph.
+     */
+    public registerActionSignature(cssPath: string, actionHash: string): void {
+        if (typeof cssPath !== 'string' || cssPath.trim() === '') {
+            throw new Error('cssPath must be a non-empty string');
+        }
+        if (typeof actionHash !== 'string' || actionHash.trim() === '') {
+            throw new Error('actionHash must be a non-empty string');
+        }
+        const key = CrawlStateManager.makeActionSignatureKey(cssPath, actionHash);
+        this.actionSignatureRefCount.set(key, (this.actionSignatureRefCount.get(key) ?? 0) + 1);
+    }
+
+    /**
+     * Decrements the ref-count when an action is removed from a state's list.
+     */
+    public unregisterActionSignature(cssPath: string, actionHash: string): void {
+        if (typeof cssPath !== 'string' || cssPath.trim() === '') {
+            throw new Error('cssPath must be a non-empty string');
+        }
+        if (typeof actionHash !== 'string' || actionHash.trim() === '') {
+            throw new Error('actionHash must be a non-empty string');
+        }
+        const key = CrawlStateManager.makeActionSignatureKey(cssPath, actionHash);
+        const next = (this.actionSignatureRefCount.get(key) ?? 0) - 1;
+        if (next <= 0) {
+            this.actionSignatureRefCount.delete(key);
+        } else {
+            this.actionSignatureRefCount.set(key, next);
+        }
+    }
+
+    /**
+     * Rebuilds {@link stateByHash} and {@link actionSignatureRefCount} from {@link rootState}.
+     */
+    private reindexFromRoot(): void {
+        this.stateByHash.clear();
+        this.actionSignatureRefCount.clear();
+        if (!this.rootState) {
+            this.pendingFrontier.length = 0;
+            this.queuedActionIds.clear();
+            return;
+        }
+
+        const stack: CrawlState[] = [this.rootState];
+        const visited = new Set<string>();
+
+        while (stack.length > 0) {
+            const currentState = stack.pop()!;
+
+            if (visited.has(currentState.stateId)) {
+                continue;
+            }
+            visited.add(currentState.stateId);
+
+            if (!this.isValidCrawlState(currentState)) {
+                continue;
+            }
+
+            this.stateByHash.set(currentState.stateHash, currentState);
+
+            try {
+                const crawlActions = currentState.getCrawlActions();
+                if (!Array.isArray(crawlActions)) {
+                    continue;
+                }
+                for (const action of crawlActions) {
+                    if (!this.isValidCrawlAction(action)) {
+                        continue;
+                    }
+                    this.registerActionSignature(action.cssPath, action.actionHash);
+                    const childState = action.childState;
+                    if (childState && this.isValidCrawlState(childState) && !visited.has(childState.stateId)) {
+                        stack.push(childState);
+                    }
+                }
+            } catch (error) {
+                console.warn('Error reindexing crawl actions for state:', currentState.stateId, error);
+            }
+        }
+
+        this.rebuildPendingFrontierFromRoot();
     }
 
     /**
@@ -136,7 +315,7 @@ export class CrawlStateManager implements CrawlStateManagerInterface {
 
     /**
      * Returns CrawlState with the given stateHash if found, otherwise null.
-     * Uses iterative depth-first search to avoid stack overflow on large graphs.
+     * Uses the internal state-by-hash index (returns null if that hash was never registered).
      * @param stateHash - The hash to search for
      * @returns The CrawlState with matching hash, or null if not found
      * @throws {Error} If stateHash is not a valid string
@@ -146,47 +325,13 @@ export class CrawlStateManager implements CrawlStateManagerInterface {
             throw new Error('stateHash must be a non-empty string');
         }
 
-        if (!this.rootState) {
-            return null;
-        }
-
-        const stack: CrawlState[] = [this.rootState];
-        const visited = new Set<string>();
-
-        while (stack.length > 0) {
-            const currentState = stack.pop()!;
-
-            if (!visited.has(currentState.stateId)) {
-                visited.add(currentState.stateId);
-
-                if (currentState.stateHash === stateHash) {
-                    return currentState;
-                }
-
-                try {
-                    const crawlActions = currentState.getCrawlActions();
-                    if (Array.isArray(crawlActions)) {
-                        for (const action of crawlActions) {
-                            if (this.isValidCrawlAction(action) &&
-                                action.childState &&
-                                this.isValidCrawlState(action.childState) &&
-                                !visited.has(action.childState.stateId)) {
-                                stack.push(action.childState);
-                            }
-                        }
-                    }
-                } catch (error) {
-                    console.warn('Error getting crawl actions for state:', currentState.stateId, error);
-                }
-            }
-        }
-
-        return null;
+        return this.stateByHash.get(stateHash) ?? null;
     }
 
     /**
      * Return the next crawlAction to be performed.
-     * Uses iterative depth-first search to find unvisited actions.
+     * Pops from the explicit {@link pendingFrontier} (LIFO, same order as the prior root DFS stack)
+     * instead of re-traversing from the root each time.
      * @returns The next unvisited CrawlAction, or null if all actions have been visited
      */
     public getNextCrawlAction(): CrawlAction | null {
@@ -195,41 +340,28 @@ export class CrawlStateManager implements CrawlStateManagerInterface {
         }
 
         try {
-            const rootActions = this.rootState.getCrawlActions();
-            if (!Array.isArray(rootActions)) {
-                return null;
-            }
-
-            const stack: CrawlAction[] = [...rootActions];
-            const visited = new Set<string>();
-
-            while (stack.length > 0) {
-                const currentAction = stack.pop()!;
-
-                if (!visited.has(currentAction.actionId)) {
-                    visited.add(currentAction.actionId);
-
-                    if (this.isValidCrawlAction(currentAction)) {
-                        // Check if this action has already been visited by the manager
-                        if (!this.visitedActions.has(currentAction.actionId)) {
-                            this.visitedActions.add(currentAction.actionId);
-                            return currentAction;
-                        }
-
-                        // If this action has a child state, explore its actions
-                        const childState = currentAction.childState;
-                        if (childState && this.isValidCrawlState(childState)) {
-                            try {
-                                const childActions = childState.getCrawlActions();
-                                if (Array.isArray(childActions)) {
-                                    stack.push(...childActions);
-                                }
-                            } catch (error) {
-                                console.warn('Error getting child actions:', error);
-                            }
-                        }
-                    }
+            while (this.pendingFrontier.length > 0) {
+                const action = this.pendingFrontier.pop()!;
+                if (!this.isValidCrawlAction(action)) {
+                    continue;
                 }
+
+                let stillInParent = false;
+                try {
+                    stillInParent = action.parentState.crawlActions.some((a) => a.actionId === action.actionId);
+                } catch {
+                    continue;
+                }
+                if (!stillInParent) {
+                    continue;
+                }
+
+                if (this.visitedActions.has(action.actionId)) {
+                    continue;
+                }
+
+                this.visitedActions.add(action.actionId);
+                return action;
             }
         } catch (error) {
             console.error('Error getting next crawl action:', error);
@@ -240,6 +372,7 @@ export class CrawlStateManager implements CrawlStateManagerInterface {
 
     /**
      * Returns false if CrawlAction with the same cssPath and actionHash is found, otherwise true.
+     * Uses a ref-count index for O(1) average-time checks when the root is attached.
      * @param cssPath - The CSS path to check for uniqueness
      * @param actionHash - The action hash to check for uniqueness
      * @returns True if the action is unique, false if a duplicate is found
@@ -257,118 +390,16 @@ export class CrawlStateManager implements CrawlStateManagerInterface {
             return true;
         }
 
-        const stack: CrawlAction[] = [...this.rootState.getCrawlActions()];
-        const visited = new Set<string>();
-
-        while (stack.length > 0) {
-            const currentAction = stack.pop()!;
-
-            if (!visited.has(currentAction.actionId)) {
-                visited.add(currentAction.actionId);
-
-                if (this.isValidCrawlAction(currentAction) &&
-                    currentAction.cssPath === cssPath &&
-                    currentAction.actionHash === actionHash) {
-                    return false;
-                }
-
-                const childState = currentAction.childState;
-                if (childState && this.isValidCrawlState(childState)) {
-                    try {
-                        const childActions = childState.getCrawlActions();
-                        if (Array.isArray(childActions)) {
-                            stack.push(...childActions);
-                        }
-                    } catch (error) {
-                        console.warn('Error getting child actions for uniqueness check:', error);
-                    }
-                }
-            }
-        }
-
-        return true;
-    }
-
-    /**
-     * Returns the shortest path to a CrawlState from the root state.
-     * Uses breadth-first search to find the shortest path.
-     * @param destinationState - The target state to find a path to
-     * @returns Array of CrawlActions representing the shortest path, or null if no path exists
-     * @throws {Error} If destinationState is not a valid CrawlState
-     */
-    public getShortestPath(destinationState: CrawlState): CrawlAction[] | null {
-        if (!this.isValidCrawlState(destinationState)) {
-            throw new Error('Invalid destinationState provided to getShortestPath method');
-        }
-
-        if (!this.rootState) {
-            return null;
-        }
-
-        // If the destination is the root state, return empty path
-        if (this.rootState === destinationState) {
-            return [];
-        }
-
-        // Use a queue structure to store the current state, actions, and action count
-        const queue: { state: CrawlState; actions: CrawlAction[]; actionCount: number }[] = [{
-            state: this.rootState,
-            actions: [],
-            actionCount: 0
-        }];
-        const visited = new Set<string>();
-        let queueIndex = 0;
-
-        while (queueIndex < queue.length) {
-            const current = queue[queueIndex++];
-            if (!current) continue;
-
-            const { state: currentState, actions: currentActions, actionCount } = current;
-
-            if (!visited.has(currentState.stateId)) {
-                visited.add(currentState.stateId);
-
-                // If the current state is the destination state, return the actions
-                if (currentState === destinationState) {
-                    return currentActions;
-                }
-
-                try {
-                    const crawlActions = currentState.getCrawlActions();
-                    if (crawlActions) {
-                        // If the crawl actions are valid, add the actions to the queue
-                        for (const action of crawlActions) {
-                            if (this.isValidCrawlAction(action) &&
-                                action.childState &&
-                                this.isValidCrawlState(action.childState) &&
-                                !visited.has(action.childState.stateId)) {
-
-                                // Reuse currentActions array and push new action to the queue
-                                const newActions = currentActions.slice(0, actionCount);
-                                newActions.push(action);
-
-                                queue.push({
-                                    state: action.childState,
-                                    actions: newActions,
-                                    actionCount: actionCount + 1
-                                });
-                            }
-                        }
-                    }
-                } catch (error) {
-                    console.warn('Error getting actions for BFS:', error);
-                }
-            }
-        }
-
-        return null;
+        const key = CrawlStateManager.makeActionSignatureKey(cssPath, actionHash);
+        const count = this.actionSignatureRefCount.get(key) ?? 0;
+        return count === 0;
     }
 
     /**
      * Computes an optimized replay plan to reach a destination state.
      *
      * Strategy:
-     * - Find a path (via BFS) from the root to the destination state.
+     * - Walk parent pointers from the destination toward the root.
      * - Along that path, identify the last child state that was reached via a full page navigation
      *   (i.e., its `arrivalType` is 'link'). We call this the "baseline" state.
      * - Return a plan consisting of:
@@ -430,10 +461,91 @@ export class CrawlStateManager implements CrawlStateManagerInterface {
     }
 
     /**
-     * Clears the visited actions set, allowing all actions to be considered again
+     * Clears the visited actions set, allowing all actions to be considered again.
+     * Rebuilds the pending frontier so subsequent {@link getNextCrawlAction} calls match the
+     * legacy DFS return order (same as repeatedly running the old root DFS).
      */
     public clearVisitedActions(): void {
         this.visitedActions.clear();
+        this.rebuildPendingFrontierAfterClearVisited();
+    }
+
+    /**
+     * Legacy DFS scan (same logic as the pre-frontier getNextCrawlAction) using an external
+     * executed set — used only to rebuild the frontier after clearVisited.
+     */
+    private findNextActionLegacyDFS(visitedExec: Set<string>): CrawlAction | null {
+        if (!this.rootState) {
+            return null;
+        }
+
+        try {
+            const rootActions = this.rootState.getCrawlActions();
+            if (!Array.isArray(rootActions)) {
+                return null;
+            }
+
+            const stack: CrawlAction[] = [...rootActions];
+            const visited = new Set<string>();
+
+            while (stack.length > 0) {
+                const currentAction = stack.pop()!;
+
+                if (!visited.has(currentAction.actionId)) {
+                    visited.add(currentAction.actionId);
+
+                    if (this.isValidCrawlAction(currentAction)) {
+                        if (!visitedExec.has(currentAction.actionId)) {
+                            return currentAction;
+                        }
+
+                        const childState = currentAction.childState;
+                        if (childState && this.isValidCrawlState(childState)) {
+                            try {
+                                const childActions = childState.getCrawlActions();
+                                if (Array.isArray(childActions)) {
+                                    stack.push(...childActions);
+                                }
+                            } catch (error) {
+                                console.warn('Error getting child actions:', error);
+                            }
+                        }
+                    }
+                }
+            }
+        } catch (error) {
+            console.error('Error in findNextActionLegacyDFS:', error);
+        }
+
+        return null;
+    }
+
+    /**
+     * Refills pendingFrontier from a full simulated legacy DFS pass (after visited was cleared).
+     */
+    private rebuildPendingFrontierAfterClearVisited(): void {
+        this.pendingFrontier.length = 0;
+        this.queuedActionIds.clear();
+        if (!this.rootState) {
+            return;
+        }
+
+        const order: CrawlAction[] = [];
+        const visitedExec = new Set<string>();
+        while (true) {
+            const next = this.findNextActionLegacyDFS(visitedExec);
+            if (!next) {
+                break;
+            }
+            order.push(next);
+            visitedExec.add(next.actionId);
+        }
+
+        for (let i = order.length - 1; i >= 0; i--) {
+            const action = order[i]!;
+            this.queuedActionIds.add(action.actionId);
+            this.pendingFrontier.push(action);
+        }
     }
 
     /**

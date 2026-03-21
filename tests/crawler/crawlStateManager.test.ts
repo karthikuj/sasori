@@ -205,34 +205,6 @@ describe('CrawlStateManager', () => {
         });
     });
 
-    describe('getShortestPath', () => {
-        it('should return shortest path to destination state', () => {
-            const result = stateManager.getShortestPath(mockChildState);
-            expect(result).not.toBeNull();
-            expect(result).toHaveLength(1);
-            expect(result?.[0]?.cssPath).toBe('#submit-btn');
-            expect(result?.[0]?.action).toBe('click');
-        });
-
-        it('should return null when no path exists', () => {
-            const isolatedState = new CrawlState('https://isolated.com', 'isolated-hash', 0, 'link', [], []);
-            const result = stateManager.getShortestPath(isolatedState);
-            expect(result).toBeNull();
-        });
-
-        it('should return null when root state is null', () => {
-            const emptyManager = new CrawlStateManager(null);
-            const result = emptyManager.getShortestPath(mockChildState);
-            expect(result).toBeNull();
-        });
-
-        it('should throw error for invalid destination state', () => {
-            expect(() => {
-                stateManager.getShortestPath({} as any);
-            }).toThrow('Invalid destinationState provided to getShortestPath method');
-        });
-    });
-
     describe('Utility Methods', () => {
         it('should clear visited actions', () => {
             stateManager.getNextCrawlAction(); // Visit an action
@@ -301,9 +273,8 @@ describe('CrawlStateManager', () => {
             const manager = new CrawlStateManager(invalidState);
             const result = manager.getStateByHash('test-hash');
             expect(result).toBe(invalidState);
-            // When searching for a state that matches the hash directly, 
-            // getCrawlActions is not called, so no console.warn should be expected
-            expect(consoleSpy).not.toHaveBeenCalled();
+            // Constructor runs reindexFromRoot, which calls getCrawlActions on the root — expect one warn.
+            expect(consoleSpy).toHaveBeenCalled();
 
             consoleSpy.mockRestore();
         });

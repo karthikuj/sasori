@@ -1,0 +1,47 @@
+---
+alwaysApply: true
+description: Claude-focused quick reference for Sasori crawler — files to read, traps, and crawl graph behavior.
+---
+
+# Sasori – Claude-specific Rules
+
+## Read First
+
+| Topic | File |
+|--------|------|
+| CLI | `bin/index.ts` |
+| Crawl loop & Puppeteer | `src/crawler/crawler.ts` |
+| Graph / queue / replay | `src/crawler/crawlStateManager.ts` |
+| Vertices / edges | `src/crawler/crawlState.ts`, `src/crawler/crawlAction.ts` |
+| Forms | `src/crawler/crawlInput.ts` |
+| Selectors in page | `src/crawler/domPath.ts` |
+| Browser launch | `src/browser/browser.ts` |
+| Recorder login | `src/auth/authenticator.ts` |
+| Config validation (CLI) | `src/models/configModel.ts` (`ConfigValidator`) |
+| Types | `src/types/crawler.ts`, `src/types/input.ts` |
+
+## Crawl Graph Mental Model
+
+1. Root `CrawlState` after loading `entryPoint` and hashing DOM.
+2. Each state exposes `CrawlAction[]` (clicks) and `CrawlInput[]` (fills).
+3. Performing an action updates the page → new hash → either merge with existing state or create child state and link `parentAction` / `childState`.
+4. Replay when the live page hash does not match the action’s parent: **`getOptimizedReplayPlan`** → `goto(baselineUrl)` then replay only post-baseline actions.
+
+## Config
+
+- Joi validation on startup: **`ConfigValidator`** from `configLoader` re-exports **`../models/configModel`** — that is the path **`start` uses**.
+- There is also `src/config/configSchema.ts`; if both define the same keys, keep them in sync when editing.
+
+## Puppeteer / Security Notes
+
+- `stripDOM` and hashing run on **serialized HTML**; dynamic content order can affect hashes.
+- `[click]` discovery uses **CDP** over all elements — very heavy on large pages.
+- Scope: request interception + `inContext()` for navigation; `authInProgress` temporarily widens `includeRegexes` for the recorder.
+
+## Types vs Code
+
+- Do not assume `CrawlStateManagerInterface` in `types/crawler.ts` matches the class — implementation uses `rootState` + traversals, not `states: Map`.
+
+## Tests
+
+- Mirror paths: `tests/crawler/*` for crawler logic; run `npm test` after behavioral changes.
