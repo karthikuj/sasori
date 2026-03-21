@@ -10,6 +10,7 @@ description: Claude-focused quick reference for Sasori crawler — files to read
 | Topic | File |
 |--------|------|
 | CLI | `bin/index.ts` |
+| HTTP API (multi-scan) | `src/api/createApiApp.ts`, `src/api/scanRegistry.ts`, `src/api/startApiServer.ts` |
 | Crawl loop & Puppeteer | `src/crawler/crawler.ts` |
 | Graph / queue / replay | `src/crawler/crawlStateManager.ts` |
 | Vertices / edges | `src/crawler/crawlState.ts`, `src/crawler/crawlAction.ts` |
