@@ -3,11 +3,16 @@
         "headless": true,
         "maximize": true,
         "proxy": {
-            "enabled": false,
+            "enabled": true,
             "host": "127.0.0.1",
-            "port": 8080
+            "port": 3200
         },
-        "instances": 4
+        "instances": 4,
+        "tls": {
+            "extraCaCerts": [
+                "/home/sup3r541y4n/Dev/nara/certs/nara-ca.crt"
+            ]
+        }
     },
     "crawler": {
         "entryPoint": "https://demo.testfire.net/bank/main.jsp",

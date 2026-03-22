@@ -1,5 +1,13 @@
 import { launch, Browser as PuppeteerBrowser, LaunchOptions } from 'puppeteer';
 import { BrowserConfig } from '../types/browser';
+import { prepareTlsUserDataDir } from './tlsProfile';
+
+export interface BrowserLaunchExtras {
+    /** Isolated profile dir with NSS CA imports (from {@link prepareTlsUserDataDir}). */
+    userDataDir?: string;
+    /** When true, {@link getBrowserConfig} skips `--ignore-certificate-errors` for proxied HTTPS. */
+    tlsCaImported?: boolean;
+}
 
 /**
  * The Browser class is responsible for instantiating and
@@ -10,9 +18,10 @@ class Browser {
      * This static method reads the config file and initializes
      * the browser options to be passed down to puppeteer.
      * @param config - Browser configuration object
+     * @param extras - Optional user data dir and TLS flags (see {@link BrowserLaunchExtras})
      * @return Puppeteer browser configuration
      */
-    static getBrowserConfig(config: BrowserConfig): LaunchOptions {
+    static getBrowserConfig(config: BrowserConfig, extras?: BrowserLaunchExtras): LaunchOptions {
         const browserConfig: LaunchOptions = { headless: true };
         const args: string[] = [];
 
@@ -24,15 +33,20 @@ class Browser {
 
         if (config.proxy && config.proxy.enabled) {
             if (config.proxy.host && config.proxy.port) {
-                args.push(
-                    `--proxy-server=${config.proxy.host}:${config.proxy.port}`,
-                );
-                args.push('--ignore-certificate-errors');
+                args.push(`--proxy-server=${config.proxy.host}:${config.proxy.port}`);
+                if (!extras?.tlsCaImported) {
+                    console.log('Adding --ignore-certificate-errors');
+                    args.push('--ignore-certificate-errors');
+                }
             }
         }
 
         if (config.slowMo) {
             browserConfig.slowMo = config.slowMo;
+        }
+
+        if (extras?.userDataDir) {
+            browserConfig.userDataDir = extras.userDataDir;
         }
 
         browserConfig.args = args;
@@ -46,7 +60,21 @@ class Browser {
      * @return Promise that resolves to a Puppeteer browser instance
      */
     static async getBrowserInstance(config: BrowserConfig): Promise<PuppeteerBrowser> {
-        const browserConfig = this.getBrowserConfig(config);
+        let extras: BrowserLaunchExtras | undefined;
+        const caPaths = config.tls?.extraCaCerts?.filter((p) => p && p.trim().length > 0);
+        if (caPaths?.length) {
+            try {
+                const userDataDir = prepareTlsUserDataDir(caPaths);
+                extras = { userDataDir, tlsCaImported: true };
+            } catch (e) {
+                const msg = e instanceof Error ? e.message : String(e);
+                console.warn(
+                    `[sasori] browser.tls.extraCaCerts: ${msg} — falling back to --ignore-certificate-errors when a proxy is used`,
+                );
+            }
+        }
+
+        const browserConfig = this.getBrowserConfig(config, extras);
         const browser = await launch(browserConfig);
         return browser;
     }

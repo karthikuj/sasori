@@ -1,6 +1,14 @@
 import { Browser as PuppeteerBrowser, LaunchOptions } from 'puppeteer';
 
 /**
+ * Trust custom CAs (e.g. Nara MITM) via NSS `certutil` in an isolated profile.
+ */
+export interface TlsConfig {
+    /** Absolute or cwd-relative paths to PEM CA certificate files. */
+    extraCaCerts?: string[];
+}
+
+/**
  * Browser configuration interface
  */
 export interface BrowserConfig {
@@ -9,6 +17,7 @@ export interface BrowserConfig {
     proxy: ProxyConfig;
     instances: number;
     slowMo?: number;
+    tls?: TlsConfig;
 }
 
 /**

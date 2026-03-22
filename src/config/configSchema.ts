@@ -1,5 +1,14 @@
 import Joi from 'joi';
-import { CrawlerConfig, BrowserConfig, CrawlerSettings, AuthenticationConfig, BasicAuthConfig, RecorderAuthConfig, ProxyConfig } from '../types';
+import {
+    CrawlerConfig,
+    BrowserConfig,
+    CrawlerSettings,
+    AuthenticationConfig,
+    BasicAuthConfig,
+    RecorderAuthConfig,
+    ProxyConfig,
+    TlsConfig,
+} from '../types';
 
 /**
  * Configuration schema definitions with TypeScript integration
@@ -60,6 +69,13 @@ export const authenticationSchema = Joi.object<AuthenticationConfig>({
 }).required();
 
 /**
+ * TLS / custom CA trust (Chromium + NSS certutil)
+ */
+export const tlsSchema = Joi.object<TlsConfig>({
+    extraCaCerts: Joi.array().items(Joi.string().min(1)).optional(),
+}).optional();
+
+/**
  * Browser configuration schema
  */
 export const browserSchema = Joi.object<BrowserConfig>({
@@ -68,6 +84,7 @@ export const browserSchema = Joi.object<BrowserConfig>({
     proxy: proxySchema,
     instances: Joi.number().integer().min(1).max(10).required(),
     slowMo: Joi.number().integer().min(0).max(5000).optional(),
+    tls: tlsSchema,
 }).required();
 
 /**

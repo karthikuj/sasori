@@ -1,12 +1,17 @@
 import { Browser as PuppeteerBrowser } from 'puppeteer';
 import { launch } from 'puppeteer';
-import Browser from '../../src/browser/browser';
+import Browser, { BrowserLaunchExtras } from '../../src/browser/browser';
 import { BrowserConfig } from '../../src/types/browser';
+import { prepareTlsUserDataDir } from '../../src/browser/tlsProfile';
 
 // Mock puppeteer
 jest.mock('puppeteer');
+jest.mock('../../src/browser/tlsProfile', () => ({
+    prepareTlsUserDataDir: jest.fn(() => '/tmp/sasori-mock-tls-profile'),
+}));
 
 const mockLaunch = launch as jest.MockedFunction<typeof launch>;
+const mockPrepareTls = prepareTlsUserDataDir as jest.MockedFunction<typeof prepareTlsUserDataDir>;
 
 describe('Browser', () => {
     let mockBrowser: jest.Mocked<PuppeteerBrowser>;
@@ -245,6 +250,25 @@ describe('Browser', () => {
                 ],
             });
         });
+
+        it('should omit ignore-certificate-errors when TLS CA was imported (proxied HTTPS)', () => {
+            const config: BrowserConfig = {
+                headless: true,
+                maximize: false,
+                proxy: {
+                    enabled: true,
+                    host: '127.0.0.1',
+                    port: 8080,
+                },
+                instances: 1,
+            };
+            const extras: BrowserLaunchExtras = { tlsCaImported: true };
+            const result = Browser.getBrowserConfig(config, extras);
+            expect(result).toEqual({
+                headless: true,
+                args: ['--proxy-server=127.0.0.1:8080'],
+            });
+        });
     });
 
     describe('getBrowserInstance', () => {
@@ -329,6 +353,31 @@ describe('Browser', () => {
                     '--ignore-certificate-errors',
                 ],
                 slowMo: 500,
+            });
+        });
+
+        it('should use TLS profile and omit ignore-certificate-errors when extraCaCerts set', async () => {
+            const config: BrowserConfig = {
+                headless: true,
+                maximize: false,
+                proxy: {
+                    enabled: true,
+                    host: '127.0.0.1',
+                    port: 8080,
+                },
+                instances: 1,
+                tls: {
+                    extraCaCerts: ['/fake/ca.pem'],
+                },
+            };
+
+            await Browser.getBrowserInstance(config);
+
+            expect(mockPrepareTls).toHaveBeenCalledWith(['/fake/ca.pem']);
+            expect(mockLaunch).toHaveBeenCalledWith({
+                headless: true,
+                args: ['--proxy-server=127.0.0.1:8080'],
+                userDataDir: '/tmp/sasori-mock-tls-profile',
             });
         });
     });

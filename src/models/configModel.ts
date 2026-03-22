@@ -1,5 +1,13 @@
 import Joi from 'joi';
-import { CrawlerConfig, BrowserConfig, CrawlerSettings, AuthenticationConfig, BasicAuthConfig, RecorderAuthConfig, ProxyConfig } from '../types';
+import {
+    CrawlerConfig,
+    BrowserConfig,
+    CrawlerSettings,
+    AuthenticationConfig,
+    BasicAuthConfig,
+    RecorderAuthConfig,
+    ProxyConfig,
+} from '../types';
 
 /**
  * Proxy model for the proxy configuration of the crawler
@@ -56,6 +64,13 @@ const authenticationModel: Joi.ObjectSchema<AuthenticationConfig> = Joi.object({
 });
 
 /**
+ * Optional TLS trust (PEM CA files for Chromium via NSS certutil).
+ */
+const tlsModel = Joi.object({
+    extraCaCerts: Joi.array().items(Joi.string().min(1)).optional(),
+}).optional();
+
+/**
  * Browser model for the browser configuration of the crawler.
  */
 const browserModel: Joi.ObjectSchema<BrowserConfig> = Joi.object({
@@ -64,6 +79,7 @@ const browserModel: Joi.ObjectSchema<BrowserConfig> = Joi.object({
     proxy: proxyModel,
     instances: Joi.number().integer().min(1).max(10).required(),
     slowMo: Joi.number().integer().min(0).max(5000).optional(),
+    tls: tlsModel,
 });
 
 /**
