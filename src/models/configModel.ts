@@ -90,6 +90,7 @@ const crawlerModel: Joi.ObjectSchema<CrawlerSettings> = Joi.object({
     eventTimeout: Joi.number().integer().min(1000).max(300000).required(),
     navigationTimeout: Joi.number().integer().min(1000).max(300000).required(),
     eventWait: Joi.number().integer().min(0).max(10000).required(),
+    debugNetwork: Joi.boolean().optional(),
     maxDuration: Joi.number().integer().min(0).max(3600000).required(),
     elements: Joi.array().items(Joi.string()).min(1).required(),
     maxChildren: Joi.number().integer().min(0).max(1000).required(),

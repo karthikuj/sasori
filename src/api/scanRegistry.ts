@@ -20,6 +20,13 @@ interface InternalScan {
     error?: string;
     cancelRequested: boolean;
     crawler?: Crawler;
+    callback?: CompletionCallbackMeta;
+    backendScanId?: number;
+}
+
+interface CompletionCallbackMeta {
+    url: string;
+    secret?: string;
 }
 
 /**
@@ -38,7 +45,7 @@ export class ScanRegistry {
     /**
      * Validates config, registers a new scan, and starts the crawl asynchronously.
      */
-    createScan(rawConfig: unknown): ScanRecord {
+    createScan(rawConfig: unknown, meta?: { callback?: CompletionCallbackMeta; backendScanId?: number }): ScanRecord {
         const config = ConfigValidator.validate(rawConfig);
         const scanId = randomUUID();
         const now = Date.now();
@@ -48,6 +55,8 @@ export class ScanRegistry {
             createdAt: now,
             startedAt: now,
             cancelRequested: false,
+            ...(meta?.callback ? {callback: meta.callback} : {}),
+            ...(typeof meta?.backendScanId === 'number' ? {backendScanId: meta.backendScanId} : {}),
         };
         this.scans.set(scanId, internal);
         void this.runScan(scanId, config).catch((err) => {
@@ -122,7 +131,47 @@ export class ScanRegistry {
             if (done) {
                 delete done.crawler;
                 done.finishedAt = Date.now();
+                void this.notifyCompletion(done);
             }
+        }
+    }
+
+    private async notifyCompletion(scan: InternalScan): Promise<void> {
+        if (!scan.callback?.url || !scan.backendScanId) {
+            return;
+        }
+        const payload = {
+            backend_scan_id: scan.backendScanId,
+            sasori_scan_id: scan.scanId,
+            status: scan.status,
+            finished_at: scan.finishedAt,
+            error: scan.error,
+        };
+        const headers: Record<string, string> = {
+            'Content-Type': 'application/json',
+        };
+        if (scan.callback.secret) {
+            headers['X-Sasori-Callback-Secret'] = scan.callback.secret;
+        }
+
+        let delayMs = 500;
+        for (let attempt = 1; attempt <= 4; attempt += 1) {
+            try {
+                const response = await fetch(scan.callback.url, {
+                    method: 'POST',
+                    headers,
+                    body: JSON.stringify(payload),
+                });
+                if (response.ok) {
+                    return;
+                }
+            } catch {
+                // intentionally ignored, retry below
+            }
+            await new Promise((resolve) => {
+                setTimeout(resolve, delayMs);
+            });
+            delayMs *= 2;
         }
     }
 

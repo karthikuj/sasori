@@ -62,7 +62,7 @@ class Browser {
     static async getBrowserInstance(config: BrowserConfig): Promise<PuppeteerBrowser> {
         let extras: BrowserLaunchExtras | undefined;
         const caPaths = config.tls?.extraCaCerts?.filter((p) => p && p.trim().length > 0);
-        if (caPaths?.length) {
+        if (config.proxy?.enabled && caPaths?.length) {
             try {
                 const userDataDir = prepareTlsUserDataDir(caPaths);
                 extras = { userDataDir, tlsCaImported: true };

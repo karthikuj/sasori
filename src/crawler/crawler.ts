@@ -89,6 +89,7 @@ class Crawler {
      * Browsers launched while this crawl is active (so {@link stopCrawling} can close them).
      */
     private activeBrowsers: PuppeteerBrowser[] = [];
+    private readonly debugPages: WeakSet<Page> = new WeakSet();
 
     /**
      * Crawler class constructor.
@@ -111,6 +112,51 @@ class Crawler {
      */
     wasStopped(): boolean {
         return this.abortController.signal.aborted;
+    }
+
+    private isDebugNetworkEnabled(): boolean {
+        if (this.crawlerConfig.debugNetwork === true) {
+            return true;
+        }
+        const env = process.env.SASORI_DEBUG_NETWORK;
+        return env === '1' || env === 'true' || env === 'TRUE';
+    }
+
+    private debugLog(message: string): void {
+        if (!this.isDebugNetworkEnabled()) {
+            return;
+        }
+        console.log(chalk.yellow(`[DEBUG] ${message}`));
+    }
+
+    private attachPageDebugListeners(page: Page, pageIdx: number): void {
+        if (!this.isDebugNetworkEnabled() || this.debugPages.has(page)) {
+            return;
+        }
+        this.debugPages.add(page);
+
+        page.on('requestfailed', (req) => {
+            const failure = req.failure();
+            this.debugLog(
+                `page=${pageIdx} requestfailed method=${req.method()} url=${req.url()} error=${failure?.errorText ?? 'unknown'}`
+            );
+        });
+
+        page.on('response', (res) => {
+            if (res.status() >= 400) {
+                this.debugLog(`page=${pageIdx} response status=${res.status()} url=${res.url()}`);
+            }
+        });
+
+        page.on('framenavigated', (frame) => {
+            if (frame === page.mainFrame()) {
+                this.debugLog(`page=${pageIdx} main-frame navigated url=${frame.url()}`);
+            }
+        });
+
+        page.on('pageerror', (err) => {
+            this.debugLog(`page=${pageIdx} pageerror message=${err.message}`);
+        });
     }
 
     /**
@@ -415,6 +461,36 @@ class Crawler {
         const currentStateHash = await this.getPageHash(page);
         if (currentStateHash !== crawlerAction.parentState.stateHash) {
             const replayPlan = crawlManager.getOptimizedReplayPlan(crawlerAction.parentState);
+            // // Log the replay plan in detail
+            // console.log('[Crawl] Replay Plan:');
+            // if (replayPlan) {
+            //     console.log('\tBaseline URL:', replayPlan.baselineUrl);
+            //     if (Array.isArray(replayPlan.actionsToReplay)) {
+            //         console.log('\tActions To Replay:');
+            //         replayPlan.actionsToReplay.forEach((action: any, idx: number) => {
+            //             console.log(`\t  [${idx}]`);
+            //             console.log(`\t    Element: ${action.element}`);
+            //             console.log(`\t    Action Type: ${action.action}`);
+            //             console.log(`\t    CSS Path: ${action.cssPath}`);
+            //             console.log(`\t    Action Hash: ${action.actionHash}`);
+            //             if (action.parentState) {
+            //                 console.log(`\t    Parent State Hash: ${action.parentState.stateHash}`);
+            //                 if (Array.isArray(action.parentState.crawlInputs)) {
+            //                     console.log(`\t    Parent Crawl Inputs: [${action.parentState.crawlInputs.map((i: any) => i.cssPath).join(', ')}]`);
+            //                 }
+            //             }
+            //         });
+            //         console.log('\t  Current Crawl Action:');
+            //         console.log(`\t    Element: ${crawlerAction.element}`);
+            //         console.log(`\t    Action Type: ${crawlerAction.action}`);
+            //         console.log(`\t    CSS Path: ${crawlerAction.cssPath}`);
+            //         console.log(`\t    Action Hash: ${crawlerAction.actionHash}`);
+            //     } else {
+            //         console.log('\tNo actions to replay.');
+            //     }
+            // } else {
+            //     console.log('\tNo replay plan available.');
+            // }
             if (!replayPlan) return;
             {
                 const maxRetries = this.crawlerConfig.maxActionRetries ?? 3;
@@ -577,14 +653,33 @@ class Crawler {
      * @return Promise resolving to the page hash string
      */
     async getPageHash(page: Page): Promise<string> {
-        await page.waitForFunction(() => (globalThis as any).document.readyState === 'complete', { timeout: this.crawlerConfig.navigationTimeout });
+        try {
+            await page.waitForFunction(
+                () => (globalThis as any).document.readyState === 'complete',
+                { timeout: this.crawlerConfig.navigationTimeout }
+            );
+        } catch (error: any) {
+            this.debugLog(
+                `getPageHash readyState wait timed out url=${page.url()} error=${error instanceof Error ? error.message : String(error)}`
+            );
+        }
         let $: cheerio.CheerioAPI;
         try {
             $ = cheerio.load(await page.content(), { xmlMode: true }) as cheerio.CheerioAPI;
         } catch (error: any) {
             const { message } = error;
             if (message === 'Execution context was destroyed, most likely because of a navigation.') {
-                await page.waitForNavigation({ waitUntil: ['domcontentloaded', 'networkidle0'] });
+                this.debugLog(`getPageHash execution context destroyed, waiting for navigation url=${page.url()}`);
+                try {
+                    await page.waitForNavigation({
+                        waitUntil: ['domcontentloaded'],
+                        timeout: this.crawlerConfig.navigationTimeout,
+                    });
+                } catch (navError: any) {
+                    this.debugLog(
+                        `getPageHash waitForNavigation timeout url=${page.url()} error=${navError instanceof Error ? navError.message : String(navError)}`
+                    );
+                }
                 $ = cheerio.load(await page.content(), { xmlMode: true }) as cheerio.CheerioAPI;
             } else {
                 console.error(chalk.red(`\n[ERROR] ${message}`));
@@ -737,12 +832,13 @@ class Crawler {
             }
 
             const allPages: Page[] = [];
-            for (const browser of browsers) {
+            for (const [i, browser] of browsers.entries()) {
                 const pages = await browser.pages();
                 const page = pages[0];
                 if (!page) continue;
                 page.setDefaultTimeout(this.crawlerConfig.eventTimeout);
                 page.setDefaultNavigationTimeout(this.crawlerConfig.navigationTimeout);
+                this.attachPageDebugListeners(page, i);
                 await this.maximizeViewport(page);
                 allPages.push(page);
             }

@@ -89,6 +89,8 @@ The `browser` section contains settings related to the browser used by the crawl
   - **enabled**: (boolean) Specifies whether proxy is enabled.
   - **host**: (string) Hostname of the proxy server. Required if `enabled` is `true`.
   - **port**: (integer) Port of the proxy server. Required if `enabled` is `true`.
+- **tls**: (object) Optional TLS settings for proxied HTTPS traffic.
+  - **extraCaCerts**: (array of strings) Paths to PEM CA cert files that should be trusted by the crawler browser profile (for MITM proxy certs).
 - **instances**: (integer): Number of browser instances to use simultaneously for crawling.
 
 Example:
@@ -103,10 +105,30 @@ Example:
       "host": "proxy.example.com",
       "port": 8080
     },
+    "tls": {
+      "extraCaCerts": ["/path/to/proxy-ca.crt"]
+    },
     "instances": 4
   }
 }
 ```
+
+#### TLS + proxy troubleshooting
+
+If you see this warning:
+
+```text
+[sasori] browser.tls.extraCaCerts: certutil not found (install nss-tools / libnss3-tools) to use browser.tls.extraCaCerts — falling back to --ignore-certificate-errors when a proxy is used
+```
+
+install NSS tools so Sasori can import your proxy CA into Chromium's profile:
+
+```bash
+# Debian/Ubuntu/Kali
+sudo apt update && sudo apt install -y libnss3-tools
+```
+
+Then rerun Sasori. Without `certutil`, Sasori falls back to `--ignore-certificate-errors` when proxying HTTPS.
 
 ### Crawler Configuration
 

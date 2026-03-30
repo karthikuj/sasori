@@ -7,18 +7,14 @@
             "host": "127.0.0.1",
             "port": 3200
         },
-        "instances": 4,
-        "tls": {
-            "extraCaCerts": [
-                "/home/sup3r541y4n/Dev/nara/certs/nara-ca.crt"
-            ]
-        }
+        "instances": 4
     },
     "crawler": {
         "entryPoint": "https://demo.testfire.net/bank/main.jsp",
         "eventTimeout": 10000,
         "navigationTimeout": 30000,
         "eventWait": 0,
+        "debugNetwork": false,
         "maxActionRetries": 3,
         "maxDuration": 0,
         "elements": [

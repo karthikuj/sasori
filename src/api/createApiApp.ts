@@ -18,7 +18,24 @@ export function createApiApp(registry: ScanRegistry): express.Application {
 
     v1.post('/scans', (req: Request, res: Response, next: NextFunction) => {
         try {
-            const record = registry.createScan(req.body);
+            const body = (req.body ?? {}) as Record<string, unknown>;
+            const callbackRaw = body.nara_callback as Record<string, unknown> | undefined;
+            const callback =
+                callbackRaw && typeof callbackRaw.url === 'string'
+                    ? {
+                        url: callbackRaw.url,
+                        ...(typeof callbackRaw.secret === 'string' ? {secret: callbackRaw.secret} : {}),
+                    }
+                    : undefined;
+            const backendScanId =
+                typeof callbackRaw?.backend_scan_id === 'number'
+                    ? callbackRaw.backend_scan_id
+                    : undefined;
+            const meta = {
+                ...(callback ? {callback} : {}),
+                ...(typeof backendScanId === 'number' ? {backendScanId} : {}),
+            };
+            const record = registry.createScan(req.body, meta);
             res.status(201).json(record);
         } catch (err) {
             next(err);
