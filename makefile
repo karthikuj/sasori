@@ -12,10 +12,11 @@ endif
 # ─── Project config ─────────────────────────────────────────
 APP_NAME   := sasori-crawl
 PKG_FILE   := ./package.json
-DIST_DIR   := ./dist
-CLI_ENTRY  := $(DIST_DIR)/bin/index.js
-NPM        := npm
-NODE       := node
+DIST_DIR    := ./dist
+CLI_ENTRY   := $(DIST_DIR)/bin/index.js
+PACKAGE_DIR := ./release
+NPM         := npm
+NODE        := node
 
 # Version / build metadata (for banners and release notes)
 VERSION    := $(shell git describe --tags --always --dirty 2>/dev/null || node -p "require('./package.json').version" 2>/dev/null || echo "dev")
@@ -31,6 +32,7 @@ PORT       ?= 8080
 .PHONY: help check-tools install ci \
         build build-watch clean \
         run run-cli run-api \
+        package-zip \
         lint type-check format \
         test test-watch test-coverage test-ci \
         version
@@ -89,6 +91,21 @@ run-cli: build ## Run a crawl: CONFIG=path/to/config.json (default: config/confi
 
 run-api: build ## Start REST API server (override HOST= PORT= on the command line)
 	@$(NODE) $(CLI_ENTRY) api --host "$(HOST)" --port "$(PORT)"
+
+package-zip: ## Zip minimal prod bundle for `npm ci` + `npm start` (requires `make build` first)
+	@command -v zip >/dev/null 2>&1 || { echo "  ❌ zip NOT found. Install with: sudo apt install zip"; exit 1; }
+	@test -f $(CLI_ENTRY) || { echo "  ❌ $(CLI_ENTRY) missing. Run: make build"; exit 1; }
+	@test -d $(DIST_DIR)/config || { echo "  ❌ $(DIST_DIR)/config missing (postbuild copy). Run: make build"; exit 1; }
+	@test -f package.json || { echo "  ❌ package.json missing"; exit 1; }
+	@test -f package-lock.json || { echo "  ❌ package-lock.json missing"; exit 1; }
+	@test -f makefile || { echo "  ❌ makefile missing"; exit 1; }
+	@mkdir -p $(PACKAGE_DIR)
+	@archive="$(PACKAGE_DIR)/$(APP_NAME).zip"; \
+	echo "Creating $$archive (dist/, package.json, package-lock.json, makefile) ..."; \
+	zip -rq "$$archive" dist package.json package-lock.json makefile; \
+	echo "Done → $$archive"; \
+	echo "  On server: unzip, then \`npm ci\` (installs node_modules; not in zip)."; \
+	echo "  CLI: \`npm start\` or \`node dist/bin/index.js …\`. API e.g. \`npm start -- api --host 0.0.0.0 --port 8080\`."
 
 # ═════════════════════════════════════════════════════════════
 ##@ Code quality
