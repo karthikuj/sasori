@@ -6,6 +6,16 @@ import { Browser as PuppeteerBrowser, LaunchOptions } from 'puppeteer';
 export interface TlsConfig {
     /** Absolute or cwd-relative paths to PEM CA certificate files. */
     extraCaCerts?: string[];
+    /**
+     * Permit falling back to `--ignore-certificate-errors` when the CA cannot be
+     * imported into the browser profile.
+     *
+     * Defaults to **false** (fail closed). When true the crawl browser accepts
+     * *any* certificate, which silently disables TLS verification for all of the
+     * crawler's own traffic — acceptable against a controlled local MITM, a real
+     * risk on a shared or hostile network. Development only.
+     */
+    allowInsecureFallback?: boolean;
 }
 
 /**

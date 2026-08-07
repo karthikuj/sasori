@@ -24,6 +24,9 @@ export function startApiServer(options: StartApiServerOptions = {}): Promise<Sta
     const host = options.host ?? '0.0.0.0';
     const port = options.port ?? 8080;
     const registry = options.registry ?? new ScanRegistry();
+    // Drains any completion callbacks left undelivered by a previous process,
+    // then keeps retrying in the background.
+    registry.startBackgroundDelivery();
     const app = createApiApp(registry);
 
     return new Promise((resolve, reject) => {

@@ -133,3 +133,5 @@ release/
 # Project notes
 crawlConfigs
 to-fix.md
+# Sasori durable completion outbox (runtime state)
+.sasori/

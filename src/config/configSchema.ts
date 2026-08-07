@@ -73,6 +73,9 @@ export const authenticationSchema = Joi.object<AuthenticationConfig>({
  */
 export const tlsSchema = Joi.object<TlsConfig>({
     extraCaCerts: Joi.array().items(Joi.string().min(1)).optional(),
+    // Defaults to false: CA import failure is a hard error rather than a silent
+    // downgrade to "trust any certificate". See TlsConfig.allowInsecureFallback.
+    allowInsecureFallback: Joi.boolean().default(false),
 }).optional();
 
 /**

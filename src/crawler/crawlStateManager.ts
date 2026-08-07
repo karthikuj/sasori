@@ -412,6 +412,69 @@ export class CrawlStateManager implements CrawlStateManagerInterface {
      * - DOM actions (forms, buttons, etc.) are then replayed from that nearer baseline.
      */
     public getOptimizedReplayPlan(destinationState: CrawlState): ReplayPlan | null {
+        const startedAt = Date.now();
+        try {
+            return this.computeOptimizedReplayPlan(destinationState);
+        } finally {
+            this.recordReplayPlanTiming(Date.now() - startedAt);
+        }
+    }
+
+    /**
+     * Running stats for {@link getOptimizedReplayPlan}.
+     *
+     * Planning is ~O(path length) per action over a graph bounded only by
+     * `maxDepth` (up to 100) and `maxChildren` (up to 1000). That is fine today,
+     * but on a large SPA the cost is invisible without measurement — the crawl
+     * just gets slower with nothing to point at. These counters make a real
+     * regression attributable instead of a mystery.
+     */
+    private replayPlanCalls = 0;
+
+    private replayPlanTotalMs = 0;
+
+    private replayPlanMaxMs = 0;
+
+    /** Log a warning at most once per this many slow plans, to avoid log spam. */
+    private static readonly SLOW_REPLAY_PLAN_MS = 50;
+
+    private recordReplayPlanTiming(elapsedMs: number): void {
+        this.replayPlanCalls += 1;
+        this.replayPlanTotalMs += elapsedMs;
+        if (elapsedMs > this.replayPlanMaxMs) {
+            this.replayPlanMaxMs = elapsedMs;
+        }
+        if (elapsedMs >= CrawlStateManager.SLOW_REPLAY_PLAN_MS) {
+            // eslint-disable-next-line no-console
+            console.warn(
+                `[sasori] slow replay plan: ${elapsedMs}ms over ${this.stateByHash.size} states ` +
+                    `(call #${this.replayPlanCalls}). If this is frequent, replay planning has ` +
+                    'become the crawl bottleneck.',
+            );
+        }
+    }
+
+    /**
+     * Snapshot of replay-planning cost for this crawl. Surfaced so the crawler
+     * can report it at the end of a run.
+     */
+    public getReplayPlanStats(): {
+        calls: number;
+        totalMs: number;
+        maxMs: number;
+        averageMs: number;
+        stateCount: number;
+    } {
+        return {
+            calls: this.replayPlanCalls,
+            totalMs: this.replayPlanTotalMs,
+            maxMs: this.replayPlanMaxMs,
+            averageMs: this.replayPlanCalls === 0 ? 0 : this.replayPlanTotalMs / this.replayPlanCalls,
+            stateCount: this.stateByHash.size,
+        };
+    }
+
+    private computeOptimizedReplayPlan(destinationState: CrawlState): ReplayPlan | null {
         if (!this.isValidCrawlState(destinationState)) {
             throw new Error('Invalid destinationState provided to getOptimizedReplayPlan method');
         }
