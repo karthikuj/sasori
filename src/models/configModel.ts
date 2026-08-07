@@ -68,6 +68,12 @@ const authenticationModel: Joi.ObjectSchema<AuthenticationConfig> = Joi.object({
  */
 const tlsModel = Joi.object({
     extraCaCerts: Joi.array().items(Joi.string().min(1)).optional(),
+    // Must be declared here, not only in configSchema.ts: ConfigValidator runs
+    // this model with stripUnknown, so a key missing from it is silently deleted
+    // from the user's config. Without this line `allowInsecureFallback: true`
+    // would never reach Browser.getBrowserInstance and the documented escape
+    // hatch would appear to do nothing.
+    allowInsecureFallback: Joi.boolean().default(false),
 }).optional();
 
 /**

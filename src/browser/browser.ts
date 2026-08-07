@@ -35,7 +35,15 @@ class Browser {
             if (config.proxy.host && config.proxy.port) {
                 args.push(`--proxy-server=${config.proxy.host}:${config.proxy.port}`);
                 if (!extras?.tlsCaImported) {
-                    console.log('Adding --ignore-certificate-errors');
+                    // Reached only when getBrowserInstance has already established
+                    // that insecure fallback is permitted (or when no CA was
+                    // configured at all). It is a genuine security downgrade —
+                    // every certificate the crawler sees is accepted — so it is
+                    // logged as a warning rather than an informational line.
+                    console.warn(
+                        '[sasori] TLS verification DISABLED for the crawl browser ' +
+                            '(--ignore-certificate-errors). Development use only.',
+                    );
                     args.push('--ignore-certificate-errors');
                 }
             }
@@ -62,14 +70,34 @@ class Browser {
     static async getBrowserInstance(config: BrowserConfig): Promise<PuppeteerBrowser> {
         let extras: BrowserLaunchExtras | undefined;
         const caPaths = config.tls?.extraCaCerts?.filter((p) => p && p.trim().length > 0);
+
         if (config.proxy?.enabled && caPaths?.length) {
             try {
                 const userDataDir = prepareTlsUserDataDir(caPaths);
                 extras = { userDataDir, tlsCaImported: true };
             } catch (e) {
                 const msg = e instanceof Error ? e.message : String(e);
+
+                // Fail closed. A CA that cannot be imported used to downgrade the
+                // browser to trusting *every* certificate, which is a silent loss
+                // of TLS verification for all of the crawler's traffic — fine
+                // against a local MITM, dangerous on a shared or hostile network.
+                // Since a CA was explicitly configured, the operator intends
+                // verified TLS; quietly abandoning that is the wrong default.
+                if (!config.tls?.allowInsecureFallback) {
+                    throw new Error(
+                        `[sasori] browser.tls.extraCaCerts: ${msg}. Refusing to launch ` +
+                            'with certificate verification disabled. Fix the CA import ' +
+                            '(certutil/NSS must be installed and the PEM readable), or set ' +
+                            'browser.tls.allowInsecureFallback: true to accept any ' +
+                            'certificate — development only.',
+                    );
+                }
+
                 console.warn(
-                    `[sasori] browser.tls.extraCaCerts: ${msg} — falling back to --ignore-certificate-errors when a proxy is used`,
+                    `[sasori] browser.tls.extraCaCerts: ${msg} — allowInsecureFallback is ` +
+                        'enabled, so the crawl browser will accept ANY certificate. ' +
+                        'Do not use this outside development.',
                 );
             }
         }
