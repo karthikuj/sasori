@@ -132,11 +132,11 @@ yarg.command({
                     `[INFO] Sasori API listening on http://${host === '0.0.0.0' ? '127.0.0.1' : host}:${port} (bound ${host}:${port})`,
                 ),
             );
-            console.log(chalk.cyan(`  POST   /api/v1/scans   — start scan (JSON body = crawler config)`));
-            console.log(chalk.cyan(`  GET    /api/v1/scans   — list scans`));
-            console.log(chalk.cyan(`  GET    /api/v1/scans/:id`));
-            console.log(chalk.cyan(`  DELETE /api/v1/scans/:id — stop scan`));
-            console.log(chalk.cyan(`  GET    /health`));
+            console.log(chalk.cyan('  POST   /api/v1/scans   — start scan (JSON body = crawler config)'));
+            console.log(chalk.cyan('  GET    /api/v1/scans   — list scans'));
+            console.log(chalk.cyan('  GET    /api/v1/scans/:id'));
+            console.log(chalk.cyan('  DELETE /api/v1/scans/:id — stop scan'));
+            console.log(chalk.cyan('  GET    /health'));
         } catch (err: unknown) {
             console.error(chalk.red(`[ERROR] ${err instanceof Error ? err.message : err}`));
             process.exitCode = 1;
