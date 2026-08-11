@@ -34,6 +34,14 @@ class Browser {
         if (config.proxy && config.proxy.enabled) {
             if (config.proxy.host && config.proxy.port) {
                 args.push(`--proxy-server=${config.proxy.host}:${config.proxy.port}`);
+                // Chrome bypasses the proxy for loopback addresses by default,
+                // so `--proxy-server` alone silently does nothing for a target
+                // on localhost or 127.0.0.1. That is not an edge case: it is
+                // every locally-hosted application anyone points the scanner
+                // at, and the symptom is a clean crawl that produces no
+                // findings, because Nara's proxy never saw a single request.
+                // "<-loopback>" removes loopback from the bypass list.
+                args.push('--proxy-bypass-list=<-loopback>');
                 if (!extras?.tlsCaImported) {
                     // Reached only when getBrowserInstance has already established
                     // that insecure fallback is permitted (or when no CA was
