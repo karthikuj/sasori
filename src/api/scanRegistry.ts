@@ -306,7 +306,7 @@ export class ScanRegistry {
             // backend will not finalize this scan without manual intervention.
             // eslint-disable-next-line no-console
             console.error(
-                `[sasori api] FAILED to persist completion for backend_scan_id=` +
+                '[sasori api] FAILED to persist completion for backend_scan_id=' +
                     `${String(scan.backendScanId)}; the scan will remain Running in the backend:`,
                 err,
             );

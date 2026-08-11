@@ -17,7 +17,7 @@ describe('Browser', () => {
     let mockBrowser: jest.Mocked<PuppeteerBrowser>;
 
     beforeEach(() => {
-        // Reset all mocks
+    // Reset all mocks
         jest.clearAllMocks();
 
         // Create mock browser
@@ -121,9 +121,32 @@ describe('Browser', () => {
                 headless: true,
                 args: [
                     '--proxy-server=127.0.0.1:8080',
+                    '--proxy-bypass-list=<-loopback>',
                     '--ignore-certificate-errors',
                 ],
             });
+        });
+
+        // Chrome bypasses the proxy for loopback by default, so without this
+        // flag a crawl of a locally-hosted target routes nothing through the
+        // scanner's proxy and the scan finds nothing while appearing to
+        // succeed. Pinned as its own case because it is invisible in any test
+        // that only asserts the proxy server was set.
+        it('should disable the loopback proxy bypass so localhost targets are proxied', () => {
+            const config: BrowserConfig = {
+                headless: true,
+                maximize: false,
+                proxy: {
+                    enabled: true,
+                    host: 'localhost',
+                    port: 13200,
+                },
+                instances: 1,
+            };
+
+            const result = Browser.getBrowserConfig(config, { tlsCaImported: true });
+
+            expect(result.args).toContain('--proxy-bypass-list=<-loopback>');
         });
 
         it('should not add proxy configuration when enabled but missing host', () => {
@@ -222,6 +245,7 @@ describe('Browser', () => {
                 args: [
                     '--start-maximized',
                     '--proxy-server=192.168.1.1:3128',
+                    '--proxy-bypass-list=<-loopback>',
                     '--ignore-certificate-errors',
                 ],
                 slowMo: 250,
@@ -246,6 +270,7 @@ describe('Browser', () => {
                 headless: true,
                 args: [
                     '--proxy-server=proxy.example.com:9000',
+                    '--proxy-bypass-list=<-loopback>',
                     '--ignore-certificate-errors',
                 ],
             });
@@ -266,7 +291,7 @@ describe('Browser', () => {
             const result = Browser.getBrowserConfig(config, extras);
             expect(result).toEqual({
                 headless: true,
-                args: ['--proxy-server=127.0.0.1:8080'],
+                args: ['--proxy-server=127.0.0.1:8080', '--proxy-bypass-list=<-loopback>'],
             });
         });
     });
@@ -309,6 +334,7 @@ describe('Browser', () => {
                 args: [
                     '--start-maximized',
                     '--proxy-server=127.0.0.1:8080',
+                    '--proxy-bypass-list=<-loopback>',
                     '--ignore-certificate-errors',
                 ],
                 slowMo: 100,
@@ -350,6 +376,7 @@ describe('Browser', () => {
                 args: [
                     '--start-maximized',
                     '--proxy-server=corporate-proxy.company.com:8080',
+                    '--proxy-bypass-list=<-loopback>',
                     '--ignore-certificate-errors',
                 ],
                 slowMo: 500,
@@ -376,7 +403,7 @@ describe('Browser', () => {
             expect(mockPrepareTls).toHaveBeenCalledWith(['/fake/ca.pem']);
             expect(mockLaunch).toHaveBeenCalledWith({
                 headless: true,
-                args: ['--proxy-server=127.0.0.1:8080'],
+                args: ['--proxy-server=127.0.0.1:8080', '--proxy-bypass-list=<-loopback>'],
                 userDataDir: '/tmp/sasori-mock-tls-profile',
             });
         });
@@ -480,6 +507,7 @@ describe('Browser', () => {
                 args: [
                     '--start-maximized',
                     '--proxy-server=localhost:8888',
+                    '--proxy-bypass-list=<-loopback>',
                     '--ignore-certificate-errors',
                 ],
                 slowMo: 200,

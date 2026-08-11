@@ -35,9 +35,16 @@ make run-cli CONFIG=path/to.json       # builds, then runs
 make run-api HOST=127.0.0.1 PORT=8080
 ```
 
-### Do not run `npm run lint`
+### `npm run lint` is safe to run
 
-`npm run lint` is `eslint . --ext .ts,.js --fix`, and `.eslintrc.json` demands 2-space indentation while the entire codebase is written with 4. A bare `npx eslint .` currently reports ~17k errors, ~14k of them auto-fixable, so running the npm script reformats every file in the repo and buries any real diff. Use `npm run type-check` as the correctness gate. If you genuinely need lint feedback, run `npx eslint <specific-file>` without `--fix` and read past the indent noise.
+It was not always. `.eslintrc.json` used to demand 2-space indentation while the entire codebase is written with 4, so `npm run lint` (`eslint . --ext .ts,.js --fix`) reformatted every file in the repo and buried any real diff under ~14k auto-fixes. The config was wrong, not the code; it has been corrected rather than worked around:
+
+- **`@typescript-eslint/indent` at 4 spaces**, with `SwitchCase: 1` and `ignoreComments: true`. The TS-aware rule replaces the base `indent`, which does not understand TypeScript type annotations and "fixes" a multi-line return type into something wrong. `ignoreComments` sidesteps an ESLint defect that de-indents a comment appearing as the first token after a multi-line parameter list.
+- **`no-undef` and `no-unused-vars` off**, superseded by `tsc` and `@typescript-eslint/no-unused-vars`. The base rules do not know TypeScript and reported ~160 false positives for DOM globals used inside `page.evaluate` (`Node`, `Element`, `CSS`) and for ambient types (`NodeJS`, `RequestInit`).
+- **`argsIgnorePattern: "^_"`**, matching the codebase's existing `_argv` / `_next` convention.
+- **`env.jest`** so test globals resolve, and an **`.eslintignore`** covering `dist/`, `release/` and `coverage/` — linting compiled output reported every finding twice.
+
+`npm run lint` is now idempotent: it modifies nothing on a clean tree. It reports 4 genuine pre-existing errors (three `no-useless-escape` in `domPath.ts`/`domPath.test.ts`, one `no-constant-condition` in `crawlStateManager.ts`) and ~164 `no-explicit-any` warnings. `npm run type-check` remains the correctness gate; lint is now usable alongside it.
 
 ## Architecture
 

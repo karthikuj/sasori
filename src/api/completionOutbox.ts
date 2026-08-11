@@ -262,7 +262,7 @@ export class CompletionOutbox {
 
         // eslint-disable-next-line no-console
         console.error(
-            `[sasori outbox] DEAD-LETTER: completion callback for backend_scan_id=` +
+            '[sasori outbox] DEAD-LETTER: completion callback for backend_scan_id=' +
                 `${String(event.payload.backend_scan_id)} failed ${event.attempts} times ` +
                 `(${event.lastError ?? 'unknown'}). The backend will not finalize this scan ` +
                 `until the event is replayed from ${this.deadLetterDir}.`,

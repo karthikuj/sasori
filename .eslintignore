@@ -1,0 +1,7 @@
+# Compiled output. Linting dist/ reports every finding twice — once in the
+# TypeScript source and once in the JavaScript tsc generated from it — and the
+# generated copy is not something anyone can act on.
+dist/
+release/
+coverage/
+node_modules/
