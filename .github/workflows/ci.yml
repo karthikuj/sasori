@@ -1,0 +1,66 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+  workflow_dispatch:
+
+# Cancel superseded runs on the same branch. On a private repo, Actions minutes
+# come from the free monthly allowance, so there is no reason to keep paying for
+# a run whose result nobody will look at.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          # Kept in step with the engines field in package.json.
+          node-version: '18'
+          cache: npm
+
+      # `npm ci` rather than `npm install`: it installs exactly what the lockfile
+      # pins, so CI cannot pass against a dependency tree nobody has on disk.
+      - name: Install
+        run: npm ci
+
+      # tsc is the correctness gate in this repo, not eslint — the strict
+      # settings (noUncheckedIndexedAccess, exactOptionalPropertyTypes) are what
+      # catch the mistakes that matter, and they only run here.
+      - name: Type-check
+        run: npm run type-check
+
+      - name: Test
+        run: npm test
+
+      # The crawler is only ever run from dist/, so a build that breaks is a
+      # product that does not run even when every test passes.
+      - name: Build
+        run: npm run build
+
+  # Lint reports rather than blocks. The config was corrected so `npm run lint`
+  # is idempotent, but the repo still carries four known errors and ~164
+  # no-explicit-any warnings; failing on them would mean every pull request is
+  # red for reasons unrelated to the change in it. Flip continue-on-error off
+  # once that backlog is cleared.
+  lint:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: npm
+      - run: npm ci
+      # eslint directly rather than `npm run lint`, which carries --fix: a CI
+      # step that rewrites the tree reports on code that is not the code under
+      # review.
+      - name: Lint
+        run: npx eslint . --ext .ts,.js
