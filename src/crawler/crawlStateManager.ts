@@ -595,7 +595,10 @@ export class CrawlStateManager implements CrawlStateManagerInterface {
 
         const order: CrawlAction[] = [];
         const visitedExec = new Set<string>();
-        while (true) {
+        // for(;;) rather than while(true): identical semantics, and it is the
+        // form no-constant-condition accepts, so the lint error here does not
+        // have to be waived.
+        for (;;) {
             const next = this.findNextActionLegacyDFS(visitedExec);
             if (!next) {
                 break;

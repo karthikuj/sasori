@@ -47,6 +47,29 @@ It was not always. `.eslintrc.json` used to demand 2-space indentation while the
 
 `npm run lint` is now idempotent: it modifies nothing on a clean tree. It reports 4 genuine pre-existing errors (three `no-useless-escape` in `domPath.ts`/`domPath.test.ts`, one `no-constant-condition` in `crawlStateManager.ts`) and ~164 `no-explicit-any` warnings. `npm run type-check` remains the correctness gate; lint is now usable alongside it.
 
+### CI
+
+`.github/workflows/ci.yml` runs on every push and pull request: `npm ci`,
+`npm run type-check`, `npm test`, then `npm run build` — the crawler only ever
+runs from `dist/`, so a build that breaks is a product that does not run even
+when every test passes. `tsc` is the correctness gate here, not eslint; the
+strict settings are what catch the mistakes that matter.
+
+Lint is a separate job and **blocks on errors**. The four the repo used to carry
+were fixed when CI was added (two redundant `\/` escapes inside character
+classes in `domPath.ts`, one in its test, and a `while (true)` rewritten as
+`for (;;)`), so a new error is genuinely new. The ~164 `no-explicit-any`
+warnings do not block: failing on them would make every pull request red for
+reasons unrelated to its change, which teaches people to ignore the colour.
+Ratchet them down with `--max-warnings` once someone is driving that backlog.
+
+The job calls `eslint` directly rather than `npm run lint`, which carries
+`--fix`: a CI step that rewrites the tree reports on code that is not the code
+under review.
+
+nara-core's nightly benchmark checks this repository out and rebuilds it, so a
+change here that breaks the build turns that run red too (SCAN-116).
+
 ## Architecture
 
 ### Two entry modes, one crawler
