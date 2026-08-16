@@ -79,6 +79,12 @@ yarg.command({
             demandOption: false,
             type: 'string',
         },
+        inventory: {
+            alias: 'i',
+            describe: 'Output file for the crawl inventory (endpoints and DOM states reached, JSON)',
+            demandOption: false,
+            type: 'string',
+        },
     },
     handler(argv: any) {
         try {
@@ -97,6 +103,13 @@ yarg.command({
                 const fullPath = path.resolve(argv.output);
                 fs.writeFileSync(fullPath, '');
                 value.crawler['outputFile'] = argv.output;
+            }
+            if (argv.inventory) {
+                // Not truncated up front the way the URL list is: the inventory
+                // is written once, whole, at the end of the crawl, so emptying
+                // it here would only destroy a previous run's artifact if this
+                // crawl failed to start.
+                value.crawler['inventoryFile'] = argv.inventory;
             }
             const crawler = new Crawler(value);
             crawler.startCrawling();

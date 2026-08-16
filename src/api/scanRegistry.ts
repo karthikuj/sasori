@@ -5,6 +5,7 @@ import Crawler from '../crawler/crawler';
 import { ConfigValidator } from '../config/configLoader';
 import { CompletionOutbox } from './completionOutbox';
 import type { CrawlerConfig } from '../types/crawler';
+import type { CrawlInventory } from '../types/inventory';
 import type { ScanRecord, ScanStatus } from './scanTypes';
 
 export type CrawlerFactory = (config: CrawlerConfig) => Crawler;
@@ -51,6 +52,11 @@ interface InternalScan {
     error?: string;
     cancelRequested: boolean;
     crawler?: Crawler;
+    // Snapshotted when the crawl ends, because the crawler reference is dropped
+    // there to release the browser graph. Without the snapshot the inventory
+    // would be collected along with it, and a finished scan — the only kind
+    // anyone scores — could never report what it covered.
+    inventory?: CrawlInventory;
     callback?: CompletionCallbackMeta;
     backendScanId?: number;
 }
@@ -142,6 +148,23 @@ export class ScanRegistry {
     getScan(scanId: string): ScanRecord | undefined {
         const internal = this.scans.get(scanId);
         return internal ? this.toPublic(internal) : undefined;
+    }
+
+    /**
+     * Returns what a scan covered: every endpoint and DOM state it reached.
+     *
+     * A running scan is answered from the live crawler, which is how a long
+     * crawl can be watched rather than only autopsied; a finished one is
+     * answered from the snapshot taken when it ended. Undefined means the scan
+     * id is unknown, or it failed before a crawler existed.
+     * @param scanId - Scan identifier
+     */
+    getInventory(scanId: string): CrawlInventory | undefined {
+        const internal = this.scans.get(scanId);
+        if (!internal) {
+            return undefined;
+        }
+        return internal.crawler ? internal.crawler.getInventory() : internal.inventory;
     }
 
     listScans(): ScanRecord[] {
@@ -266,6 +289,9 @@ export class ScanRegistry {
         } finally {
             const done = this.scans.get(scanId);
             if (done) {
+                if (done.crawler) {
+                    done.inventory = done.crawler.getInventory();
+                }
                 delete done.crawler;
                 done.finishedAt = Date.now();
                 void this.notifyCompletion(done);

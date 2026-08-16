@@ -52,6 +52,19 @@ export function createApiApp(registry: ScanRegistry): express.Application {
         res.json(record);
     });
 
+    v1.get('/scans/:scanId/inventory', (req: Request, res: Response) => {
+        const id = typeof req.params.scanId === 'string' ? req.params.scanId : req.params.scanId?.[0] ?? '';
+        const inventory = registry.getInventory(id);
+        if (!inventory) {
+            // 404 covers both an unknown scan and one that failed before a
+            // crawler existed. They are the same answer to the only question the
+            // caller can act on: there is no coverage to read here.
+            res.status(404).json({ error: 'No inventory for this scan' });
+            return;
+        }
+        res.json(inventory);
+    });
+
     v1.delete('/scans/:scanId', (req: Request, res: Response) => {
         const id = typeof req.params.scanId === 'string' ? req.params.scanId : req.params.scanId?.[0] ?? '';
         const result = registry.stopScan(id);

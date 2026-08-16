@@ -65,6 +65,14 @@ export interface CrawlerSettings {
     includeRegexes: string[];
     excludeRegexes: string[];
     outputFile?: string;
+
+    /**
+     * Path to write the crawl inventory (endpoints and DOM states reached) to,
+     * as JSON, when the crawl finishes. Measured coverage is what separates a
+     * crawler regression from a scanner one, so it is written even for a crawl
+     * that was stopped part-way.
+     */
+    inventoryFile?: string;
 }
 
 /**

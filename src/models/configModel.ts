@@ -105,6 +105,7 @@ const crawlerModel: Joi.ObjectSchema<CrawlerSettings> = Joi.object({
     includeRegexes: Joi.array().items(Joi.string()).min(1).required(),
     excludeRegexes: Joi.array().items(Joi.string()).required(),
     outputFile: Joi.string().optional(),
+    inventoryFile: Joi.string().optional(),
 }).required();
 
 /**

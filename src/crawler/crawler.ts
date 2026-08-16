@@ -1,5 +1,5 @@
 import { Browser as PuppeteerBrowser, Page, CDPSession } from 'puppeteer';
-import { appendFileSync } from 'fs';
+import { appendFileSync, writeFileSync } from 'fs';
 import { createHash } from 'crypto';
 import path from 'path';
 import chalk from 'chalk';
@@ -11,8 +11,10 @@ import CrawlInput from './crawlInput';
 import CrawlState from './crawlState';
 import CrawlStateManager from './crawlStateManager';
 import DomPath from './domPath';
+import EndpointInventory from './endpointInventory';
 import authenticate from '../auth/authenticator';
 import { CrawlerConfig, CrawlerSettings } from '../types/crawler';
+import { CrawlInventory } from '../types/inventory';
 import { ArrivalType } from '../types/input';
 
 /**
@@ -66,6 +68,12 @@ class Crawler {
     public allUrls: Set<string>;
 
     /**
+     * Endpoint and state inventory for this crawl — what the crawler actually
+     * reached, independent of what any scanner made of it.
+     */
+    public readonly inventory: EndpointInventory;
+
+    /**
      * Array of all interactable elements
      */
     public allInteractables: string[];
@@ -100,6 +108,7 @@ class Crawler {
         this.crawlerConfig = config.crawler;
         this.authInProgress = false;
         this.allUrls = new Set<string>();
+        this.inventory = new EndpointInventory(this.crawlerConfig.entryPoint);
         this.allInteractables = [...this.crawlerConfig.elements].concat(
             CrawlInput.INPUT_FIELDS.map((element) => element.CSS_PATH)
         );
@@ -710,6 +719,17 @@ class Crawler {
         // console.log(`Crawl inputs found:`);
         // console.log(crawlState.crawlInputs.map((input) => input.cssPath));
         crawlManager.registerState(crawlState);
+        // Every state the crawl reaches is created here, so this is the one hook
+        // the inventory needs: it does not have to walk the graph afterwards, and
+        // it stays correct while browsers are still adding states concurrently.
+        this.inventory.recordState({
+            url: crawlState.url,
+            stateHash: crawlState.stateHash,
+            crawlDepth: crawlState.crawlDepth,
+            arrivalType: crawlState.arrivalType,
+            actions: crawlState.crawlActions.length,
+            inputs: crawlState.crawlInputs.map((input) => input.cssPath),
+        });
         return crawlState;
     }
 
@@ -861,6 +881,19 @@ class Crawler {
                     if (interceptedRequest.isInterceptResolutionHandled()) return;
 
                     if (this.inContext(interceptedRequest.url())) {
+                        // Recorded per request rather than per unique URL: the
+                        // inventory aggregates by endpoint, so it needs to see
+                        // every request to count them and to collect parameter
+                        // names that only appear on later visits.
+                        this.inventory.recordRequest(
+                            interceptedRequest.method(),
+                            interceptedRequest.url(),
+                            {
+                                postData: interceptedRequest.postData(),
+                                contentType: interceptedRequest.headers()['content-type'],
+                                resourceType: interceptedRequest.resourceType(),
+                            },
+                        );
                         if (!this.allUrls.has(interceptedRequest.url())) {
                             console.log(chalk.magentaBright('[URL] ') + chalk.green(interceptedRequest.url()));
                             this.allUrls.add(interceptedRequest.url());
@@ -982,6 +1015,40 @@ class Crawler {
             console.log(chalk.greenBright.bold('Scan completed'));
         } finally {
             this.activeBrowsers = [];
+            // Written in `finally` on purpose: a crawl that was stopped or that
+            // died part-way still covered something, and that partial inventory
+            // is the evidence for what happened before it stopped. Discarding it
+            // would make a timeout indistinguishable from a crawl that reached
+            // nothing.
+            this.writeInventoryFile();
+        }
+    }
+
+    /**
+     * Returns the crawl inventory — every endpoint and DOM state reached.
+     */
+    getInventory(): CrawlInventory {
+        return this.inventory.snapshot();
+    }
+
+    /**
+     * Writes the inventory to `crawler.inventoryFile` when one is configured.
+     *
+     * Failure to write is reported and swallowed. The inventory is a measurement
+     * artifact; letting an unwritable path turn a completed crawl into a failed
+     * one would lose the crawl as well as the measurement.
+     */
+    writeInventoryFile(): void {
+        const target = this.crawlerConfig.inventoryFile;
+        if (!target) {
+            return;
+        }
+        try {
+            const fullPath = path.resolve(target);
+            writeFileSync(fullPath, JSON.stringify(this.getInventory(), null, 2) + '\n');
+            console.log(chalk.greenBright('[INFO] Crawl inventory written to ') + chalk.green(fullPath));
+        } catch (err) {
+            console.error(chalk.red('[ERROR] Could not write crawl inventory: ') + String(err));
         }
     }
 
