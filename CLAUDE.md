@@ -28,10 +28,11 @@ npx jest -t 'returns null when no actions remain'
 Running the built CLI (nothing runs from source; build first):
 
 ```bash
-node dist/bin/index.js start --config ./config/config.json [--output urls.txt]
+node dist/bin/index.js start --config ./config/config.json [--output urls.txt] [--inventory inv.json]
 node dist/bin/index.js api --host 0.0.0.0 --port 8080
 node dist/bin/index.js init            # copies packaged config.json into cwd
 make run-cli CONFIG=path/to.json       # builds, then runs
+make run-crawl CONFIG=path/to.json INVENTORY=inv.json
 make run-api HOST=127.0.0.1 PORT=8080
 ```
 
@@ -80,6 +81,48 @@ Scope lives in request interception, not in the navigation code. Every page gets
 `startCrawling()` launches `browser.instances` browsers, staggers their starts by `browserStartDelays`, and runs `handleCrawl` on all of them against the **same** `CrawlStateManager` with no locking. `getNextCrawlAction()` popping from a shared frontier is the only coordination. Understand the race implications before touching anything in `crawlStateManager.ts` or the crawl loop.
 
 `stopCrawling()` aborts an internal `AbortController` and closes `activeBrowsers`; the crawl loop and every retry loop check `signal.aborted` and unwind cooperatively. `wasStopped()` distinguishes a requested stop from a natural finish, which is how the API decides between `stopped` and `completed`.
+
+### The crawl inventory
+
+`EndpointInventory` (`src/crawler/endpointInventory.ts`) records what a crawl
+actually reached, so crawler coverage can be measured without reference to any
+scanner. Until it existed, a missing finding was ambiguous — the crawler may
+never have arrived, or it arrived and the rule stayed silent — and those two
+failures belong to different code and different people. nara-core's
+`make bench-crawl` scores this artifact against a known endpoint map
+(SCAN-115).
+
+Two hooks feed it, both on paths every crawl already takes: the request
+interception handler records every in-scope request, and `getNewCrawlState`
+records every DOM state. Nothing walks the crawl graph afterwards, so the
+inventory is correct while browsers are still adding states concurrently.
+
+- **Endpoints** are keyed by `METHOD` plus scheme/host/path — the query string is
+  stripped from the identity but its parameter *names* are kept, because
+  `/search?q=a` and `/search?q=b` are one endpoint with one parameter, and the
+  parameter is the attack surface. Body parameter names are parsed for form and
+  JSON encodings only; a multipart body is recorded with no parameters rather
+  than risk inventing ones that were never sent.
+- **States** are keyed by DOM hash, matching the crawler's own identity for a
+  state: an SPA presents many states at one URL, and collapsing them would
+  report a crawl of an application as a crawl of one page.
+- **The artifact is deterministic.** Every array is sorted at snapshot time and
+  nothing records a timestamp, so two crawls that reach the same surface produce
+  byte-identical files and a diff shows a coverage change rather than the order
+  browsers happened to race in. Aggregation happens on the way in, so memory is
+  proportional to the surface rather than to the traffic.
+
+Reading it:
+
+- CLI: `--inventory <path>`, written in a `finally` — a crawl that was stopped
+  or died part-way still covered something, and that partial inventory is the
+  evidence for what happened before it stopped.
+- API: `GET /api/v1/scans/:id/inventory`. A running scan is answered from the
+  live crawler (a six-hour crawl is worth watching, not only autopsying); a
+  finished one from the snapshot `ScanRegistry` takes in `runScan`'s `finally`
+  **before** it drops the crawler reference. Keep that ordering — without the
+  snapshot, the only scans anyone scores are the ones that can no longer be
+  read.
 
 ### Browser launch and MITM TLS
 

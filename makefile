@@ -25,13 +25,17 @@ BUILD_TIME := $(shell date -u '+%Y-%m-%dT%H:%M:%SZ')
 
 # Defaults for `make run-cli` / `make run-api`
 CONFIG     ?= config/config.json
+# Where `make run-crawl` writes the crawl inventory (endpoints and DOM states
+# reached). It is what nara-core's coverage benchmark scores, so a crawl worth
+# measuring should always be run with one.
+INVENTORY  ?= inventory.json
 HOST       ?= 0.0.0.0
 PORT       ?= 8080
 
 # ─── Phony targets ─────────────────────────────────────────
 .PHONY: help check-tools install ci \
         build build-watch clean \
-        run run-cli run-api \
+        run run-cli run-api run-crawl \
         package-zip \
         lint type-check format \
         test test-watch test-coverage test-ci \
@@ -88,6 +92,11 @@ run: build ## Run built CLI with no args (prints yargs help)
 run-cli: build ## Run a crawl: CONFIG=path/to/config.json (default: config/config.json)
 	@test -f "$(CONFIG)" || (echo "Config not found: $(CONFIG)  (set CONFIG=...)"; exit 1)
 	@$(NODE) $(CLI_ENTRY) start --config "$(CONFIG)"
+
+run-crawl: build ## Run a crawl and write the inventory: CONFIG=... INVENTORY=... (default inventory.json)
+	@test -f "$(CONFIG)" || (echo "Config not found: $(CONFIG)  (set CONFIG=...)"; exit 1)
+	@$(NODE) $(CLI_ENTRY) start --config "$(CONFIG)" --inventory "$(INVENTORY)"
+	@echo "Crawl inventory: $(INVENTORY)"
 
 run-api: build ## Start REST API server (override HOST= PORT= on the command line)
 	@$(NODE) $(CLI_ENTRY) api --host "$(HOST)" --port "$(PORT)"
