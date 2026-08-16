@@ -139,7 +139,7 @@ export class DomPath implements DomPathInterface {
                          * @returns CSS ID selector
                          */
                         function idSelector(id: string): string {
-                            return '#' + (CSS?.escape ? CSS.escape(id) : id.replace(/[!"#$%&'()*+,.\/:;<=>?@[\\\]^`{|}~]/g, '\\$&'));
+                            return '#' + (CSS?.escape ? CSS.escape(id) : id.replace(/[!"#$%&'()*+,./:;<=>?@[\\\]^`{|}~]/g, '\\$&'));
                         }
 
                         const prefixedOwnClassNamesArray = prefixedElementClassNames(node);
@@ -198,7 +198,7 @@ export class DomPath implements DomPathInterface {
                         } else if (needsClassNames) {
                             for (const prefixedName of prefixedOwnClassNamesArray) {
                                 const className = prefixedName.slice(1);
-                                result += '.' + (CSS?.escape ? CSS.escape(className) : className.replace(/[!"#$%&'()*+,.\/:;<=>?@[\\\]^`{|}~]/g, '\\$&'));
+                                result += '.' + (CSS?.escape ? CSS.escape(className) : className.replace(/[!"#$%&'()*+,./:;<=>?@[\\\]^`{|}~]/g, '\\$&'));
                             }
                         }
 

@@ -18,7 +18,7 @@ const mockBrowserGlobals = {
         COMMENT_NODE: 8
     },
     CSS: {
-        escape: (str: string) => str.replace(/[!"#$%&'()*+,.\/:;<=>?@[\\\]^`{|}~]/g, '\\$&')
+        escape: (str: string) => str.replace(/[!"#$%&'()*+,./:;<=>?@[\\\]^`{|}~]/g, '\\$&')
     }
 };
 

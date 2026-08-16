@@ -55,12 +55,17 @@ runs from `dist/`, so a build that breaks is a product that does not run even
 when every test passes. `tsc` is the correctness gate here, not eslint; the
 strict settings are what catch the mistakes that matter.
 
-Lint is a separate job with `continue-on-error`, because the repo still carries
-four known errors and ~164 `no-explicit-any` warnings and a pull request that is
-red for reasons unrelated to its change teaches people to ignore the colour.
-Flip it once that backlog is cleared. It calls `eslint` directly rather than
-`npm run lint`, which carries `--fix`: a CI step that rewrites the tree reports
-on code that is not the code under review.
+Lint is a separate job and **blocks on errors**. The four the repo used to carry
+were fixed when CI was added (two redundant `\/` escapes inside character
+classes in `domPath.ts`, one in its test, and a `while (true)` rewritten as
+`for (;;)`), so a new error is genuinely new. The ~164 `no-explicit-any`
+warnings do not block: failing on them would make every pull request red for
+reasons unrelated to its change, which teaches people to ignore the colour.
+Ratchet them down with `--max-warnings` once someone is driving that backlog.
+
+The job calls `eslint` directly rather than `npm run lint`, which carries
+`--fix`: a CI step that rewrites the tree reports on code that is not the code
+under review.
 
 nara-core's nightly benchmark checks this repository out and rebuilds it, so a
 change here that breaks the build turns that run red too (SCAN-116).

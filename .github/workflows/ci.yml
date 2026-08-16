@@ -44,14 +44,16 @@ jobs:
       - name: Build
         run: npm run build
 
-  # Lint reports rather than blocks. The config was corrected so `npm run lint`
-  # is idempotent, but the repo still carries four known errors and ~164
-  # no-explicit-any warnings; failing on them would mean every pull request is
-  # red for reasons unrelated to the change in it. Flip continue-on-error off
-  # once that backlog is cleared.
+  # Lint blocks on errors. The four the repo used to carry are fixed, so a new
+  # one is genuinely new and belongs to the change that introduced it.
+  #
+  # Warnings do not block: there are ~164 no-explicit-any left, and failing on
+  # them would make every pull request red for reasons unrelated to its change —
+  # which teaches people to ignore the colour rather than to fix the code. Add
+  # `--max-warnings <current count>` to ratchet that backlog down once someone is
+  # actually driving it (SCAN-84).
   lint:
     runs-on: ubuntu-latest
-    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
