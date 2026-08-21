@@ -97,6 +97,15 @@ const crawlerModel: Joi.ObjectSchema<CrawlerSettings> = Joi.object({
     navigationTimeout: Joi.number().integer().min(1000).max(300000).required(),
     eventWait: Joi.number().integer().min(0).max(10000).required(),
     debugNetwork: Joi.boolean().optional(),
+    // Declared here, not only in configSchema.ts. ConfigValidator runs *this*
+    // model with stripUnknown, so for two years a config that set
+    // maxActionRetries had it silently deleted before the crawler ever saw it
+    // and the `?? 3` fallback in crawler.ts always won (SCAN-89).
+    //
+    // The floor is 1, not 0: both retry loops are `for (attempt = 1; attempt <=
+    // maxRetries; ...)`, so a configured 0 would skip the body entirely and the
+    // crawler would never navigate to its own entry point.
+    maxActionRetries: Joi.number().integer().min(1).max(10).optional(),
     maxDuration: Joi.number().integer().min(0).max(3600000).required(),
     elements: Joi.array().items(Joi.string()).min(1).required(),
     maxChildren: Joi.number().integer().min(0).max(1000).required(),

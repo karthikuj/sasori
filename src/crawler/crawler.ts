@@ -18,6 +18,25 @@ import { CrawlInventory } from '../types/inventory';
 import { ArrivalType } from '../types/input';
 
 /**
+ * Normalises anything thrown into a message string.
+ *
+ * `catch (e: any)` then `const { message } = e` was the prevailing pattern here,
+ * which reads a property off a value that is not necessarily an object — a
+ * thrown string or `undefined` produced `undefined` and the comparison against a
+ * known Puppeteer message silently took the wrong branch. `unknown` plus this
+ * helper makes that impossible without changing what the happy path logs.
+ *
+ * @param error - The caught value.
+ * @return A human-readable message.
+ */
+function errorMessage(error: unknown): string {
+    if (error instanceof Error) {
+        return error.message;
+    }
+    return String(error);
+}
+
+/**
  * The parts of a parsed DOM node that {@link Crawler.stripDOM} actually touches.
  *
  * Declared structurally rather than imported from `domhandler` because the repo
@@ -98,6 +117,14 @@ class Crawler {
      * not because the browser requires serialisation.
      */
     private static readonly CDP_LISTENER_PROBE_CONCURRENCY = 32;
+
+    /**
+     * Fraction of failed listener probes above which the sweep warns out loud
+     * rather than only under the debug gate. Below it, stale nodes on a live
+     * page are ordinary; above it, action discovery is systematically broken and
+     * the crawl's results are misleading rather than merely incomplete.
+     */
+    private static readonly LISTENER_PROBE_FAILURE_WARN_RATIO = 0.25;
 
     /**
      * Crawler configuration
@@ -464,6 +491,9 @@ class Crawler {
         // object handles in the browser for the lifetime of the crawl.
         const objectGroup = `sasori-listeners-${Date.now()}`;
 
+        let failures = 0;
+        let lastFailure = '';
+
         /**
          * Probes one node for the event listener and records its selector.
          * @param index - Position of the node in {@link nodeIds}.
@@ -513,8 +543,14 @@ class Crawler {
                     clickListeners[index] = node.localName + cssPath;
                 }
             } catch (error) {
-                // A node can go away between the querySelectorAll and the probe;
-                // that is expected on a live page and not worth reporting.
+                // A node going away between the querySelectorAll and the probe
+                // is expected on a live page, so a per-node log would be noise.
+                // The *count* is not noise: if CDP starts failing systematically
+                // the sweep finds zero listeners and reports nothing wrong, and
+                // a crawl that discovers no click handlers looks identical to an
+                // application that has none.
+                failures++;
+                lastFailure = errorMessage(error);
             }
         };
 
@@ -540,7 +576,20 @@ class Crawler {
         try {
             await client.send('Runtime.releaseObjectGroup', { objectGroup });
         } catch (error) {
-            // The page may already have navigated away; the objects went with it.
+            this.debugLog(`releaseObjectGroup failed group=${objectGroup} error=${errorMessage(error)}`);
+        }
+
+        // Reported once, at the end, and only when it was widespread. A handful
+        // of stale nodes is normal; most of the page failing to probe means the
+        // action discovery below is not to be trusted.
+        if (failures > 0) {
+            const ratio = failures / nodeIds.length;
+            const summary = `[INFO] ${event} listener sweep: ${failures}/${nodeIds.length} nodes could not be probed (last: ${lastFailure})`;
+            if (ratio >= Crawler.LISTENER_PROBE_FAILURE_WARN_RATIO) {
+                console.warn(chalk.yellow(summary));
+            } else {
+                this.debugLog(summary);
+            }
         }
 
         return clickListeners.filter((cssPath): cssPath is string => cssPath !== null);
@@ -629,12 +678,24 @@ class Crawler {
                     await client.send('DOM.enable');
                     await client.send('Runtime.enable');
                     const allClickListeners = await this.findNodesWithClickListeners(client, event);
+                    let invalidSelectors = 0;
                     for (const clickListener of allClickListeners) {
                         try {
                             allCssPaths.push(...(await domPath.getCssPaths(clickListener)));
                         } catch (error) {
-                            // The query selector is invalid.
+                            // The query selector is invalid — the selector is
+                            // built from raw page attributes, so a page can
+                            // produce one Cheerio will not accept. Counted
+                            // rather than logged per occurrence: one bad
+                            // attribute on a repeated component would otherwise
+                            // print thousands of identical lines.
+                            invalidSelectors++;
                         }
+                    }
+                    if (invalidSelectors > 0) {
+                        this.debugLog(
+                            `getCrawlActions: ${invalidSelectors}/${allClickListeners.length} ${event} selectors were rejected url=${page.url()}`
+                        );
                     }
                 } finally {
                     // One session was created per event selector per state and
@@ -757,7 +818,7 @@ class Crawler {
                 for (let attempt = 1; attempt <= maxRetries; attempt++) {
                     try {
                         await page.goto(replayPlan.baselineUrl, { waitUntil: 'domcontentloaded' });
-                        await page.waitForFunction(() => (globalThis as any).document.readyState === 'complete', { timeout: this.crawlerConfig.navigationTimeout });
+                        await page.waitForFunction(() => document.readyState === 'complete', { timeout: this.crawlerConfig.navigationTimeout });
                         success = true;
                         break;
                     } catch (error) {
@@ -791,11 +852,11 @@ class Crawler {
                 }
                 try {
                     await node.click();
-                } catch (error: any) {
-                    const { message } = error;
+                } catch (error: unknown) {
+                    const message = errorMessage(error);
                     if (message === 'Node is either not clickable or not an Element') {
                         try {
-                            await node.evaluate((n: any) => n.click());
+                            await node.evaluate((n: Element) => (n as HTMLElement).click());
                         } catch (evalError) {
                             console.error(chalk.red(`\n[ERROR] ${evalError instanceof Error ? evalError.message : 'Unknown error'}`));
                             this.removeCrawlActionFromState(crawlManager, crawlAction);
@@ -825,11 +886,11 @@ class Crawler {
         }
         try {
             await node.click();
-        } catch (error: any) {
-            const { message } = error;
+        } catch (error: unknown) {
+            const message = errorMessage(error);
             if (message === 'Node is either not clickable or not an Element') {
                 try {
-                    await node.evaluate((n: any) => n.click());
+                    await node.evaluate((n: Element) => (n as HTMLElement).click());
                 } catch (evalError) {
                     console.error(chalk.red(`\n[ERROR] ${evalError instanceof Error ? evalError.message : 'Unknown error'}`));
                 }
@@ -901,13 +962,16 @@ class Crawler {
      * @param page - Puppeteer page instance
      */
     async maximizeViewport(page: Page): Promise<void> {
-        const screen = await page.evaluate(() => {
+        // Named `viewport`, not `screen`: a local `screen` would shadow the
+        // browser global of the same name inside the evaluate callback, which
+        // is why this used to be written as `(globalThis as any).screen`.
+        const viewport = await page.evaluate(() => {
             return {
-                width: (globalThis as any).screen.availWidth,
-                height: (globalThis as any).screen.availHeight,
+                width: screen.availWidth,
+                height: screen.availHeight,
             };
         });
-        await page.setViewport({ width: screen.width, height: screen.height });
+        await page.setViewport({ width: viewport.width, height: viewport.height });
     }
 
     /**
@@ -930,19 +994,17 @@ class Crawler {
     async getPageHash(page: Page): Promise<string> {
         try {
             await page.waitForFunction(
-                () => (globalThis as any).document.readyState === 'complete',
+                () => document.readyState === 'complete',
                 { timeout: this.crawlerConfig.navigationTimeout }
             );
-        } catch (error: any) {
-            this.debugLog(
-                `getPageHash readyState wait timed out url=${page.url()} error=${error instanceof Error ? error.message : String(error)}`
-            );
+        } catch (error: unknown) {
+            this.debugLog(`getPageHash readyState wait timed out url=${page.url()} error=${errorMessage(error)}`);
         }
         let $: cheerio.CheerioAPI;
         try {
             $ = cheerio.load(await page.content(), { xmlMode: true }) as cheerio.CheerioAPI;
-        } catch (error: any) {
-            const { message } = error;
+        } catch (error: unknown) {
+            const message = errorMessage(error);
             if (message === 'Execution context was destroyed, most likely because of a navigation.') {
                 this.debugLog(`getPageHash execution context destroyed, waiting for navigation url=${page.url()}`);
                 try {
@@ -950,10 +1012,8 @@ class Crawler {
                         waitUntil: ['domcontentloaded'],
                         timeout: this.crawlerConfig.navigationTimeout,
                     });
-                } catch (navError: any) {
-                    this.debugLog(
-                        `getPageHash waitForNavigation timeout url=${page.url()} error=${navError instanceof Error ? navError.message : String(navError)}`
-                    );
+                } catch (navError: unknown) {
+                    this.debugLog(`getPageHash waitForNavigation timeout url=${page.url()} error=${errorMessage(navError)}`);
                 }
                 $ = cheerio.load(await page.content(), { xmlMode: true }) as cheerio.CheerioAPI;
             } else {
@@ -1280,7 +1340,7 @@ class Crawler {
                     }
                     try {
                         await firstPage.goto(this.crawlerConfig.entryPoint, { waitUntil: ['domcontentloaded'] });
-                        await firstPage.waitForFunction(() => (globalThis as any).document.readyState === 'complete', { timeout: this.crawlerConfig.navigationTimeout });
+                        await firstPage.waitForFunction(() => document.readyState === 'complete', { timeout: this.crawlerConfig.navigationTimeout });
                         success = true;
                         break;
                     } catch (error) {

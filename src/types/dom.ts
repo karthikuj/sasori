@@ -1,5 +1,9 @@
 import { Page } from 'puppeteer';
 
+// `cheerio.CheerioAPI` below resolves through the ambient global namespace that
+// the repo's legacy `@types/cheerio@0.22` declares, so no import is needed here —
+// and adding one is an error, because it would be unused.
+
 // DOM types for browser environment
 declare global {
     interface Element extends Node {
@@ -41,6 +45,32 @@ declare global {
         readonly COMMENT_NODE: 8;
         readonly DOCUMENT_NODE: 9;
     };
+
+    // The globals below exist only inside `page.evaluate` callbacks, which run
+    // in the browser rather than in Node. `tsconfig.json` deliberately omits the
+    // `dom` lib — pulling it in would make every browser API look available to
+    // server-side code, which is exactly the mistake this file exists to
+    // prevent. Declaring the handful actually used keeps those callbacks typed
+    // instead of reaching for `(globalThis as any)`.
+
+    interface HTMLElement extends Element {
+        click(): void;
+    }
+
+    interface Document {
+        readyState: string;
+        querySelector(selectors: string): Element | null;
+        querySelectorAll(selectors: string): NodeListOf<Element>;
+    }
+
+    const document: Document;
+
+    interface Screen {
+        availWidth: number;
+        availHeight: number;
+    }
+
+    const screen: Screen;
 }
 
 /**
@@ -66,7 +96,7 @@ export interface PathStep {
  * DOM manipulation utilities interface
  */
 export interface DomUtilsInterface {
-    stripDOM($: any): void;
+    stripDOM($: cheerio.CheerioAPI): void;
     getElementSelector(element: Element): string;
     getXPathFromElement(element: Element): string;
 }

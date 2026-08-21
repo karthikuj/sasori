@@ -1,4 +1,8 @@
 import { Page } from 'puppeteer';
+
+// `cheerio.CheerioAPI` below resolves through the ambient global namespace that
+// the repo's legacy `@types/cheerio@0.22` declares, so no import is needed here —
+// and adding one is an error, because it would be unused.
 import { CrawlInput, CrawlAction, CrawlState } from './input';
 import { BrowserConfig } from './browser';
 import { AuthenticationConfig } from './auth';
@@ -21,7 +25,7 @@ export interface CrawlerInterface {
     browserStartDelays: number;
 
     startCrawling(): Promise<void>;
-    stripDOM($: any): void;
+    stripDOM($: cheerio.CheerioAPI): void;
     getCrawlInputs(page: Page, currentState: CrawlState): Promise<CrawlInput[]>;
     getCrawlActions(page: Page, currentState: CrawlState): Promise<CrawlAction[]>;
 }
