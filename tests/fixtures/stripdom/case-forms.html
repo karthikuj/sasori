@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html><body>
+<form action="/login" method="post" id="loginForm">
+  <label for="u">User</label>
+  <input type="text" id="u" name="username" placeholder="user">
+  <input type="password" id="p" name="password">
+  <input type="email" name="email">
+  <input type="checkbox" name="remember" checked>
+  <input type="radio" name="mode" value="a">
+  <input type="file" name="upload" accept="image/*">
+  <input type="hidden" name="csrf" value="deadbeef">
+  <textarea name="comment" rows="4">hello</textarea>
+  <select name="country"><option value="in">India</option><option value="us">US</option></select>
+  <button type="submit" class="btn">Submit</button>
+  <input type="submit" value="Go">
+</form>
+<div class="empty-wrapper"><div class="nested"><span>nothing</span></div></div>
+</body></html>

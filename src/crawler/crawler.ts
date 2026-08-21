@@ -1,5 +1,5 @@
 import { Browser as PuppeteerBrowser, Page, CDPSession } from 'puppeteer';
-import { appendFileSync, writeFileSync } from 'fs';
+import { WriteStream, createWriteStream, writeFileSync } from 'fs';
 import { createHash } from 'crypto';
 import path from 'path';
 import chalk from 'chalk';
@@ -16,6 +16,38 @@ import authenticate from '../auth/authenticator';
 import { CrawlerConfig, CrawlerSettings } from '../types/crawler';
 import { CrawlInventory } from '../types/inventory';
 import { ArrivalType } from '../types/input';
+
+/**
+ * The parts of a parsed DOM node that {@link Crawler.stripDOM} actually touches.
+ *
+ * Declared structurally rather than imported from `domhandler` because the repo
+ * still carries `@types/cheerio@0.22`, whose legacy `Element` union is not
+ * assignable to the modern one and makes any direct import unusable at the
+ * Cheerio callback boundary. This describes exactly the surface used, so the
+ * single cast at each boundary stays honest instead of widening to `any`.
+ */
+interface DomNode {
+    /**
+     * Domhandler's node kind: `tag`/`script`/`style` are elements, and
+     * everything else (`text`, `comment`, `directive`, `cdata`, `root`) is not.
+     *
+     * This is the discriminator to trust, **not** `nodeType`: domhandler reports
+     * `nodeType` 1 for a `<!DOCTYPE>` directive as well as for real elements,
+     * because the DOM spec has no node type for a directive. A prune pass that
+     * walks the tree by `nodeType` therefore deletes the doctype, which the old
+     * per-element loop never could — it iterated `$('*')`, and Cheerio's
+     * universal selector only ever yields elements.
+     */
+    type: string;
+    nodeType: number;
+    name?: string;
+    attribs?: Record<string, string>;
+    parent?: DomNode | null;
+    children?: DomNode[];
+}
+
+/** Domhandler node types that represent an element. */
+const ELEMENT_NODE_TYPES: ReadonlySet<string> = new Set(['tag', 'script', 'style']);
 
 /**
  * One batched `page.evaluate` result per CSS path (failures do not abort siblings).
@@ -48,6 +80,26 @@ class Crawler {
     private static readonly BATCH_ACTION_SELECTOR_CHUNK_SIZE = 100;
 
     /**
+     * The one attribute `stripDOM` keeps, per upper-case tag name. A lookup
+     * table rather than a `switch` plus array because it is consulted once per
+     * element on the crawler's hottest path, and the answer is never more than
+     * one attribute.
+     */
+    private static readonly ALLOWED_ATTRIBUTES: Readonly<Record<string, string | undefined>> = {
+        A: 'href',
+        BASE: 'href',
+        SCRIPT: 'src',
+    };
+
+    /**
+     * How many `DOMDebugger.getEventListeners` probes may be in flight on one
+     * CDP session at a time. The protocol multiplexes freely, so the ceiling
+     * exists to bound memory and to avoid starving the crawl's other traffic,
+     * not because the browser requires serialisation.
+     */
+    private static readonly CDP_LISTENER_PROBE_CONCURRENCY = 32;
+
+    /**
      * Crawler configuration
      */
     public readonly config: CrawlerConfig;
@@ -77,6 +129,34 @@ class Crawler {
      * Array of all interactable elements
      */
     public allInteractables: string[];
+
+    /**
+     * {@link allInteractables} pre-joined into a single CSS selector list.
+     *
+     * `stripDOM` needs "does anything here match any interactable selector?" —
+     * a selector list answers that in one pass over the document instead of one
+     * pass per selector, and the join is done once at construction because the
+     * selector set never changes for the life of a crawl.
+     */
+    private readonly interactableSelector: string;
+
+    /**
+     * Compiled `includeRegexes` / `excludeRegexes`, memoized by pattern source.
+     *
+     * `inContext` runs on every intercepted request, and the interceptor is on
+     * the path of every single HTTP transaction the crawl makes. Compiling the
+     * patterns there meant re-parsing the same handful of regexes tens of
+     * thousands of times per crawl. Caching by source string rather than
+     * snapshotting the arrays is deliberate: the scope lists are public and are
+     * legitimately mutated at runtime — an SSO redirect widens `includeRegexes`
+     * mid-crawl — so the cache must never be able to go stale against them.
+     */
+    private readonly compiledRegexes = new Map<string, RegExp>();
+
+    /**
+     * Append stream for `crawler.outputFile`, opened on first use.
+     */
+    private outputFileStream: WriteStream | null = null;
 
     /**
      * End time for crawling (calculated from maxDuration)
@@ -112,6 +192,7 @@ class Crawler {
         this.allInteractables = [...this.crawlerConfig.elements].concat(
             CrawlInput.INPUT_FIELDS.map((element) => element.CSS_PATH)
         );
+        this.interactableSelector = this.allInteractables.join(', ');
         this.endTime = null;
         this.browserStartDelays = 1000; // 1 millisecond(s)
     }
@@ -170,54 +251,171 @@ class Crawler {
 
     /**
      * Strips DOM by removing useless attributes, comments and all text.
+     *
+     * This is the crawler's hottest pure-CPU path — `getPageHash` runs it once
+     * per action and `getCrawlActions` three times per candidate action — and it
+     * feeds `stateHash`, so its output is pinned byte-for-byte by
+     * `tests/crawler/stripDom.golden.test.ts`. Read that test before changing
+     * anything here: a different output does not fail loudly, it silently
+     * repartitions the crawl graph.
+     *
+     * ## Why it is written this way
+     *
+     * The obvious implementation — for each element, ask "does this element or
+     * any of its descendants match an interactable selector?" — costs a full
+     * subtree rescan per element per selector. Every ancestor re-walks
+     * everything beneath it, S times over, so the cost grows superlinearly in
+     * DOM *depth* rather than in element count (measured: depth 2 → 80 raised
+     * element count 19% but time 144%). See SCAN-85.
+     *
+     * Instead this runs a mark-and-sweep in four linear passes:
+     *
+     *   1. drop text and comment nodes, exactly as before;
+     *   2. one document-wide query for the interactable selectors, then walk
+     *      *upward* from each hit marking ancestors — the ancestor walk stops at
+     *      the first already-marked node, so the whole propagation is O(N)
+     *      amortised no matter how deep the tree is;
+     *   3. strip attributes;
+     *   4. one more document-wide query for elements that still match with
+     *      their attributes gone, then prune top-down.
+     *
+     * That is two selector queries in total rather than N·S subtree scans.
+     *
+     * ## The two-phase matching is not an accident
+     *
+     * The original stripped attributes and tested interactability in the same
+     * document-order loop, which means an element was tested against the
+     * selectors *after* losing its attributes, while its descendants were still
+     * tested *with* theirs. So `<div><input type="submit"></div>` keeps the div
+     * (the div's descendant search saw the live `type` attribute) and drops the
+     * input (by the time the input itself was tested, `type` was gone). That is
+     * load-bearing for every hash the crawler has ever produced, so the two
+     * passes here reproduce it deliberately: pass 2 matches descendants against
+     * the *original* attributes, pass 4 matches an element against its
+     * *stripped* ones.
+     *
      * @param $ - Cheerio API instance
      */
     stripDOM($: cheerio.CheerioAPI): void {
-        // Get all elements once and process them in a single pass
         const allElements = $('*');
 
-        // Remove text and comment nodes
-        allElements.contents().filter((_: number, node: any) =>
-            node.nodeType === Crawler.TEXT_NODE || node.nodeType === Crawler.COMMENT_NODE
-        ).remove();
+        // Remove text and comment nodes.
+        allElements.contents().filter((_: number, node: unknown) => {
+            const nodeType = (node as DomNode).nodeType;
+            return nodeType === Crawler.TEXT_NODE || nodeType === Crawler.COMMENT_NODE;
+        }).remove();
 
-        // Process each element for attributes and interactability in one pass
-        allElements.each((_: number, element: any) => {
-            // Remove attributes except href for <a> and <base>, and src for <script>
-            const tagName = element.name && element.name.toUpperCase();
-            const allowedAttributes: string[] = [];
-            switch (tagName) {
-                case 'A':
-                case 'BASE':
-                    allowedAttributes.push('href');
-                    break;
-                case 'SCRIPT':
-                    allowedAttributes.push('src');
-                    break;
+        // Pass 1 — mark every element that has an interactable *descendant*,
+        // matched while attributes are still intact. Walking up from each hit
+        // and stopping at the first marked ancestor visits each node at most
+        // once across the whole propagation.
+        const hasInteractableDescendant = new Set<DomNode>();
+        const descendantHits = $(this.interactableSelector);
+        for (let i = 0; i < descendantHits.length; i++) {
+            let ancestor = (descendantHits[i] as DomNode | undefined)?.parent ?? null;
+            while (ancestor && !hasInteractableDescendant.has(ancestor)) {
+                hasInteractableDescendant.add(ancestor);
+                ancestor = ancestor.parent ?? null;
             }
-            Object.keys(element.attribs).forEach((attrName) => {
-                if (!allowedAttributes.includes(attrName)) {
-                    $(element).removeAttr(attrName);
+        }
+
+        // Pass 2 — strip attributes, keeping href for <a>/<base> and src for
+        // <script>. Rebuilding `attribs` in place is cheaper than a removeAttr
+        // call per attribute and preserves the relative order of what is kept,
+        // which the serialised output depends on.
+        allElements.each((_: number, element: unknown) => {
+            const node = element as DomNode;
+            const attribs = node.attribs;
+            if (!attribs) {
+                return;
+            }
+            const allowed = Crawler.ALLOWED_ATTRIBUTES[node.name?.toUpperCase() ?? ''];
+            for (const attrName of Object.keys(attribs)) {
+                if (allowed !== attrName) {
+                    delete attribs[attrName];
                 }
-            });
-
-            // Remove nodes if none of the CSS paths are found
-            const found = this.allInteractables.some((cssPath) =>
-                ($(element).is(cssPath) || $(element).find(cssPath).length > 0)
-            );
-            if (!found) {
-                $(element).remove();
             }
         });
 
-        // Change src attribute value for <script> tags
-        $('script[src]').each((_: number, element: any) => {
-            const srcValue = $(element).attr('src');
+        // Pass 3 — elements that still match on their own, now that attributes
+        // are gone. This is the `$(element).is(...)` half of the original test.
+        const selfInteractable = new Set<DomNode>();
+        const selfHits = $(this.interactableSelector);
+        for (let i = 0; i < selfHits.length; i++) {
+            const hit = selfHits[i] as DomNode | undefined;
+            if (hit) {
+                selfInteractable.add(hit);
+            }
+        }
+
+        // Pass 4 — prune top-down. Removing a node takes its subtree with it, so
+        // descending into a doomed subtree would be wasted work; collecting the
+        // roots and removing them in one call keeps it to a single Cheerio
+        // wrapper allocation.
+        const doomed: DomNode[] = [];
+        const stack: DomNode[] = [];
+        const root = $.root()[0] as DomNode | undefined;
+        const rootChildren = root?.children ?? [];
+        for (let i = rootChildren.length - 1; i >= 0; i--) {
+            stack.push(rootChildren[i]!);
+        }
+        while (stack.length > 0) {
+            const node = stack.pop()!;
+            if (!ELEMENT_NODE_TYPES.has(node.type)) {
+                continue;
+            }
+            if (!selfInteractable.has(node) && !hasInteractableDescendant.has(node)) {
+                doomed.push(node);
+                continue;
+            }
+            const children = node.children ?? [];
+            for (let i = children.length - 1; i >= 0; i--) {
+                stack.push(children[i]!);
+            }
+        }
+        if (doomed.length > 0) {
+            $(doomed as unknown as cheerio.Element[]).remove();
+        }
+
+        // Change src attribute value for <script> tags. Only reachable when
+        // `crawler.elements` is configured to keep scripts — under the default
+        // selectors pass 4 has already removed every script.
+        $('script[src]').each((_: number, element: unknown) => {
+            const attribs = (element as DomNode).attribs;
+            const srcValue = attribs?.['src'];
             if (srcValue) {
-                const cleanSrc = typeof srcValue === 'string' ? srcValue : String(srcValue);
-                $(element).attr('src', cleanSrc.split('?')[0] as any);
+                const queryStart = srcValue.indexOf('?');
+                if (queryStart !== -1) {
+                    attribs!['src'] = srcValue.slice(0, queryStart);
+                }
             }
         });
+    }
+
+    /**
+     * Creates a short-lived memo over {@link stripDOM} keyed on raw HTML.
+     *
+     * Scoped per caller rather than per crawler on purpose: keyed on markup, a
+     * long-lived cache would grow with everything the crawl has ever seen, and
+     * the reuse that matters is all within a single pass anyway.
+     *
+     * @return An object whose `strip` parses, strips and serialises a fragment.
+     */
+    private createStripCache(): { strip: (html: string) => string } {
+        const cache = new Map<string, string>();
+        return {
+            strip: (html: string): string => {
+                const cached = cache.get(html);
+                if (cached !== undefined) {
+                    return cached;
+                }
+                const $ = cheerio.load(html, { xmlMode: true }) as cheerio.CheerioAPI;
+                this.stripDOM($);
+                const stripped = $.html();
+                cache.set(html, stripped);
+                return stripped;
+            },
+        };
     }
 
     /**
@@ -254,53 +452,98 @@ class Crawler {
             selector: '*',
         });
 
-        const clickListeners: string[] = [];
-        for (const nodeId of nodeIds) {
-            try {
-                // Get the RemoteObjectId for the node
-                const { object } = await client.send('DOM.resolveNode', { nodeId: nodeId });
-                const remoteObjectId = object.objectId;
+        // Results are placed by index rather than pushed, so the returned order
+        // is document order regardless of which probes finish first. The crawl
+        // inventory is deliberately deterministic; letting scheduling jitter
+        // reorder the discovered selectors would leak nondeterminism into it.
+        const clickListeners: (string | null)[] = new Array(nodeIds.length).fill(null);
 
+        // Every resolved node is pinned in a named object group so a single
+        // `Runtime.releaseObjectGroup` at the end frees all of them. Resolving
+        // thousands of nodes per state and never releasing them leaked remote
+        // object handles in the browser for the lifetime of the crawl.
+        const objectGroup = `sasori-listeners-${Date.now()}`;
+
+        /**
+         * Probes one node for the event listener and records its selector.
+         * @param index - Position of the node in {@link nodeIds}.
+         */
+        const probe = async (index: number): Promise<void> => {
+            const nodeId = nodeIds[index];
+            if (nodeId === undefined) {
+                return;
+            }
+            try {
+                const { object } = await client.send('DOM.resolveNode', { nodeId, objectGroup });
+                const remoteObjectId = object.objectId;
                 if (!remoteObjectId) {
-                    continue;
+                    return;
                 }
 
-                // Get event listeners for the node
                 const { listeners } = await client.send('DOMDebugger.getEventListeners', { objectId: remoteObjectId });
-                if (listeners.some((listener: any) => listener.type === event)) {
-                    const { node } = await client.send('DOM.describeNode', { nodeId: nodeId });
-                    let cssPath = '';
-                    if (node.attributes && node.attributes.length > 0) {
-                        const excludedAttrNameChars = ['.'];
-                        const excludedAttrValueChars = ['"', '\n'];
-                        for (let i = 0; i < node.attributes.length; i += 2) {
-                            const attrName = node.attributes[i];
-                            const attrValue = node.attributes[i + 1];
-                            // Continue if the attribute name has an excluded character.
-                            if (attrName && excludedAttrNameChars.some((element) => attrName.includes(element))) {
-                                continue;
-                            }
-                            // Continue if attribute value has some excluded character.
-                            if (attrValue && excludedAttrValueChars.some((element) => attrValue.includes(element))) {
-                                continue;
-                            }
-                            if (attrName && attrValue) {
-                                cssPath += `[${attrName}="${attrValue}"]`;
-                            }
-                        }
+                if (!listeners.some((listener) => listener.type === event)) {
+                    return;
+                }
 
-                        if (cssPath && node.localName) {
-                            cssPath = node.localName + cssPath;
-                            clickListeners.push(cssPath);
-                        }
+                const { node } = await client.send('DOM.describeNode', { nodeId });
+                if (!node.attributes || node.attributes.length === 0) {
+                    return;
+                }
+
+                const excludedAttrNameChars = ['.'];
+                const excludedAttrValueChars = ['"', '\n'];
+                let cssPath = '';
+                for (let i = 0; i < node.attributes.length; i += 2) {
+                    const attrName = node.attributes[i];
+                    const attrValue = node.attributes[i + 1];
+                    // Continue if the attribute name has an excluded character.
+                    if (attrName && excludedAttrNameChars.some((element) => attrName.includes(element))) {
+                        continue;
+                    }
+                    // Continue if attribute value has some excluded character.
+                    if (attrValue && excludedAttrValueChars.some((element) => attrValue.includes(element))) {
+                        continue;
+                    }
+                    if (attrName && attrValue) {
+                        cssPath += `[${attrName}="${attrValue}"]`;
                     }
                 }
+
+                if (cssPath && node.localName) {
+                    clickListeners[index] = node.localName + cssPath;
+                }
             } catch (error) {
-                // do nothing
+                // A node can go away between the querySelectorAll and the probe;
+                // that is expected on a live page and not worth reporting.
             }
+        };
+
+        // A fixed pool of workers pulling from a shared cursor. The original ran
+        // these probes strictly one after another, so a page with N elements
+        // cost 2N sequential CDP round-trips — on a large DOM that is the single
+        // biggest source of latency in action discovery, and it is latency, not
+        // work: the browser is idle between replies. CDP multiplexes commands on
+        // one session, so overlapping them is just using the transport properly.
+        let cursor = 0;
+        const workerCount = Math.min(Crawler.CDP_LISTENER_PROBE_CONCURRENCY, nodeIds.length);
+        const workers = Array.from({ length: workerCount }, async () => {
+            for (;;) {
+                const index = cursor++;
+                if (index >= nodeIds.length) {
+                    return;
+                }
+                await probe(index);
+            }
+        });
+        await Promise.all(workers);
+
+        try {
+            await client.send('Runtime.releaseObjectGroup', { objectGroup });
+        } catch (error) {
+            // The page may already have navigated away; the objects went with it.
         }
 
-        return clickListeners;
+        return clickListeners.filter((cssPath): cssPath is string => cssPath !== null);
     }
 
     /**
@@ -379,18 +622,25 @@ class Crawler {
         for (const element of this.crawlerConfig.elements) {
             // Check if the selector is for an event (like [click]) or element.
             if (/^\[\w+\]$/.test(element)) {
-                const event = element.substr(1, element.length - 2);
+                const event = element.slice(1, -1);
                 // Enable the Debugger
                 const client = await page.target().createCDPSession();
-                await client.send('DOM.enable');
-                await client.send('Runtime.enable');
-                const allClickListeners = await this.findNodesWithClickListeners(client, event);
-                for (const clickListener of allClickListeners) {
-                    try {
-                        allCssPaths.push(...(await domPath.getCssPaths(clickListener)));
-                    } catch (error) {
-                        // The query selector is invalid.
+                try {
+                    await client.send('DOM.enable');
+                    await client.send('Runtime.enable');
+                    const allClickListeners = await this.findNodesWithClickListeners(client, event);
+                    for (const clickListener of allClickListeners) {
+                        try {
+                            allCssPaths.push(...(await domPath.getCssPaths(clickListener)));
+                        } catch (error) {
+                            // The query selector is invalid.
+                        }
                     }
+                } finally {
+                    // One session was created per event selector per state and
+                    // never detached, so a long crawl accumulated CDP sessions
+                    // against the same target until the browser was closed.
+                    await client.detach().catch(() => undefined);
                 }
             } else {
                 allCssPaths.push(...(await domPath.getCssPaths(element)));
@@ -402,6 +652,15 @@ class Crawler {
         const pathList = Array.from(cssPaths);
         const snapshots = await this.batchFetchActionNodeSnapshots(page, pathList);
 
+        // Each snapshot is stripped three times — the node, and both of its
+        // element siblings — so consecutive actions in a list or table strip the
+        // *same* markup repeatedly: action i's next sibling is action i+1's
+        // node, and action i+2's previous sibling. Memoizing on the raw HTML
+        // collapses those three passes into one for every run of adjacent
+        // actions. The cache lives only for this call, so it stays bounded by
+        // one state's markup rather than growing with the crawl.
+        const stripCache = this.createStripCache();
+
         for (const snap of snapshots) {
             if (!snap.ok) {
                 console.error(chalk.red(`[ERROR] batch action snapshot failed for ${snap.cssPath}: ${snap.error}`));
@@ -412,24 +671,15 @@ class Crawler {
                 const node = snap;
                 const cssPath = snap.cssPath;
 
-                const nodeCheerio = cheerio.load(node.outerHTML, { xmlMode: true });
-                this.stripDOM(nodeCheerio as cheerio.CheerioAPI);
-                let prevElementStrippedDOM = '';
-                let nextElementStrippedDOM = '';
+                const nodeStrippedDOM = stripCache.strip(node.outerHTML);
+                const prevElementStrippedDOM = node.prevElementOuterHTML
+                    ? stripCache.strip(node.prevElementOuterHTML)
+                    : '';
+                const nextElementStrippedDOM = node.nextElementOuterHTML
+                    ? stripCache.strip(node.nextElementOuterHTML)
+                    : '';
 
-                if (node.prevElementOuterHTML) {
-                    const prevNodeCheerio = cheerio.load(node.prevElementOuterHTML, { xmlMode: true });
-                    this.stripDOM(prevNodeCheerio as cheerio.CheerioAPI);
-                    prevElementStrippedDOM = prevNodeCheerio.html();
-                }
-
-                if (node.nextElementOuterHTML) {
-                    const nextNodeCheerio = cheerio.load(node.nextElementOuterHTML, { xmlMode: true });
-                    this.stripDOM(nextNodeCheerio as cheerio.CheerioAPI);
-                    nextElementStrippedDOM = nextNodeCheerio.html();
-                }
-
-                const actionHash = createHash('sha256').update(prevElementStrippedDOM + nodeCheerio.html() + nextElementStrippedDOM).digest('hex');
+                const actionHash = createHash('sha256').update(prevElementStrippedDOM + nodeStrippedDOM + nextElementStrippedDOM).digest('hex');
                 if (crawlManager.isCrawlActionUnique(cssPath, actionHash)) {
                     crawlActions.push(new CrawlAction(node.tagName, 'click', cssPath, actionHash, currentState));
                     crawlManager.registerActionSignature(cssPath, actionHash);
@@ -599,9 +849,7 @@ class Crawler {
         if (!this.allUrls.has(page.url())) {
             console.log(chalk.magenta('[URL] ') + chalk.green(page.url()));
             this.allUrls.add(page.url());
-            if (this.crawlerConfig.outputFile) {
-                this.appendUrlToOutputFile(page.url());
-            }
+            this.appendUrlToOutputFile(page.url());
         }
     }
 
@@ -613,21 +861,39 @@ class Crawler {
     inContext(url: string): boolean {
         // Check if it is excluded
         for (const regex of this.crawlerConfig.excludeRegexes) {
-            const excludeRegex = new RegExp(regex);
-            if (url.match(excludeRegex)) {
+            if (this.compileRegex(regex).test(url)) {
                 return false;
             }
         }
 
         // Check if it is included
         for (const regex of this.crawlerConfig.includeRegexes) {
-            const includeRegex = new RegExp(regex);
-            if (url.match(includeRegex)) {
+            if (this.compileRegex(regex).test(url)) {
                 return true;
             }
         }
 
         return false;
+    }
+
+    /**
+     * Returns the compiled form of a scope pattern, compiling it at most once.
+     *
+     * `test` rather than `String.prototype.match` at the call sites: the result
+     * is only ever used as a boolean, and `match` allocates a result array on
+     * every hit. None of these patterns carry the `g` flag — `new RegExp` is
+     * called without flags — so `test` is stateless here and safe to reuse.
+     *
+     * @param pattern - Regular expression source from the crawler config.
+     * @return The compiled expression.
+     */
+    private compileRegex(pattern: string): RegExp {
+        let compiled = this.compiledRegexes.get(pattern);
+        if (!compiled) {
+            compiled = new RegExp(pattern);
+            this.compiledRegexes.set(pattern, compiled);
+        }
+        return compiled;
     }
 
     /**
@@ -756,11 +1022,56 @@ class Crawler {
 
     /**
      * Append the given URL to the output file.
+     *
+     * Called from inside the `page.on('request')` handler, which is the single
+     * most latency-sensitive place in the crawler: every intercepted request
+     * waits behind it, across every browser instance. It used to `appendFileSync`
+     * — a blocking write, plus a `path.resolve` of the same string — so each
+     * newly discovered URL stalled the event loop on disk I/O.
+     *
+     * A write stream fixes both: the path is resolved once when the stream is
+     * opened, and `write` hands off to libuv instead of blocking. Ordering is
+     * still guaranteed, because a stream serialises its own queued writes.
+     *
      * @param url - URL to append
      */
     appendUrlToOutputFile(url: string): void {
-        const fullPath = path.resolve(this.crawlerConfig.outputFile!);
-        appendFileSync(fullPath, url + '\n');
+        const target = this.crawlerConfig.outputFile;
+        if (!target) {
+            return;
+        }
+        if (!this.outputFileStream) {
+            // 'a' rather than 'w': `bin/index.ts` truncates the file up front so
+            // a run starts clean, and opening for append here keeps that single
+            // truncation authoritative instead of racing it.
+            this.outputFileStream = createWriteStream(path.resolve(target), { flags: 'a' });
+            this.outputFileStream.on('error', (err: Error) => {
+                console.error(chalk.red(`[ERROR] Could not write to output file: ${err.message}`));
+            });
+        }
+        this.outputFileStream.write(url + '\n');
+    }
+
+    /**
+     * Flushes and closes the output stream, resolving once the data is on its
+     * way to the OS.
+     *
+     * A buffered stream that is never closed can lose its tail when the process
+     * exits, which would silently truncate the URL list a crawl exists to
+     * produce — so this is awaited in `startCrawling`'s `finally`, alongside the
+     * inventory write.
+     *
+     * @return Promise resolving when the stream is closed.
+     */
+    private async closeOutputFile(): Promise<void> {
+        const stream = this.outputFileStream;
+        if (!stream) {
+            return;
+        }
+        this.outputFileStream = null;
+        await new Promise<void>((resolve) => {
+            stream.end(() => resolve());
+        });
     }
 
     /**
@@ -897,9 +1208,7 @@ class Crawler {
                         if (!this.allUrls.has(interceptedRequest.url())) {
                             console.log(chalk.magentaBright('[URL] ') + chalk.green(interceptedRequest.url()));
                             this.allUrls.add(interceptedRequest.url());
-                            if (this.crawlerConfig.outputFile) {
-                                this.appendUrlToOutputFile(interceptedRequest.url());
-                            }
+                            this.appendUrlToOutputFile(interceptedRequest.url());
                         }
                     }
 
@@ -1021,6 +1330,7 @@ class Crawler {
             // would make a timeout indistinguishable from a crawl that reached
             // nothing.
             this.writeInventoryFile();
+            await this.closeOutputFile();
         }
     }
 
