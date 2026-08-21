@@ -21,8 +21,8 @@ import * as cheerio from 'cheerio';
 import fs from 'fs';
 import path from 'path';
 
-import Crawler from '../src/crawler/crawler';
-import { CrawlerConfig } from '../src/types/crawler';
+import CrawlInput from '../src/crawler/crawlInput';
+import DomStripper from '../src/crawler/domStripper';
 
 const FIXTURE_SUBPATH = path.join('tests', 'fixtures', 'stripdom');
 
@@ -65,36 +65,18 @@ const WARMUP_ITERATIONS = 3;
 const MEASURED_ITERATIONS = 7;
 
 /**
- * Builds a crawler configured for stripping only — no browser is launched.
- * @return A crawler whose `allInteractables` matches production defaults.
+ * Builds the stripper with the production selector set.
+ *
+ * No browser, no config file, no `Crawler` — which is the point: before SCAN-90
+ * this function was a forty-line fake `CrawlerConfig` cast through `unknown`,
+ * because stripping was a method on a class that wanted a live `Page`.
+ * @return A stripper matching the shipped defaults.
  */
-function buildCrawler(): Crawler {
-    const config: CrawlerConfig = {
-        browser: {
-            headless: true,
-            maximize: false,
-            proxy: { enabled: false, host: '127.0.0.1', port: 8080 },
-            instances: 1,
-        },
-        crawler: {
-            entryPoint: 'https://example.com/',
-            eventTimeout: 10000,
-            navigationTimeout: 30000,
-            eventWait: 0,
-            maxDuration: 0,
-            elements: ELEMENTS,
-            maxChildren: 0,
-            maxDepth: 10,
-            authentication: {
-                basicAuth: { enabled: false, username: '', password: '' },
-                recorderAuth: { enabled: false, pptrRecording: '' },
-            },
-            includeRegexes: ['https?://example.com(?:/.*|)'],
-            excludeRegexes: [],
-        },
-    } as unknown as CrawlerConfig;
-
-    return new Crawler(config);
+function buildStripper(): DomStripper {
+    return new DomStripper([
+        ...ELEMENTS,
+        ...CrawlInput.INPUT_FIELDS.map((field) => field.CSS_PATH),
+    ]);
 }
 
 /**
@@ -126,21 +108,21 @@ function median(values: number[]): number {
  * measurement: `stripDOM` mutates the tree it is given, so each iteration must
  * start from a freshly parsed copy, and charging Cheerio's parser to `stripDOM`
  * would hide the very thing being measured.
- * @param crawler Crawler supplying the selectors.
+ * @param stripper Stripper supplying the selectors.
  * @param html Fixture source.
  * @return Median milliseconds per `stripDOM` call.
  */
-function timeFixture(crawler: Crawler, html: string): number {
+function timeFixture(stripper: DomStripper, html: string): number {
     for (let i = 0; i < WARMUP_ITERATIONS; i++) {
         const $ = cheerio.load(html, { xmlMode: true }) as cheerio.CheerioAPI;
-        crawler.stripDOM($);
+        stripper.strip($);
     }
 
     const samples: number[] = [];
     for (let i = 0; i < MEASURED_ITERATIONS; i++) {
         const $ = cheerio.load(html, { xmlMode: true }) as cheerio.CheerioAPI;
         const start = process.hrtime.bigint();
-        crawler.stripDOM($);
+        stripper.strip($);
         const end = process.hrtime.bigint();
         samples.push(Number(end - start) / 1e6);
     }
@@ -153,7 +135,7 @@ function timeFixture(crawler: Crawler, html: string): number {
  */
 function main(): void {
     const filter = process.argv[2];
-    const crawler = buildCrawler();
+    const stripper = buildStripper();
 
     const fixtures = fs
         .readdirSync(FIXTURE_DIR)
@@ -177,7 +159,7 @@ function main(): void {
     for (const fixture of fixtures) {
         const html = fs.readFileSync(path.join(FIXTURE_DIR, fixture), 'utf-8');
         const elements = elementCount(html);
-        const ms = timeFixture(crawler, html);
+        const ms = timeFixture(stripper, html);
         total += ms;
         const perElement = elements > 0 ? (ms * 1000) / elements : 0;
         console.log(

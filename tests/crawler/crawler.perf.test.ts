@@ -13,7 +13,10 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 
+import ActionDiscovery from '../../src/crawler/actionDiscovery';
 import Crawler from '../../src/crawler/crawler';
+import CrawlInput from '../../src/crawler/crawlInput';
+import DomStripper from '../../src/crawler/domStripper';
 import { CrawlerConfig } from '../../src/types/crawler';
 
 /**
@@ -25,6 +28,23 @@ function buildCrawler(overrides: Record<string, unknown> = {}): Crawler {
     const config = (global as any).testUtils.createValidConfig() as CrawlerConfig;
     Object.assign(config.crawler, overrides);
     return new Crawler(config);
+}
+
+/**
+ * Builds the action-discovery unit on its own — no browser, no crawl loop.
+ * @param overrides Fields merged into `crawler` config.
+ * @return An ActionDiscovery instance and the debug lines it emitted.
+ */
+function buildDiscovery(overrides: Record<string, unknown> = {}) {
+    const config = (global as any).testUtils.createValidConfig() as CrawlerConfig;
+    Object.assign(config.crawler, overrides);
+    const stripper = new DomStripper([
+        ...config.crawler.elements,
+        ...CrawlInput.INPUT_FIELDS.map((field) => field.CSS_PATH),
+    ]);
+    const debugLines: string[] = [];
+    const discovery = new ActionDiscovery(config.crawler, stripper, (m) => debugLines.push(m));
+    return { discovery, debugLines };
 }
 
 describe('inContext regex compilation (SCAN-87)', () => {
@@ -237,10 +257,10 @@ describe('findNodesWithClickListeners (SCAN-86)', () => {
     }
 
     it('overlaps its probes instead of running them one at a time', async () => {
-        const crawler = buildCrawler();
+        const { discovery } = buildDiscovery();
         const fake = fakeClient(200, new Set([15, 42]));
 
-        await crawler.findNodesWithClickListeners(fake.client, 'click');
+        await discovery.findNodesWithClickListeners(fake.client, 'click');
 
         // The old implementation awaited each node's probes in turn, so this
         // would be 1. Anything above 1 proves the round-trips overlap.
@@ -248,30 +268,30 @@ describe('findNodesWithClickListeners (SCAN-86)', () => {
     });
 
     it('returns matching selectors in document order regardless of scheduling', async () => {
-        const crawler = buildCrawler();
+        const { discovery } = buildDiscovery();
         // Deliberately out of order in the set; the output must not follow it.
         const fake = fakeClient(60, new Set([65, 12, 40]));
 
-        const result = await crawler.findNodesWithClickListeners(fake.client, 'click');
+        const result = await discovery.findNodesWithClickListeners(fake.client, 'click');
 
         expect(result).toEqual(['div[id="n12"]', 'div[id="n40"]', 'div[id="n65"]']);
     });
 
     it('only describes nodes that actually carry the listener', async () => {
-        const crawler = buildCrawler();
+        const { discovery } = buildDiscovery();
         const fake = fakeClient(100, new Set([20, 21]));
 
-        await crawler.findNodesWithClickListeners(fake.client, 'click');
+        await discovery.findNodesWithClickListeners(fake.client, 'click');
 
         expect(fake.calls['DOMDebugger.getEventListeners']).toBe(100);
         expect(fake.calls['DOM.describeNode']).toBe(2);
     });
 
     it('releases every remote object it resolved', async () => {
-        const crawler = buildCrawler();
+        const { discovery } = buildDiscovery();
         const fake = fakeClient(50, new Set([12]));
 
-        await crawler.findNodesWithClickListeners(fake.client, 'click');
+        await discovery.findNodesWithClickListeners(fake.client, 'click');
 
         const group = fake.releasedGroup();
         expect(group).toBeTruthy();
@@ -282,14 +302,14 @@ describe('findNodesWithClickListeners (SCAN-86)', () => {
     });
 
     it('handles a page with no elements', async () => {
-        const crawler = buildCrawler();
+        const { discovery } = buildDiscovery();
         const fake = fakeClient(0, new Set());
 
-        await expect(crawler.findNodesWithClickListeners(fake.client, 'click')).resolves.toEqual([]);
+        await expect(discovery.findNodesWithClickListeners(fake.client, 'click')).resolves.toEqual([]);
     });
 
     it('skips nodes whose probe fails rather than abandoning the sweep', async () => {
-        const crawler = buildCrawler();
+        const { discovery } = buildDiscovery();
         const fake = fakeClient(20, new Set([12, 15]));
         const realSend = (fake.client as any).send;
         (fake.client as any).send = jest.fn(async (method: string, params: any = {}) => {
@@ -299,17 +319,17 @@ describe('findNodesWithClickListeners (SCAN-86)', () => {
             return realSend(method, params);
         });
 
-        const result = await crawler.findNodesWithClickListeners(fake.client, 'click');
+        const result = await discovery.findNodesWithClickListeners(fake.client, 'click');
 
         expect(result).toEqual(['div[id="n15"]']);
     });
 });
 
-describe('stripDOM fragment memoization (SCAN-85)', () => {
+describe('DomStripper fragment memoization (SCAN-85)', () => {
     it('strips identical markup only once per pass', () => {
-        const crawler = buildCrawler();
-        const stripSpy = jest.spyOn(crawler, 'stripDOM');
-        const cache = (crawler as any).createStripCache() as { strip: (html: string) => string };
+        const stripper = new DomStripper(['a', 'button']);
+        const stripSpy = jest.spyOn(stripper, 'stripHtml');
+        const cache = stripper.createCache();
 
         const html = '<div><a href="/x">link</a></div>';
         const first = cache.strip(html);
@@ -320,5 +340,17 @@ describe('stripDOM fragment memoization (SCAN-85)', () => {
         expect(third).not.toBe(first);
         expect(stripSpy).toHaveBeenCalledTimes(2);
         stripSpy.mockRestore();
+    });
+
+    it('caches are independent, so one pass cannot poison another', () => {
+        const stripper = new DomStripper(['a']);
+        const html = '<div><a href="/x">link</a></div>';
+        const spy = jest.spyOn(stripper, 'stripHtml');
+
+        stripper.createCache().strip(html);
+        stripper.createCache().strip(html);
+
+        expect(spy).toHaveBeenCalledTimes(2);
+        spy.mockRestore();
     });
 });

@@ -39,6 +39,7 @@ PORT       ?= 8080
         package-zip \
         lint type-check format \
         test test-watch test-coverage test-ci \
+        bench bench-stripdom bench-crawlmaze bench-crawlmaze-before bench-crawlmaze-after \
         version
 
 .DEFAULT_GOAL := help
@@ -143,3 +144,34 @@ test-coverage: check-tools ## Jest with coverage report
 
 test-ci: check-tools ## Jest CI mode with coverage (non-interactive)
 	@$(NPM) run test:ci
+
+# ═════════════════════════════════════════════════════════════
+##@ Benchmarks
+# ═════════════════════════════════════════════════════════════
+#
+# Two levels, because they answer different questions.
+#
+# `bench-stripdom` measures the crawler's hottest pure-CPU function against a
+# fixed fixture corpus. It is fast, deterministic, and the right tool for
+# judging a change to DOM stripping — end-to-end crawl time is dominated by the
+# browser and the network, which drowns that signal out.
+#
+# `bench-crawlmaze` crawls Google's Security Crawl Maze, a public testbed built
+# to link resources in every way a valid HTML document can. It is the
+# end-to-end gate: a change may make the crawl faster, but it must not make it
+# find less. Run BEFORE=... and AFTER=... around a change and compare.
+
+bench: bench-stripdom ## Run the fast micro-benchmarks
+
+bench-stripdom: build ## Micro-benchmark DomStripper over the fixture corpus (FILTER= to narrow)
+	@$(NODE) $(DIST_DIR)/bench/stripdom.bench.js $(FILTER)
+
+bench-crawlmaze: build ## Timed crawl of security-crawl-maze.app: LABEL=before|after
+	@bench/crawlmaze.sh "$(LABEL)"
+
+bench-crawlmaze-before: build ## Record the pre-change crawlmaze baseline
+	@bench/crawlmaze.sh before
+
+bench-crawlmaze-after: build ## Record the post-change crawlmaze result and diff it
+	@bench/crawlmaze.sh after
+	@bench/crawlmaze-compare.sh

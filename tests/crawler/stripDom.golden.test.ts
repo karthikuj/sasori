@@ -1,5 +1,5 @@
 /**
- * Golden-output tests for `Crawler.stripDOM`.
+ * Golden-output tests for `DomStripper`.
  *
  * `stripDOM` feeds `stateHash`, which is the crawler's entire notion of state
  * identity: two DOM states are "the same place" iff their stripped HTML hashes
@@ -24,8 +24,8 @@ import * as cheerio from 'cheerio';
 import fs from 'fs';
 import path from 'path';
 
-import Crawler from '../../src/crawler/crawler';
-import { CrawlerConfig } from '../../src/types/crawler';
+import CrawlInput from '../../src/crawler/crawlInput';
+import DomStripper from '../../src/crawler/domStripper';
 
 const FIXTURE_DIR = path.join(__dirname, '..', 'fixtures', 'stripdom');
 const GOLDEN_FILE = path.join(FIXTURE_DIR, 'golden.json');
@@ -43,27 +43,32 @@ const SELECTOR_PROFILES: Record<string, string[]> = {
 };
 
 /**
- * Builds a Crawler with no browser attached. `stripDOM` is pure with respect to
- * `allInteractables`, so the constructor is all the setup it needs.
+ * Builds a stripper for the given configured elements.
+ *
+ * The crawler always appends the input-field selectors to whatever
+ * `crawler.elements` holds, so the same is done here — testing the stripper
+ * against a selector set the product never actually uses would pin the wrong
+ * behaviour.
  * @param elements Value for `crawler.elements`.
- * @return A crawler instance usable for DOM stripping only.
+ * @return A stripper with the production selector set.
  */
-function crawlerWithElements(elements: string[]): Crawler {
-    const config = (global as any).testUtils.createValidConfig() as CrawlerConfig;
-    config.crawler.elements = elements;
-    return new Crawler(config);
+function crawlerWithElements(elements: string[]): DomStripper {
+    return new DomStripper([
+        ...elements,
+        ...CrawlInput.INPUT_FIELDS.map((field) => field.CSS_PATH),
+    ]);
 }
 
 /**
  * Runs the production stripping path: parse exactly as `getPageHash` does,
  * strip, serialise.
- * @param crawler Crawler supplying the interactable selectors.
+ * @param stripper Stripper supplying the interactable selectors.
  * @param html Raw fixture HTML.
  * @return The stripped HTML that would be hashed into a `stateHash`.
  */
-function strip(crawler: Crawler, html: string): string {
+function strip(stripper: DomStripper, html: string): string {
     const $ = cheerio.load(html, { xmlMode: true }) as cheerio.CheerioAPI;
-    crawler.stripDOM($);
+    stripper.strip($);
     return $.html();
 }
 
@@ -72,7 +77,7 @@ const fixtures = fs
     .filter((f) => f.endsWith('.html'))
     .sort();
 
-describe('Crawler.stripDOM golden output', () => {
+describe('DomStripper golden output', () => {
     it('has a non-empty fixture corpus', () => {
         expect(fixtures.length).toBeGreaterThan(10);
     });
@@ -126,7 +131,7 @@ describe('Crawler.stripDOM golden output', () => {
     });
 });
 
-describe('Crawler.stripDOM behaviour', () => {
+describe('DomStripper behaviour', () => {
     const crawler = crawlerWithElements(SELECTOR_PROFILES['default']!);
 
     it('keeps href on anchors and drops every other attribute', () => {
