@@ -85,45 +85,6 @@ describe('CrawlStateManager', () => {
         });
     });
 
-    describe('traverse', () => {
-        it('should traverse state graph and log URLs', () => {
-            const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
-            const visited: CrawlState[] = [];
-
-            stateManager.traverse(stateManager.rootState!, visited);
-
-            expect(consoleSpy).toHaveBeenCalledWith('https://example.com');
-            expect(visited).toHaveLength(1);
-            expect(visited[0]).toBe(mockChildState);
-            consoleSpy.mockRestore();
-        });
-
-        it('should handle empty state graph', () => {
-            const emptyState = new CrawlState('https://empty.com', 'empty-hash', 0, 'link', [], []);
-            const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
-            const visited: CrawlState[] = [];
-
-            stateManager.traverse(emptyState, visited);
-
-            expect(consoleSpy).toHaveBeenCalledWith('https://empty.com');
-            expect(visited).toHaveLength(0);
-            consoleSpy.mockRestore();
-        });
-
-        it('should throw error for invalid root state', () => {
-            const visited: CrawlState[] = [];
-            expect(() => {
-                stateManager.traverse({} as any, visited);
-            }).toThrow('Invalid rootState provided to traverse method');
-        });
-
-        it('should throw error for invalid visited parameter', () => {
-            expect(() => {
-                stateManager.traverse(stateManager.rootState!, {} as any);
-            }).toThrow('Visited parameter must be an array');
-        });
-    });
-
     describe('getStateByHash', () => {
         it('should return state with matching hash', () => {
             const result = stateManager.getStateByHash('root-hash');
@@ -230,30 +191,6 @@ describe('CrawlStateManager', () => {
     });
 
     describe('Error Handling', () => {
-        it('should handle errors during traversal gracefully', () => {
-            const consoleSpy = jest.spyOn(console, 'error').mockImplementation();
-            const invalidState = {
-                stateId: 'test-id',
-                url: 'https://test.com',
-                stateHash: 'test-hash',
-                crawlDepth: 0,
-                crawlInputs: [],
-                crawlActions: [],
-                getCrawlActions: jest.fn().mockImplementation(() => {
-                    throw new Error('Test error');
-                }),
-                getCrawlDepth: jest.fn().mockReturnValue(0),
-                getCrawlInputs: jest.fn().mockReturnValue([])
-            } as any;
-
-            const visited: CrawlState[] = [];
-            expect(() => {
-                stateManager.traverse(invalidState, visited);
-            }).toThrow('Traversal failed: Test error');
-
-            consoleSpy.mockRestore();
-        });
-
         it('should handle errors during search gracefully', () => {
             const consoleSpy = jest.spyOn(console, 'warn').mockImplementation();
             const invalidState = {

@@ -8,7 +8,6 @@ export interface CrawlStateManagerInterface {
     rootState: CrawlState | null;
     visitedActions: Set<string>;
 
-    traverse(rootState: CrawlState, visited: CrawlState[]): void;
     attachRootState(root: CrawlState | null): void;
     registerState(state: CrawlState): void;
     registerActionSignature(cssPath: string, actionHash: string): void;
@@ -21,7 +20,7 @@ export interface CrawlStateManagerInterface {
 
 /**
  * The CrawlStateManager is responsible for creating and managing the crawl graph.
- * It provides methods to traverse the state graph, find states by hash, get next actions,
+ * It provides methods to find states by hash, get next actions,
  * check action uniqueness, and compute replay plans between states.
  */
 export class CrawlStateManager implements CrawlStateManagerInterface {
@@ -236,61 +235,26 @@ export class CrawlStateManager implements CrawlStateManagerInterface {
      * @param state - Object to validate
      * @returns True if valid CrawlState, false otherwise
      */
-    private isValidCrawlState(state: any): state is CrawlState {
+    private isValidCrawlState(state: unknown): state is CrawlState {
+        if (state === null || typeof state !== 'object') {
+            return false;
+        }
+        // Duck-typed against an index signature rather than `any`. The guard
+        // exists precisely because callers hand it values the compiler cannot
+        // vouch for, so the narrowing has to be done by hand — but it should be
+        // done once, here, instead of switching the parameter off type checking.
+        const candidate = state as Record<string, unknown>;
         return (
-            state &&
-            typeof state === 'object' &&
-            typeof state.stateId === 'string' &&
-            typeof state.url === 'string' &&
-            typeof state.stateHash === 'string' &&
-            typeof state.crawlDepth === 'number' &&
-            Array.isArray(state.crawlInputs) &&
-            Array.isArray(state.crawlActions) &&
-            typeof state.getCrawlActions === 'function' &&
-            typeof state.getCrawlDepth === 'function' &&
-            typeof state.getCrawlInputs === 'function'
+            typeof candidate['stateId'] === 'string' &&
+            typeof candidate['url'] === 'string' &&
+            typeof candidate['stateHash'] === 'string' &&
+            typeof candidate['crawlDepth'] === 'number' &&
+            Array.isArray(candidate['crawlInputs']) &&
+            Array.isArray(candidate['crawlActions']) &&
+            typeof candidate['getCrawlActions'] === 'function' &&
+            typeof candidate['getCrawlDepth'] === 'function' &&
+            typeof candidate['getCrawlInputs'] === 'function'
         );
-    }
-
-    /**
-     * Traverse the state graph starting from the given root state.
-     * This method performs a depth-first traversal and logs each state's URL.
-     * @param rootState - The state to start traversal from
-     * @param visited - Array to track visited states (passed by reference)
-     * @throws {Error} If rootState is null or invalid
-     */
-    public traverse(rootState: CrawlState, visited: CrawlState[]): void {
-        if (!this.isValidCrawlState(rootState)) {
-            throw new Error('Invalid rootState provided to traverse method');
-        }
-
-        if (!Array.isArray(visited)) {
-            throw new Error('Visited parameter must be an array');
-        }
-
-        console.log(rootState.url);
-
-        try {
-            const crawlActions = rootState.getCrawlActions();
-            if (!Array.isArray(crawlActions)) {
-                throw new Error('getCrawlActions() must return an array');
-            }
-
-            for (const action of crawlActions) {
-                if (!this.isValidCrawlAction(action)) {
-                    console.warn('Invalid crawl action found, skipping:', action);
-                    continue;
-                }
-
-                if (action.childState && !visited.includes(action.childState)) {
-                    visited.push(action.childState);
-                    this.traverse(action.childState, visited);
-                }
-            }
-        } catch (error) {
-            console.error('Error during traversal:', error);
-            throw new Error(`Traversal failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
-        }
     }
 
     /**
@@ -298,18 +262,20 @@ export class CrawlStateManager implements CrawlStateManagerInterface {
      * @param action - Object to validate
      * @returns True if valid CrawlAction, false otherwise
      */
-    private isValidCrawlAction(action: any): action is CrawlAction {
+    private isValidCrawlAction(action: unknown): action is CrawlAction {
+        if (action === null || typeof action !== 'object') {
+            return false;
+        }
+        const candidate = action as Record<string, unknown>;
         return (
-            action &&
-            typeof action === 'object' &&
-            typeof action.actionId === 'string' &&
-            typeof action.element === 'string' &&
-            typeof action.action === 'string' &&
-            typeof action.cssPath === 'string' &&
-            typeof action.actionHash === 'string' &&
-            this.isValidCrawlState(action.parentState) &&
-            (action.childState === null || this.isValidCrawlState(action.childState)) &&
-            (typeof action.getChildState === 'function' || action.childState !== undefined)
+            typeof candidate['actionId'] === 'string' &&
+            typeof candidate['element'] === 'string' &&
+            typeof candidate['action'] === 'string' &&
+            typeof candidate['cssPath'] === 'string' &&
+            typeof candidate['actionHash'] === 'string' &&
+            this.isValidCrawlState(candidate['parentState']) &&
+            (candidate['childState'] === null || this.isValidCrawlState(candidate['childState'])) &&
+            (typeof candidate['getChildState'] === 'function' || candidate['childState'] !== undefined)
         );
     }
 

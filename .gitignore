@@ -135,3 +135,6 @@ crawlConfigs
 to-fix.md
 # Sasori durable completion outbox (runtime state)
 .sasori/
+
+# Benchmark artifacts (crawl outputs, timings)
+bench/results/

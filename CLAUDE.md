@@ -18,6 +18,20 @@ npm test               # jest
 npm run test:coverage  # jest --coverage
 ```
 
+Benchmarks have no npm script — they run from `dist/`, so go through make:
+
+```bash
+make bench-stripdom               # micro-benchmark DomStripper (FILTER=synth-deep to narrow)
+make bench-crawlmaze LABEL=before # timed crawl of security-crawl-maze.app
+make bench-crawlmaze-after        # crawl again, then diff against `before`
+```
+
+`make bench-stripdom` is the one to reach for when changing DOM stripping: it is
+deterministic and takes seconds, whereas end-to-end crawl time is dominated by
+the browser and the network and drowns that signal out. `bench-crawlmaze` is the
+end-to-end gate, and `bench/crawlmaze-compare.sh` **fails if time went up or if
+coverage went down** — a crawler that got faster by visiting less is not faster.
+
 Run a single test file or case:
 
 ```bash
@@ -157,26 +171,66 @@ CA import **fails closed**: if `certutil` is missing or the PEM is unreadable, `
 
 `src/auth/authenticator.ts` extends `@puppeteer/replay`'s `PuppeteerRunnerExtension` and replays a DevTools Recorder JSON file. It supports a non-standard step: `type: customStep`, `name: executeScript`, with `parameters.target` holding a JS string that is passed to `page.evaluate`. HTTP Basic auth is handled separately via `page.authenticate` before the crawl starts.
 
+### The units inside `src/crawler/`
+
+`crawler.ts` used to own everything and was ~1,000 lines. It is now orchestration
+plus delegating facades, and the work lives in units that can be constructed and
+tested without a browser (SCAN-90). `Crawler`'s public surface did not change, so
+call sites and tests still go through it.
+
+| Unit | Owns |
+|---|---|
+| `DomStripper` | `stripDOM`, fragment stripping, state hashing, the per-pass strip memo |
+| `ActionDiscovery` | the CDP listener sweep, batched selector snapshots, `getCrawlActions` / `getCrawlInputs` |
+| `ActionReplay` | `performAction`, input filling, pruning selectors that no longer resolve |
+| `ScopeMatcher` | `inContext` and the auth-time include widening |
+| `UrlSink` | the discovered-URL output stream |
+
 ### Expensive operations
 
-Two things dominate runtime and are worth knowing before optimizing anything:
-
-- `stripDOM` (Cheerio) removes text, comments and most attributes, then prunes every subtree that contains no configured interactable selector. It runs on serialized HTML for every hash.
-- The `[click]` pseudo-selector in `crawler.elements` triggers `findNodesWithClickListeners`, a CDP sweep over every element on the page looking for click handlers. It is very heavy on large DOMs.
+- **`DomStripper.strip` is the hottest pure-CPU path.** `getPageHash` runs it once
+  per action and `ActionDiscovery` three times per *candidate* action (node plus
+  both siblings), so a state with fifty candidates costs ~150 invocations. It is
+  a four-pass mark-and-sweep, not a per-element subtree search — the naive
+  version's cost grew in DOM *depth*, and removing that was ~13x on the fixture
+  corpus (SCAN-85).
+- **Its output is pinned byte-for-byte** by `tests/crawler/stripDom.golden.test.ts`
+  because it feeds `stateHash`. A change there does not fail loudly; it silently
+  repartitions the crawl graph. Regenerate the goldens only deliberately
+  (`UPDATE_STRIPDOM_GOLDEN=1`) and read the diff as a report on how coverage will
+  move.
+- **Watch out for `nodeType` when walking a Cheerio tree.** domhandler reports
+  `nodeType` 1 for a `<!DOCTYPE>` directive as well as for real elements, so a
+  walk keyed on it deletes the doctype. Key on the `type` discriminator
+  (`tag`/`script`/`style`) instead.
+- The `[click]` pseudo-selector in `crawler.elements` triggers
+  `findNodesWithClickListeners`, a CDP sweep over every element on the page. The
+  probes now run through a bounded worker pool rather than strictly sequentially,
+  and results are placed by index so document order survives the concurrency —
+  the inventory is deliberately deterministic and must stay that way.
 
 ## Configuration
 
 Shape is `{ browser: BrowserConfig, crawler: CrawlerSettings }`; types live in `src/types/`. See `README.md` for the full field reference and `config/config.json` for a working example.
 
-**There are two parallel Joi layers, and they have drifted:**
+**There are two parallel Joi layers, and only one is live:**
 
 | | `src/models/configModel.ts` | `src/config/configSchema.ts` |
 |---|---|---|
 | Used by | `ConfigValidator`, re-exported from `configLoader` — **this is the live path** for both `start` and the API | Nothing in the runtime path; presets + `validateConfig` only |
-| Has `maxActionRetries` | No | Yes |
-| Port range checks | No | Yes (`1..65535`) |
 
-Because `ConfigValidator.validate` runs Joi with `stripUnknown: true`, a key that only exists in `configSchema.ts` is **silently deleted** from user configs rather than rejected. `maxActionRetries` is the live example: setting it in a config file has no effect today, and every `?? 3` fallback in `crawler.ts` wins. When adding a config option, add it to `configModel.ts` or it will not exist at runtime — and add it to `configSchema.ts` too, to stop the drift widening.
+Because `ConfigValidator.validate` runs Joi with `stripUnknown: true`, a key that
+only exists in `configSchema.ts` is **silently deleted** from user configs rather
+than rejected. When adding a config option, add it to **both** — `configModel.ts`
+or it will not exist at runtime, and `configSchema.ts` to keep them aligned.
+
+`tests/config/schemaDrift.test.ts` now enforces that: it compares the declared
+key sets and names the offending key on failure. It exists because this bug is
+invisible by construction and had already happened twice — `maxActionRetries` was
+read by `crawler.ts` but declared only in `configSchema.ts`, so setting it did
+nothing and the `?? 3` fallback always won; and `browser.tls.allowInsecureFallback`
+nearly shipped the same way, which would have left a documented security escape
+hatch inert. A warning in this file was not enough either time (SCAN-89).
 
 Recorder auth resolves `pptrRecording` with `path.resolve(__dirname, …)` from compiled `dist/`, so relative paths behave differently than you would expect from the source layout. Prefer absolute paths.
 
