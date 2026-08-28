@@ -1,6 +1,7 @@
 import { PuppeteerRunnerExtension, createRunner, Step, UserFlow } from '@puppeteer/replay';
 import { Browser, Page } from 'puppeteer';
 import * as fs from 'fs';
+import chalk from 'chalk';
 
 /**
  * Parameters for executeScript step
@@ -92,19 +93,32 @@ class Extension extends PuppeteerRunnerExtension {
 async function authenticate(
     browser: Browser,
     page: Page,
-    pptrJsonRecordingPath: string
+    pptrRecording: string
 ): Promise<void> {
-    const pptrJson = fs.readFileSync(pptrJsonRecordingPath, {
-        encoding: 'utf8',
-        flag: 'r'
-    });
+    const trimmed = (pptrRecording ?? '').trim();
+    // The Nara backend ships the recording inline in the config — the UI uploads
+    // the JSON file and stores its *contents* — so accept inline JSON as well as
+    // a filesystem path. Inline avoids requiring the file to exist on Sasori's
+    // own filesystem when the services run apart.
+    const inline = trimmed.startsWith('{') || trimmed.startsWith('[');
+    const pptrJson = inline
+        ? trimmed
+        : fs.readFileSync(pptrRecording, { encoding: 'utf8', flag: 'r' });
+
+    console.log(
+        chalk.cyanBright(
+            `[AUTH] Recorder auth source: ${inline ? 'inline JSON from config' : `file ${pptrRecording}`} (${pptrJson.length} bytes)`,
+        ),
+    );
 
     const runner = await createRunner(
         JSON.parse(pptrJson),
         new Extension(browser, page, { timeout: 30000 }),
     );
 
+    console.log(chalk.cyanBright('[AUTH] Replaying login recording...'));
     await runner.run();
+    console.log(chalk.greenBright('[AUTH] Login recording replay complete.'));
 }
 
 export default authenticate;

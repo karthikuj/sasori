@@ -249,8 +249,18 @@ class Crawler {
      */
     async startAuthentication(browser: PuppeteerBrowser, page: Page): Promise<void> {
         this.authInProgress = true;
-        await authenticate(browser, page, path.resolve(__dirname, this.crawlerConfig.authentication.recorderAuth.pptrRecording || ''));
-        this.authInProgress = false;
+        try {
+            const recording = this.crawlerConfig.authentication.recorderAuth.pptrRecording || '';
+            // Inline JSON (shipped in the config by the Nara backend) is passed
+            // through as-is; a bare filename/path is resolved against this module's
+            // directory as before.
+            const isInline = recording.trim().startsWith('{') || recording.trim().startsWith('[');
+            await authenticate(browser, page, isInline ? recording : path.resolve(__dirname, recording));
+        } finally {
+            // Reset even on failure, so a crawl that recovers from a bad auth
+            // doesn't stay wedged with authInProgress stuck true.
+            this.authInProgress = false;
+        }
         await this.maximizeViewport(page);
     }
 
@@ -453,12 +463,29 @@ class Crawler {
     async startCrawling(): Promise<void> {
         try {
             console.log(chalk.greenBright('[INFO] Initializing browser...'));
-            const browsers = await Promise.all(
+            const launchResults = await Promise.allSettled(
                 Array.from({ length: this.config.browser.instances }).map(
                     () => Browser.getBrowserInstance(this.config.browser),
                 ),
             );
-            this.activeBrowsers = browsers;
+            // Publish whatever launched *before* any throw, so the finally closes
+            // them. allSettled (not all) means a partial launch failure cannot
+            // orphan the browsers that did start.
+            this.activeBrowsers = launchResults.flatMap((r) =>
+                r.status === 'fulfilled' ? [r.value] : [],
+            );
+            const launchFailed = launchResults.filter(
+                (r): r is PromiseRejectedResult => r.status === 'rejected',
+            );
+            if (launchFailed.length > 0) {
+                const reasons = launchFailed
+                    .map((f) => (f.reason instanceof Error ? f.reason.message : String(f.reason)))
+                    .join('; ');
+                throw new Error(
+                    `Failed to launch ${launchFailed.length}/${launchResults.length} browser(s): ${reasons}`,
+                );
+            }
+            const browsers = this.activeBrowsers;
             console.log(chalk.greenBright('[INFO] Browser(s) initialized successfully!'));
             console.log(chalk.greenBright(`[INFO] Sasori will now start crawling from ${this.crawlerConfig.entryPoint}`));
 
@@ -561,18 +588,51 @@ class Crawler {
             console.log(chalk.greenBright('[INFO] Scope manager started successfully!'));
 
             // Start authentication if enabled.
-            if (this.crawlerConfig.authentication.recorderAuth && this.crawlerConfig.authentication.recorderAuth.enabled) {
-                console.log(chalk.greenBright('[INFO] Running initial authentication...'));
-                await Promise.all(
-                    Array.from({ length: browsers.length }).map(
-                        (_, i) => {
-                            const browser = browsers[i];
-                            const page = allPages[i];
-                            if (browser && page) {
-                                return this.startAuthentication(browser, page);
-                            }
-                            return Promise.resolve();
-                        },
+            const recorderAuth = this.crawlerConfig.authentication.recorderAuth;
+            if (recorderAuth && recorderAuth.enabled) {
+                const recording = recorderAuth.pptrRecording || '';
+                console.log(
+                    chalk.greenBright(
+                        `[INFO] Recorder auth is ENABLED — running initial authentication across ${browsers.length} browser(s) (recording ${recording.length} bytes).`,
+                    ),
+                );
+                // Authenticate one browser at a time, NOT all at once. Running the
+                // login recording on every browser simultaneously is a thundering
+                // herd — N concurrent navigations plus N password hashes (targets
+                // like Kirimaru use scrypt, deliberately CPU-heavy) plus the
+                // capturing proxy all spike together, and at 4 instances that
+                // contention pushes the login's navigation past its timeout even
+                // though 1–2 browsers are fine. The crawl loop already staggers
+                // browser starts for the same reason; auth must not undo that.
+                // Sequential also means each failure is caught in turn, so no
+                // sibling promise rejects unhandled (which would crash API mode).
+                const failedReasons: string[] = [];
+                for (let i = 0; i < browsers.length; i++) {
+                    const browser = browsers[i];
+                    const page = allPages[i];
+                    if (!browser || !page) {
+                        continue;
+                    }
+                    try {
+                        await this.startAuthentication(browser, page);
+                    } catch (err) {
+                        failedReasons.push(err instanceof Error ? err.message : String(err));
+                    }
+                }
+                if (failedReasons.length > 0) {
+                    const reasons = failedReasons.join('; ');
+                    console.error(
+                        chalk.redBright(
+                            `[ERROR] Initial authentication FAILED on ${failedReasons.length}/${browsers.length} browser(s): ${reasons}`,
+                        ),
+                    );
+                    throw new Error(`Authentication failed: ${reasons}`);
+                }
+                console.log(chalk.greenBright('[INFO] Initial authentication complete on all browsers.'));
+            } else {
+                console.log(
+                    chalk.yellowBright(
+                        `[INFO] Recorder auth is ${recorderAuth ? 'DISABLED' : 'NOT CONFIGURED'} — crawling without a login sequence.`,
                     ),
                 );
             }
@@ -641,7 +701,15 @@ class Crawler {
             }
             console.log(chalk.greenBright.bold('Scan completed'));
         } finally {
+            // Close every browser however the crawl ended — completed, stopped,
+            // or thrown. The old code set activeBrowsers = [] *without* closing,
+            // which orphaned the Chrome processes on any failure; they then pile
+            // up and consume resources, which matters most for the long-lived API
+            // service. allSettled + close is idempotent with stopCrawling()'s
+            // close (a second close on an already-closed browser just no-ops).
+            const launched = this.activeBrowsers;
             this.activeBrowsers = [];
+            await Promise.allSettled(launched.map((browser) => browser.close()));
             // Written in `finally` on purpose: a crawl that was stopped or that
             // died part-way still covered something, and that partial inventory
             // is the evidence for what happened before it stopped. Discarding it
