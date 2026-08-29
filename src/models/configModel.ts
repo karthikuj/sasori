@@ -1,6 +1,7 @@
 import Joi from 'joi';
 import {
     CrawlerConfig,
+    LoggingConfig,
     BrowserConfig,
     CrawlerSettings,
     AuthenticationConfig,
@@ -120,9 +121,23 @@ const crawlerModel: Joi.ObjectSchema<CrawlerSettings> = Joi.object({
 /**
  * The entire crawler config validation schema.
  */
+/**
+ * Logging model (SCAN-181). Optional — a config without a `logging` block keeps
+ * the previous stdout-only behaviour.
+ */
+const loggingModel: Joi.ObjectSchema<LoggingConfig> = Joi.object({
+    file: Joi.string().allow(''),
+    console: Joi.boolean(),
+    maxSizeMB: Joi.number().integer().min(1),
+    maxBackups: Joi.number().integer().min(0),
+    maxAgeDays: Joi.number().integer().min(0),
+    compress: Joi.boolean(),
+});
+
 const configModel: Joi.ObjectSchema<CrawlerConfig> = Joi.object({
     browser: browserModel,
     crawler: crawlerModel,
+    logging: loggingModel.optional(),
 });
 
 /**

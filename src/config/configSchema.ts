@@ -1,6 +1,7 @@
 import Joi from 'joi';
 import {
     CrawlerConfig,
+    LoggingConfig,
     BrowserConfig,
     CrawlerSettings,
     AuthenticationConfig,
@@ -116,9 +117,23 @@ export const crawlerSchema = Joi.object<CrawlerSettings>({
 /**
  * Main configuration schema
  */
+/**
+ * Logging configuration schema (SCAN-181). Kept in lockstep with the live
+ * `loggingModel` in configModel.ts — schemaDrift.test.ts fails otherwise.
+ */
+export const loggingSchema = Joi.object<LoggingConfig>({
+    file: Joi.string().allow(''),
+    console: Joi.boolean(),
+    maxSizeMB: Joi.number().integer().min(1),
+    maxBackups: Joi.number().integer().min(0),
+    maxAgeDays: Joi.number().integer().min(0),
+    compress: Joi.boolean(),
+});
+
 export const configSchema = Joi.object<CrawlerConfig>({
     browser: browserSchema,
     crawler: crawlerSchema,
+    logging: loggingSchema.optional(),
 }).required();
 
 /**
