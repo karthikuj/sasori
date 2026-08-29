@@ -42,5 +42,13 @@
         "excludeRegexes": [
             ".*logout.*"
         ]
+    },
+    "logging": {
+        "file": "logs/sasori.log",
+        "console": true,
+        "maxSizeMB": 100,
+        "maxBackups": 20,
+        "maxAgeDays": 30,
+        "compress": true
     }
 }

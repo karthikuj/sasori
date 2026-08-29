@@ -211,7 +211,9 @@ call sites and tests still go through it.
 
 ## Configuration
 
-Shape is `{ browser: BrowserConfig, crawler: CrawlerSettings }`; types live in `src/types/`. See `README.md` for the full field reference and `config/config.json` for a working example.
+Shape is `{ browser: BrowserConfig, crawler: CrawlerSettings, logging?: LoggingConfig }`; types live in `src/types/`. See `README.md` for the full field reference and `config/config.json` for a working example.
+
+**Logging (SCAN-181):** the optional `logging` block (`file`, `console`, `maxSizeMB`, `maxBackups`, `maxAgeDays`, `compress`) tees `console.*` output to a size-rotated log file via `rotating-file-stream` (`src/logger/logger.ts`, `setupLogging`). `start` configures it from the run's config; `api` configures it once at startup from the default `config/config.json` (logging is process-wide, not per-scan). An absent block keeps the old stdout-only behaviour. Being a top-level config key, `logging` must be declared in **both** Joi layers (`configModel.ts` and `configSchema.ts`) or `schemaDrift.test.ts` fails.
 
 **There are two parallel Joi layers, and only one is live:**
 

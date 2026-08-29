@@ -47,6 +47,22 @@ export interface CrawlStateManagerInterface {
 export interface CrawlerConfig {
     browser: BrowserConfig;
     crawler: CrawlerSettings;
+    logging?: LoggingConfig;
+}
+
+/**
+ * File-logging configuration (SCAN-181). When `file` is set, console output is
+ * teed to a size-rotated log file (via rotating-file-stream) so a crawl's logs
+ * survive rather than only scrolling past on stdout. All fields are optional with
+ * sane defaults.
+ */
+export interface LoggingConfig {
+    file?: string;        // log file path (empty/omitted = stdout only)
+    console?: boolean;    // also keep writing to stdout (default true)
+    maxSizeMB?: number;   // rotate when the file exceeds this size (default 100)
+    maxBackups?: number;  // keep at most this many rotated files (default 20)
+    maxAgeDays?: number;  // keep rotated files this long (default 30)
+    compress?: boolean;   // gzip rotated files (default true)
 }
 
 

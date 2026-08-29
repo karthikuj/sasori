@@ -4,6 +4,7 @@ import Crawler from '../src/crawler/crawler.js';
 import chalk from 'chalk';
 import { ConfigValidator } from '../src/config/configLoader.js';
 import { startApiServer } from '../src/api/startApiServer.js';
+import { setupLogging } from '../src/logger/logger.js';
 import fs from 'fs';
 import path from 'path';
 import yargs from 'yargs';
@@ -99,6 +100,8 @@ yarg.command({
                 console.error(chalk.red(`[ERROR] ${error.message}`));
                 return;
             }
+            // Tee console output to the configured rotating log file (SCAN-181).
+            setupLogging(value.logging);
             if (argv.output) {
                 const fullPath = path.resolve(argv.output);
                 fs.writeFileSync(fullPath, '');
@@ -139,6 +142,16 @@ yarg.command({
     },
     async handler(argv: any) {
         try {
+            // The API takes a crawler config per scan, but logging is process-wide,
+            // so configure it once at startup from the default config file's
+            // `logging` block (best-effort — absent/invalid file = stdout only).
+            try {
+                const raw = JSON.parse(fs.readFileSync(configFilePath, 'utf-8'));
+                setupLogging(raw?.logging);
+            } catch {
+                /* no default config / no logging block — keep stdout only */
+            }
+
             const { port, host } = await startApiServer({ host: argv.host as string, port: argv.port as number });
             console.log(
                 chalk.greenBright(
