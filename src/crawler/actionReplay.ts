@@ -33,6 +33,13 @@ function errorMessage(error: unknown): string {
  * loop's shared, unlocked state beyond pruning selectors that no longer resolve.
  */
 export class ActionReplay {
+    /** DOM/network must be quiet this long for the page to count as settled. */
+    private static readonly SETTLE_QUIET_MS = 500;
+
+    /** Hard cap on the post-action settle, so a forever-mutating live page (or a
+     * forever-chatty network) cannot stall the crawl one action at a time. */
+    private static readonly SETTLE_CAP_MS = 3000;
+
     /**
      * @param config - Crawler settings (timeouts and retry budget).
      * @param hashPage - Computes the current page's state hash.
@@ -190,18 +197,92 @@ export class ActionReplay {
             }
         }
 
-        await page.waitForFunction(
-            async (eventWait: number) => await new Promise<boolean>((resolve) => setTimeout(() => {
-                resolve(true);
-            }, eventWait)),
-            { timeout: this.config.navigationTimeout },
-            this.config.eventWait,
-        );
+        // Let the action settle before returning. A click can start an async
+        // navigation — including a SPA soft-navigation (history.pushState + an
+        // RSC/XHR fetch) that fires no frame-navigation event — and if we return
+        // while it is still in flight, the next action races it: the crawl loop's
+        // getPageHash reads the pre-navigation state (so no replay is triggered)
+        // and the next selector resolution then fails when the route change lands
+        // mid-wait, pruning an action that was perfectly valid. Gating on network
+        // idle (a readiness signal, not a fixed sleep) settles both hard and soft
+        // navigations and returns promptly for a click that changed nothing
+        // (SCAN-198).
+        await this.settleAfterAction(page);
 
         // An action can navigate, and the URL it lands on may be one no request
         // interceptor reported — a same-document route change, for instance. The
         // crawler owns the discovered-URL set, so recording goes back through it.
         this.recordUrl(page.url());
+    }
+
+    /**
+     * Waits for the page to settle after an action's click, so the next action
+     * never races an in-flight navigation.
+     *
+     * The signal we need is a DOM one — "the route has rendered and the page is
+     * stable" — not a network one. Network idle catches an SPA soft-navigation's
+     * RSC/XHR fetch, but on a chatty target (polling, streaming, analytics
+     * heartbeats) the network never idles, so waiting on it alone would burn the
+     * full timeout on every action. So the primary signal is a short DOM-quiet
+     * window (a MutationObserver seeing no mutations for `SETTLE_QUIET_MS`),
+     * which stabilises even while the network keeps chattering; it is raced with
+     * network idle so an ordinary page still resolves the instant its fetch
+     * settles. Both are bounded by `SETTLE_CAP_MS` so a pathological page (a live
+     * feed that mutates forever) cannot stall the crawl. All rejections are
+     * swallowed — a settle is best-effort, and the replay hash-check is the
+     * backstop if the page is still not where we expect.
+     */
+    private async settleAfterAction(page: Page): Promise<void> {
+        await Promise.race([
+            this.waitForDomQuiet(page, ActionReplay.SETTLE_QUIET_MS, ActionReplay.SETTLE_CAP_MS).catch(() => undefined),
+            page.waitForNetworkIdle({ idleTime: ActionReplay.SETTLE_QUIET_MS, timeout: ActionReplay.SETTLE_CAP_MS }).catch(() => undefined),
+        ]);
+        if (this.config.eventWait && this.config.eventWait > 0) {
+            await new Promise((resolve) => setTimeout(resolve, this.config.eventWait));
+        }
+    }
+
+    /**
+     * Resolves once the DOM has had no mutations for `quietMs`, or `capMs`
+     * elapses — whichever first. Runs entirely in the page. If the page performs
+     * a full document navigation the execution context is destroyed and the
+     * evaluate rejects; the caller swallows that (the network-idle arm or the
+     * subsequent hash-check covers the hard-navigation case).
+     */
+    private async waitForDomQuiet(page: Page, quietMs: number, capMs: number): Promise<void> {
+        await page.evaluate(
+            (quiet: number, cap: number) => {
+                // Access browser globals via a cast, the way the other in-page
+                // evaluates in this codebase do, so the Node tsconfig lib need not
+                // include the DOM types.
+                const g = globalThis as unknown as {
+                    MutationObserver: new (cb: () => void) => { observe: (target: unknown, opts: unknown) => void; disconnect: () => void };
+                    document: { documentElement: unknown };
+                    setTimeout: (fn: () => void, ms: number) => number;
+                    clearTimeout: (id: number) => void;
+                };
+                return new Promise<void>((resolve) => {
+                    let quietTimer = g.setTimeout(resolve, quiet);
+                    const observer = new g.MutationObserver(() => {
+                        g.clearTimeout(quietTimer);
+                        quietTimer = g.setTimeout(resolve, quiet);
+                    });
+                    observer.observe(g.document.documentElement, {
+                        subtree: true,
+                        childList: true,
+                        attributes: true,
+                        characterData: true,
+                    });
+                    g.setTimeout(() => {
+                        observer.disconnect();
+                        g.clearTimeout(quietTimer);
+                        resolve();
+                    }, cap);
+                });
+            },
+            quietMs,
+            capMs,
+        );
     }
 
     /**
