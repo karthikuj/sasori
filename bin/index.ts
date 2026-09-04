@@ -86,6 +86,12 @@ yarg.command({
             demandOption: false,
             type: 'string',
         },
+        'crawl-graph': {
+            alias: 'g',
+            describe: 'Output file for the crawl graph (states + action edges + status, JSON; .mmd/.dot siblings written too)',
+            demandOption: false,
+            type: 'string',
+        },
     },
     handler(argv: any) {
         try {
@@ -114,7 +120,27 @@ yarg.command({
                 // crawl failed to start.
                 value.crawler['inventoryFile'] = argv.inventory;
             }
+            if (argv['crawlGraph']) {
+                // Same rationale as the inventory: written once, whole, at the
+                // end of the crawl, so it is not emptied up front.
+                value.crawler['crawlGraphFile'] = argv['crawlGraph'];
+            }
             const crawler = new Crawler(value);
+            // Stop gracefully on Ctrl-C / SIGTERM so the crawl unwinds through
+            // its `finally` and still writes the inventory and crawl-graph
+            // artifacts — a crawl that was interrupted still covered something,
+            // and killing the process outright would discard that evidence.
+            let stopping = false;
+            const gracefulStop = (signal: string): void => {
+                if (stopping) {
+                    return;
+                }
+                stopping = true;
+                console.log(chalk.yellow(`[INFO] ${signal} received — stopping crawl and writing artifacts...`));
+                crawler.stopCrawling();
+            };
+            process.once('SIGINT', () => gracefulStop('SIGINT'));
+            process.once('SIGTERM', () => gracefulStop('SIGTERM'));
             crawler.startCrawling();
         } catch (err: any) {
             console.error(chalk.red(`[ERROR] ${err.message}`));

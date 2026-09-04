@@ -10,6 +10,8 @@ import CrawlAction from './crawlAction';
 import CrawlInput from './crawlInput';
 import CrawlState from './crawlState';
 import CrawlStateManager from './crawlStateManager';
+import { buildCrawlGraph, crawlGraphToDot, crawlGraphToMermaid } from './crawlGraph';
+import { CrawlGraphRecorder } from './crawlGraphRecorder';
 import DomStripper from './domStripper';
 import EndpointInventory from './endpointInventory';
 import ScopeMatcher from './scopeMatcher';
@@ -74,6 +76,21 @@ class Crawler {
      * reached, independent of what any scanner made of it.
      */
     public readonly inventory: EndpointInventory;
+
+    /**
+     * The most recent crawl's state manager, retained only so the crawl-graph
+     * dump (SCAN-197) can serialise the state/action graph in the `finally`
+     * block after the crawl loop's local reference has gone out of scope.
+     */
+    private crawlManager: CrawlStateManager | null = null;
+
+    /**
+     * Live crawl-graph recorder, created only when `crawlGraphFile` is set. It is
+     * fed at the discovery / dedup / execute / prune hooks so the dumped graph
+     * shows every discovered action's fate, which end-of-crawl reconstruction
+     * cannot recover after the crawler prunes the frontier (SCAN-197).
+     */
+    private graphRecorder: CrawlGraphRecorder | null = null;
 
     /**
      * Array of all interactable elements
@@ -154,6 +171,7 @@ class Crawler {
             this.crawlerConfig,
             (page: Page) => this.getPageHash(page),
             (url: string) => this.recordDiscoveredUrl(url),
+            (crawlAction: CrawlAction) => this.graphRecorder?.recordPruned(crawlAction),
         );
         this.endTime = null;
         this.browserStartDelays = 1000; // 1 millisecond(s)
@@ -317,7 +335,15 @@ class Crawler {
     async getNewCrawlState(page: Page, crawlDepth: number, stateHash: string, crawlManager: CrawlStateManager, arrivalType: ArrivalType): Promise<CrawlState> {
         // console.log(`Crawl state creator called for page: ${page.url()}`);
         const crawlState = new CrawlState(page.url(), stateHash, crawlDepth, arrivalType);
-        crawlState.crawlActions = await this.discovery.getCrawlActions(page, crawlState, crawlManager);
+        crawlState.crawlActions = await this.discovery.getCrawlActions(
+            page,
+            crawlState,
+            crawlManager,
+            this.graphRecorder
+                ? (element, cssPath, actionHash): void =>
+                    this.graphRecorder?.recordDeduped(crawlState, element, cssPath, actionHash)
+                : undefined
+        );
         // console.log('Crawl actions found:');
         // console.log(crawlState.crawlActions.map((action) => action.cssPath));
         crawlState.crawlInputs = await this.discovery.getCrawlInputs(page, crawlState);
@@ -335,6 +361,16 @@ class Crawler {
             actions: crawlState.crawlActions.length,
             inputs: crawlState.crawlInputs.map((input) => input.cssPath),
         });
+        // Feed the crawl-graph recorder: the state as a node, and every action
+        // that survived dedup as a `discovered` edge (its fate is upgraded later
+        // when it executes or is pruned). Deduped actions were already recorded
+        // via the onDedup hook above (SCAN-197).
+        if (this.graphRecorder) {
+            this.graphRecorder.recordState(crawlState);
+            for (const action of crawlState.crawlActions) {
+                this.graphRecorder.recordDiscovered(action);
+            }
+        }
         return crawlState;
     }
 
@@ -364,6 +400,9 @@ class Crawler {
      * @param crawlAction - The action to remove
      */
     removeCrawlActionFromState(crawlManager: CrawlStateManager, crawlAction: CrawlAction): void {
+        // The graph recorder's prune hook lives inside ActionReplay's own
+        // removeCrawlActionFromState — every prune, crawler- or replay-initiated,
+        // funnels through it — so nothing to record here (SCAN-197).
         this.replay.removeCrawlActionFromState(crawlManager, crawlAction);
     }
 
@@ -442,6 +481,7 @@ class Crawler {
                         currentAction.childState = currentState;
                         if (currentState) {
                             currentState.parentAction = currentAction;
+                            this.graphRecorder?.recordExecuted(currentAction, currentState);
                         }
                     } else {
                         this.removeCrawlActionFromState(crawlManager, currentAction);
@@ -639,6 +679,11 @@ class Crawler {
 
             console.log(chalk.greenBright('[INFO] Creating crawl state manager...'));
             const crawlManager = new CrawlStateManager();
+            // Retain for the crawl-graph dump written in `finally` (SCAN-197).
+            this.crawlManager = crawlManager;
+            // Record the graph live when a dump is requested, so pruned/deduped
+            // action fates survive to the dump.
+            this.graphRecorder = this.crawlerConfig.crawlGraphFile ? new CrawlGraphRecorder() : null;
 
             if (allPages.length === 0) {
                 throw new Error('No pages available for crawling');
@@ -716,6 +761,7 @@ class Crawler {
             // would make a timeout indistinguishable from a crawl that reached
             // nothing.
             this.writeInventoryFile();
+            this.writeCrawlGraphFile();
             await this.closeOutputFile();
         }
     }
@@ -745,6 +791,46 @@ class Crawler {
             console.log(chalk.greenBright('[INFO] Crawl inventory written to ') + chalk.green(fullPath));
         } catch (err) {
             console.error(chalk.red('[ERROR] Could not write crawl inventory: ') + String(err));
+        }
+    }
+
+    /**
+     * Writes the crawl graph to `crawler.crawlGraphFile` when one is configured,
+     * plus Mermaid (`.mmd`) and Graphviz (`.dot`) siblings for visualisation.
+     *
+     * Like the inventory, this is a diagnostic artifact: a write failure is
+     * reported and swallowed so an unwritable path never turns a completed crawl
+     * into a failed one, and it is written in `finally` so a stopped or
+     * part-way crawl still records the graph it built (SCAN-197).
+     */
+    writeCrawlGraphFile(): void {
+        const target = this.crawlerConfig.crawlGraphFile;
+        if (!target) {
+            return;
+        }
+        try {
+            // Prefer the live recording (complete: every action's fate). Fall
+            // back to end-of-crawl reconstruction (traversed tree only) if for
+            // some reason no recorder ran but the manager is present.
+            const graph = this.graphRecorder
+                ? this.graphRecorder.snapshot(this.crawlerConfig.entryPoint)
+                : this.crawlManager
+                    ? buildCrawlGraph(this.crawlManager, this.crawlerConfig.entryPoint)
+                    : null;
+            if (!graph) {
+                return;
+            }
+            const jsonPath = path.resolve(target);
+            const base = jsonPath.replace(/\.json$/i, '');
+            writeFileSync(jsonPath, JSON.stringify(graph, null, 2) + '\n');
+            writeFileSync(`${base}.mmd`, crawlGraphToMermaid(graph));
+            writeFileSync(`${base}.dot`, crawlGraphToDot(graph));
+            console.log(
+                chalk.greenBright('[INFO] Crawl graph written to ') +
+                    chalk.green(`${jsonPath} (+ .mmd, .dot) — ${graph.stateCount} states, ${graph.edgeCount} edges`)
+            );
+        } catch (err) {
+            console.error(chalk.red('[ERROR] Could not write crawl graph: ') + String(err));
         }
     }
 

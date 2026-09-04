@@ -29,6 +29,10 @@ CONFIG     ?= config/config.json
 # reached). It is what nara-core's coverage benchmark scores, so a crawl worth
 # measuring should always be run with one.
 INVENTORY  ?= inventory.json
+# Where `make run-crawl` writes the crawl graph (states + action edges + status).
+# Unlike the inventory, it records the edges, so a coverage failure can be
+# diagnosed after the fact; .mmd and .dot siblings are written for visualisation.
+CRAWL_GRAPH ?= crawl-graph.json
 HOST       ?= 0.0.0.0
 PORT       ?= 8080
 
@@ -94,10 +98,11 @@ run-cli: build ## Run a crawl: CONFIG=path/to/config.json (default: config/confi
 	@test -f "$(CONFIG)" || (echo "Config not found: $(CONFIG)  (set CONFIG=...)"; exit 1)
 	@$(NODE) $(CLI_ENTRY) start --config "$(CONFIG)"
 
-run-crawl: build ## Run a crawl and write the inventory: CONFIG=... INVENTORY=... (default inventory.json)
+run-crawl: build ## Run a crawl, write inventory + crawl graph: CONFIG=... INVENTORY=... CRAWL_GRAPH=...
 	@test -f "$(CONFIG)" || (echo "Config not found: $(CONFIG)  (set CONFIG=...)"; exit 1)
-	@$(NODE) $(CLI_ENTRY) start --config "$(CONFIG)" --inventory "$(INVENTORY)"
+	@$(NODE) $(CLI_ENTRY) start --config "$(CONFIG)" --inventory "$(INVENTORY)" --crawl-graph "$(CRAWL_GRAPH)"
 	@echo "Crawl inventory: $(INVENTORY)"
+	@echo "Crawl graph:     $(CRAWL_GRAPH) (+ .mmd, .dot)"
 
 run-api: build ## Start REST API server (override HOST= PORT= on the command line)
 	@$(NODE) $(CLI_ENTRY) api --host "$(HOST)" --port "$(PORT)"
