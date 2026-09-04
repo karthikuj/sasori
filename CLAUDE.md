@@ -211,6 +211,15 @@ call sites and tests still go through it.
 | `ScopeMatcher` | `inContext` and the auth-time include widening |
 | `UrlSink` | the discovered-URL output stream |
 
+### Do not modify `domPath.ts`
+
+`src/crawler/domPath.ts` (CSS-path and XPath generation) is ported from
+Chromium's own DevTools source and is trusted as-is. **Do not rewrite, "fix", or
+refactor it** — if selector generation appears to be the problem, the bug is
+almost certainly elsewhere (the DOM changed between when the path was generated
+and when it is replayed, replay timing, etc.), not in this file. Treat it as a
+vendored dependency.
+
 ### Expensive operations
 
 - **`DomStripper.strip` is the hottest pure-CPU path.** `getPageHash` runs it once
