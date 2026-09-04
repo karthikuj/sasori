@@ -52,9 +52,11 @@ describe('crawlGraph', () => {
 
         expect(graph.version).toBe(CRAWL_GRAPH_VERSION);
         expect(graph.entryPoint).toBe('https://x/account');
+        expect(graph.source).toBe('reconstructed');
         expect(graph.stateCount).toBe(2);
         expect(graph.edgeCount).toBe(2);
-        expect(graph.executedEdgeCount).toBe(1);
+        expect(graph.statusCounts.executed).toBe(1);
+        expect(graph.statusCounts['no-child-state']).toBe(1);
 
         const rootNode = graph.nodes.find((n) => n.id === root.stateId);
         expect(rootNode).toMatchObject({ url: 'https://x/account', crawlDepth: 0, actions: 2, isRoot: true });

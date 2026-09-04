@@ -294,7 +294,12 @@ export class ActionDiscovery {
      * @param crawlManager - Crawl state manager instance
      * @return Promise resolving to array of CrawlAction objects
      */
-    async getCrawlActions(page: Page, currentState: CrawlState, crawlManager: CrawlStateManager): Promise<CrawlAction[]> {
+    async getCrawlActions(
+        page: Page,
+        currentState: CrawlState,
+        crawlManager: CrawlStateManager,
+        onDedup?: (element: string, cssPath: string, actionHash: string) => void
+    ): Promise<CrawlAction[]> {
         const domPath = new DomPath(page);
         const crawlActions: CrawlAction[] = [];
         let cssPaths = new Set<string>();
@@ -382,6 +387,11 @@ export class ActionDiscovery {
                 if (crawlManager.isCrawlActionUnique(cssPath, actionHash)) {
                     crawlActions.push(new CrawlAction(node.tagName, 'click', cssPath, actionHash, currentState));
                     crawlManager.registerActionSignature(cssPath, actionHash);
+                } else if (onDedup) {
+                    // Dropped at discovery: its (cssPath, actionHash) signature was
+                    // already seen. Reported so the crawl graph can distinguish a
+                    // coverage gap caused by dedup from one caused by pruning.
+                    onDedup(node.tagName, cssPath, actionHash);
                 }
             } catch (error) {
                 console.error(error);

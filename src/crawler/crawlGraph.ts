@@ -36,19 +36,21 @@ export interface CrawlGraphNode {
 }
 
 /**
- * One edge. `status`:
- *   - `executed`       — the action ran and produced this child state. These are
- *     reconstructed from each state's `parentAction` back-pointer, which the
- *     crawler sets when an action creates a state and never prunes, so they
- *     survive to the end of the crawl.
- *   - `no-child-state` — a discovered action still on its state's `crawlActions`
- *     list with no child. Only visible when the crawl is *stopped mid-way*: on a
- *     completed crawl the frontier is drained and such actions are pruned
- *     (`removeCrawlActionFromState`), so a completed crawl shows the traversed
- *     tree and few or no `no-child-state` edges. Capturing every discovered
- *     action's fate regardless of pruning needs live recording during the crawl
- *     (a follow-up); this reconstruction is best-effort from end state.
+ * An edge's fate. The live recorder ({@link CrawlGraphRecorder}) records the
+ * first three during the crawl; end-of-crawl reconstruction ({@link
+ * buildCrawlGraph}) can only emit `executed` (from `parentAction`) and, for a
+ * stopped crawl, `no-child-state` (surviving frontier actions):
+ *   - `executed`       — the action ran and produced a child state.
+ *   - `pruned`         — discovered, then removed on a failed replay / stale
+ *     selector (`removeCrawlActionFromState`). The signal that a coverage gap is
+ *     an execution/replay failure, not a discovery one.
+ *   - `deduped`        — dropped at discovery because its (cssPath, actionHash)
+ *     signature was already seen (`isCrawlActionUnique` false); never executed.
+ *   - `no-child-state` — reconstruction-only: a discovered action still on the
+ *     frontier at stop time with no child recorded.
  */
+export type CrawlGraphEdgeStatus = 'executed' | 'pruned' | 'deduped' | 'no-child-state';
+
 export interface CrawlGraphEdge {
     from: string;
     to: string | null;
@@ -57,17 +59,35 @@ export interface CrawlGraphEdge {
     action: string;
     cssPath: string;
     actionHash: string;
-    status: 'executed' | 'no-child-state';
+    status: CrawlGraphEdgeStatus;
 }
 
 export interface CrawlGraph {
     version: number;
     entryPoint: string;
+    /** How the edges were obtained: live recording (complete) or end-of-crawl
+     * reconstruction (traversed tree only). */
+    source: 'recorded' | 'reconstructed';
     stateCount: number;
     edgeCount: number;
-    executedEdgeCount: number;
+    /** Per-status edge tallies, so a coverage gap's shape is visible at a glance. */
+    statusCounts: Record<CrawlGraphEdgeStatus, number>;
     nodes: CrawlGraphNode[];
     edges: CrawlGraphEdge[];
+}
+
+/** Tallies edges by status; small shared helper for both graph sources. */
+export function countEdgeStatuses(edges: CrawlGraphEdge[]): Record<CrawlGraphEdgeStatus, number> {
+    const counts: Record<CrawlGraphEdgeStatus, number> = {
+        executed: 0,
+        pruned: 0,
+        deduped: 0,
+        'no-child-state': 0,
+    };
+    for (const e of edges) {
+        counts[e.status]++;
+    }
+    return counts;
 }
 
 /**
@@ -157,9 +177,10 @@ export function buildCrawlGraph(manager: CrawlStateManager, entryPoint: string):
     return {
         version: CRAWL_GRAPH_VERSION,
         entryPoint,
+        source: 'reconstructed',
         stateCount: nodes.length,
         edgeCount: edges.length,
-        executedEdgeCount: edges.filter((e) => e.status === 'executed').length,
+        statusCounts: countEdgeStatuses(edges),
         nodes,
         edges,
     };
@@ -176,10 +197,11 @@ function handle(id: string): string {
 }
 
 /**
- * Renders the graph as a Mermaid flowchart. Executed edges are solid and point
- * to the child state; no-child actions are dashed edges to a per-action terminal
- * so a dropped/unexecuted action is still visible (this is the RC2 signal).
- * Best for scoped crawls — it renders anywhere Mermaid does.
+ * Renders the graph as a Mermaid flowchart. `executed` edges are solid and point
+ * to the child state; every non-executed fate (`pruned`, `deduped`,
+ * `no-child-state`) is a dashed edge, labelled with its status, to a per-action
+ * terminal so a dropped action is still visible — this is the RC2 signal. Best
+ * for scoped crawls; it renders anywhere Mermaid does.
  */
 export function crawlGraphToMermaid(graph: CrawlGraph): string {
     const lines: string[] = ['flowchart TD'];
@@ -191,12 +213,12 @@ export function crawlGraphToMermaid(graph: CrawlGraph): string {
     let dead = 0;
     for (const e of graph.edges) {
         const edgeLabel = truncate(`${e.element}:${e.cssPath}`, 40).replace(/["|]/g, '\'');
-        if (e.to) {
+        if (e.status === 'executed' && e.to) {
             lines.push(`  ${handle(e.from)} -->|${edgeLabel}| ${handle(e.to)}`);
         } else {
             const sink = `dead_${dead++}`;
-            lines.push(`  ${sink}["∅ ${edgeLabel}"]`);
-            lines.push(`  ${handle(e.from)} -. no-child .-> ${sink}`);
+            lines.push(`  ${sink}["${e.status}: ${edgeLabel}"]`);
+            lines.push(`  ${handle(e.from)} -. ${e.status} .-> ${sink}`);
         }
     }
     return lines.join('\n') + '\n';
@@ -217,12 +239,12 @@ export function crawlGraphToDot(graph: CrawlGraph): string {
     let dead = 0;
     for (const e of graph.edges) {
         const edgeLabel = truncate(`${e.element}:${e.cssPath}`, 40).replace(/"/g, '\\"');
-        if (e.to) {
+        if (e.status === 'executed' && e.to) {
             lines.push(`  "${e.from}" -> "${e.to}" [label="${edgeLabel}"];`);
         } else {
             const sink = `dead_${dead++}`;
-            lines.push(`  "${sink}" [label="∅ ${edgeLabel}",shape=note,style=dashed];`);
-            lines.push(`  "${e.from}" -> "${sink}" [style=dashed];`);
+            lines.push(`  "${sink}" [label="${e.status}: ${edgeLabel}",shape=note,style=dashed];`);
+            lines.push(`  "${e.from}" -> "${sink}" [style=dashed,label="${e.status}"];`);
         }
     }
     lines.push('}');

@@ -42,6 +42,7 @@ export class ActionReplay {
         private readonly config: CrawlerSettings,
         private readonly hashPage: (page: Page) => Promise<string>,
         private readonly recordUrl: (url: string) => void,
+        private readonly onPrune?: (crawlAction: CrawlAction) => void,
     ) { }
 
     /**
@@ -212,6 +213,10 @@ export class ActionReplay {
         crawlAction.getParentState().crawlActions = crawlAction.getParentState().crawlActions.filter((value) =>
             crawlAction.actionId !== value.actionId
         );
+        // Every prune — whether initiated by the crawl loop or by a replay
+        // failure inside performAction — funnels through here, so this is the one
+        // place the crawl-graph recorder needs to see them (SCAN-197).
+        this.onPrune?.(crawlAction);
     }
 
     /**
