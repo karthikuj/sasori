@@ -93,6 +93,16 @@ export interface CrawlerSettings {
      * that was stopped part-way.
      */
     inventoryFile?: string;
+
+    /**
+     * Path to write the crawl graph (states + action/edge execution status) to,
+     * as JSON, when the crawl finishes. Unlike the inventory (states only), this
+     * records the edges and each action's status, so a coverage failure can be
+     * diagnosed after the fact. Mermaid (`.mmd`) and Graphviz (`.dot`) siblings
+     * are written next to it for visualisation. Written even for a crawl that was
+     * stopped part-way, and opt-in like `inventoryFile` (SCAN-197).
+     */
+    crawlGraphFile?: string;
 }
 
 /**

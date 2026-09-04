@@ -10,6 +10,7 @@ import CrawlAction from './crawlAction';
 import CrawlInput from './crawlInput';
 import CrawlState from './crawlState';
 import CrawlStateManager from './crawlStateManager';
+import { buildCrawlGraph, crawlGraphToDot, crawlGraphToMermaid } from './crawlGraph';
 import DomStripper from './domStripper';
 import EndpointInventory from './endpointInventory';
 import ScopeMatcher from './scopeMatcher';
@@ -74,6 +75,13 @@ class Crawler {
      * reached, independent of what any scanner made of it.
      */
     public readonly inventory: EndpointInventory;
+
+    /**
+     * The most recent crawl's state manager, retained only so the crawl-graph
+     * dump (SCAN-197) can serialise the state/action graph in the `finally`
+     * block after the crawl loop's local reference has gone out of scope.
+     */
+    private crawlManager: CrawlStateManager | null = null;
 
     /**
      * Array of all interactable elements
@@ -639,6 +647,8 @@ class Crawler {
 
             console.log(chalk.greenBright('[INFO] Creating crawl state manager...'));
             const crawlManager = new CrawlStateManager();
+            // Retain for the crawl-graph dump written in `finally` (SCAN-197).
+            this.crawlManager = crawlManager;
 
             if (allPages.length === 0) {
                 throw new Error('No pages available for crawling');
@@ -716,6 +726,7 @@ class Crawler {
             // would make a timeout indistinguishable from a crawl that reached
             // nothing.
             this.writeInventoryFile();
+            this.writeCrawlGraphFile();
             await this.closeOutputFile();
         }
     }
@@ -745,6 +756,36 @@ class Crawler {
             console.log(chalk.greenBright('[INFO] Crawl inventory written to ') + chalk.green(fullPath));
         } catch (err) {
             console.error(chalk.red('[ERROR] Could not write crawl inventory: ') + String(err));
+        }
+    }
+
+    /**
+     * Writes the crawl graph to `crawler.crawlGraphFile` when one is configured,
+     * plus Mermaid (`.mmd`) and Graphviz (`.dot`) siblings for visualisation.
+     *
+     * Like the inventory, this is a diagnostic artifact: a write failure is
+     * reported and swallowed so an unwritable path never turns a completed crawl
+     * into a failed one, and it is written in `finally` so a stopped or
+     * part-way crawl still records the graph it built (SCAN-197).
+     */
+    writeCrawlGraphFile(): void {
+        const target = this.crawlerConfig.crawlGraphFile;
+        if (!target || !this.crawlManager) {
+            return;
+        }
+        try {
+            const graph = buildCrawlGraph(this.crawlManager, this.crawlerConfig.entryPoint);
+            const jsonPath = path.resolve(target);
+            const base = jsonPath.replace(/\.json$/i, '');
+            writeFileSync(jsonPath, JSON.stringify(graph, null, 2) + '\n');
+            writeFileSync(`${base}.mmd`, crawlGraphToMermaid(graph));
+            writeFileSync(`${base}.dot`, crawlGraphToDot(graph));
+            console.log(
+                chalk.greenBright('[INFO] Crawl graph written to ') +
+                    chalk.green(`${jsonPath} (+ .mmd, .dot) — ${graph.stateCount} states, ${graph.edgeCount} edges`)
+            );
+        } catch (err) {
+            console.error(chalk.red('[ERROR] Could not write crawl graph: ') + String(err));
         }
     }
 

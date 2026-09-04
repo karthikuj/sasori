@@ -86,6 +86,12 @@ yarg.command({
             demandOption: false,
             type: 'string',
         },
+        'crawl-graph': {
+            alias: 'g',
+            describe: 'Output file for the crawl graph (states + action edges + status, JSON; .mmd/.dot siblings written too)',
+            demandOption: false,
+            type: 'string',
+        },
     },
     handler(argv: any) {
         try {
@@ -113,6 +119,11 @@ yarg.command({
                 // it here would only destroy a previous run's artifact if this
                 // crawl failed to start.
                 value.crawler['inventoryFile'] = argv.inventory;
+            }
+            if (argv['crawlGraph']) {
+                // Same rationale as the inventory: written once, whole, at the
+                // end of the crawl, so it is not emptied up front.
+                value.crawler['crawlGraphFile'] = argv['crawlGraph'];
             }
             const crawler = new Crawler(value);
             crawler.startCrawling();

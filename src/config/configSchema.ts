@@ -112,6 +112,7 @@ export const crawlerSchema = Joi.object<CrawlerSettings>({
     excludeRegexes: Joi.array().items(Joi.string()).required(),
     outputFile: Joi.string().optional(),
     inventoryFile: Joi.string().optional(),
+    crawlGraphFile: Joi.string().optional(),
 }).required();
 
 /**

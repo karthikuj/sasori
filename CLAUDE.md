@@ -161,6 +161,31 @@ Reading it:
   snapshot, the only scans anyone scores are the ones that can no longer be
   read.
 
+### The crawl-graph dump (SCAN-197)
+
+The inventory records *states* (what was reached); the crawl-graph dump records
+the *edges* and each action's execution status, which is what makes a coverage
+failure diagnosable after the fact — "was this anchor deduped at discovery, or
+executed and dropped?". `src/crawler/crawlGraph.ts` walks `CrawlStateManager`
+(via `getStates()`) and serialises nodes (states) and edges (`CrawlAction`s,
+each `from` → `to`|null with a `status` of `executed` / `no-child-state`). A
+`no-child-state` edge is an action that was discovered but produced no child
+state — it was never executed, changed nothing, or was pruned on a failed
+replay. Actions deduped at *discovery* (`isCrawlActionUnique` false) never enter
+a state's `crawlActions`, so they are absent from the graph by design, and that
+absence is itself the signal that dedup, not execution, dropped them.
+
+`buildCrawlGraph` is pure; `crawlGraphToMermaid` / `crawlGraphToDot` are pure
+converters (Mermaid for scoped crawls and rendering anywhere, DOT for the full
+thousands-of-states graph). `Crawler.writeCrawlGraphFile` writes the JSON plus
+`.mmd`/`.dot` siblings in the same `finally` as the inventory, gated on
+`crawler.crawlGraphFile`, and swallows write failures for the same reason — a
+diagnostic artifact must never turn a completed crawl into a failed one.
+
+- CLI: `--crawl-graph <path>` (alias `-g`). Make: `make run-crawl CRAWL_GRAPH=…`.
+- Like every config key it is declared in **both** Joi layers (`configModel.ts`
+  and `configSchema.ts`); `schemaDrift.test.ts` enforces that.
+
 ### Browser launch and MITM TLS
 
 `Browser.getBrowserInstance` (`src/browser/browser.ts`) translates `BrowserConfig` into Puppeteer launch options. When a proxy is enabled *and* `browser.tls.extraCaCerts` is set, `prepareTlsUserDataDir` (`src/browser/tlsProfile.ts`) shells out to `certutil` to build a throwaway Chromium profile whose NSS DB trusts those PEM CAs — that is how proxied HTTPS validates properly. This is the integration point for a MITM proxy like Nara.

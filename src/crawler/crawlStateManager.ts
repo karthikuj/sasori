@@ -13,6 +13,7 @@ export interface CrawlStateManagerInterface {
     registerActionSignature(cssPath: string, actionHash: string): void;
     unregisterActionSignature(cssPath: string, actionHash: string): void;
     getStateByHash(stateHash: string): CrawlState | null;
+    getStates(): CrawlState[];
     getNextCrawlAction(): CrawlAction | null;
     isCrawlActionUnique(cssPath: string, actionHash: string): boolean;
     getOptimizedReplayPlan(destinationState: CrawlState): ReplayPlan | null;
@@ -292,6 +293,15 @@ export class CrawlStateManager implements CrawlStateManagerInterface {
         }
 
         return this.stateByHash.get(stateHash) ?? null;
+    }
+
+    /**
+     * Returns every registered state, in insertion order. Used by the crawl-graph
+     * exporter to serialise the full state/action graph at scan end; the crawl
+     * loop itself never enumerates all states, so this exists only for tooling.
+     */
+    public getStates(): CrawlState[] {
+        return [...this.stateByHash.values()];
     }
 
     /**
