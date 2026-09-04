@@ -30,10 +30,14 @@ describe('crawlGraph', () => {
 
         const executed = new CrawlAction('a', 'click', 'a[href="/account/messages"]', 'hash-msg', root);
         executed.setChildState(child);
+        // The crawler sets the child's parentAction when an action creates it;
+        // this is the reliable, prune-proof source the exporter reconstructs from.
+        child.parentAction = executed;
         const dropped = new CrawlAction('a', 'click', 'a[href="/account/settings"]', 'hash-set', root);
-        // dropped.childState stays null — discovered but no child state recorded.
+        // dropped.childState stays null — a discovered action still on the
+        // frontier at stop time (the no-child supplement path).
 
-        root.crawlActions = [executed, dropped];
+        root.crawlActions = [dropped];
         child.crawlActions = [];
 
         const manager = new CrawlStateManager(root);

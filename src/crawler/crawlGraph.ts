@@ -26,7 +26,9 @@ export interface CrawlGraphNode {
     url: string;
     crawlDepth: number;
     arrivalType: string;
-    /** Number of discovered actions leaving this state. */
+    /** Out-degree in the reconstructed graph (child states + surviving no-child
+     * actions). Not the count of *discovered* actions — that is pruned during
+     * the crawl; read the inventory for it. */
     actions: number;
     /** Number of input fields discovered on this state. */
     inputs: number;
@@ -34,12 +36,18 @@ export interface CrawlGraphNode {
 }
 
 /**
- * One discovered action. `status` is the diagnostic signal:
- *   - `executed`       — the action ran and produced a recorded child state.
- *   - `no-child-state` — the action was discovered but has no child: it was
- *     never executed, executed without changing state, or dropped on a failed
- *     replay. (Actions deduped at *discovery* never reach a state's action list,
- *     so they do not appear here at all — absence is itself a signal.)
+ * One edge. `status`:
+ *   - `executed`       — the action ran and produced this child state. These are
+ *     reconstructed from each state's `parentAction` back-pointer, which the
+ *     crawler sets when an action creates a state and never prunes, so they
+ *     survive to the end of the crawl.
+ *   - `no-child-state` — a discovered action still on its state's `crawlActions`
+ *     list with no child. Only visible when the crawl is *stopped mid-way*: on a
+ *     completed crawl the frontier is drained and such actions are pruned
+ *     (`removeCrawlActionFromState`), so a completed crawl shows the traversed
+ *     tree and few or no `no-child-state` edges. Capturing every discovered
+ *     action's fate regardless of pruning needs live recording during the crawl
+ *     (a follow-up); this reconstruction is best-effort from end state.
  */
 export interface CrawlGraphEdge {
     from: string;
@@ -70,21 +78,49 @@ export function buildCrawlGraph(manager: CrawlStateManager, entryPoint: string):
     const states = manager.getStates();
     const root = manager.rootState;
 
-    const nodes: CrawlGraphNode[] = states.map((state: CrawlState) => ({
-        id: state.stateId,
-        stateHash: state.stateHash,
-        url: state.url,
-        crawlDepth: state.crawlDepth,
-        arrivalType: state.arrivalType,
-        actions: state.crawlActions.length,
-        inputs: state.crawlInputs.length,
-        isRoot: root != null && state.stateId === root.stateId,
-    }));
-
     const edges: CrawlGraphEdge[] = [];
+    const seen = new Set<string>();
+    const key = (from: string, to: string | null, hash: string): string => `${from}|${to ?? ''}|${hash}`;
+
+    // Primary, reliable source: each non-root state's `parentAction` — the edge
+    // that created it. This back-pointer survives frontier consumption and
+    // action pruning, so it is present for the whole traversed tree even on a
+    // completed crawl.
+    for (const state of states) {
+        const pa = state.parentAction;
+        if (!pa) {
+            continue;
+        }
+        const from = pa.parentState.stateId;
+        const k = key(from, state.stateId, pa.actionHash);
+        if (seen.has(k)) {
+            continue;
+        }
+        seen.add(k);
+        edges.push({
+            from,
+            to: state.stateId,
+            toStateHash: state.stateHash,
+            element: pa.element,
+            action: pa.action,
+            cssPath: pa.cssPath,
+            actionHash: pa.actionHash,
+            status: 'executed',
+        });
+    }
+
+    // Best-effort supplement: any actions still on a state's `crawlActions` list
+    // (i.e. not yet consumed/pruned — the case for a crawl stopped mid-way).
+    // Executed ones usually duplicate a parentAction edge and are deduped; the
+    // no-child ones are the discovered-but-unexecuted frontier at stop time.
     for (const state of states) {
         for (const action of state.crawlActions) {
             const child = action.childState;
+            const k = key(state.stateId, child ? child.stateId : null, action.actionHash);
+            if (seen.has(k)) {
+                continue;
+            }
+            seen.add(k);
             edges.push({
                 from: state.stateId,
                 to: child ? child.stateId : null,
@@ -97,6 +133,26 @@ export function buildCrawlGraph(manager: CrawlStateManager, entryPoint: string):
             });
         }
     }
+
+    // Node's `actions` is its out-degree in the reconstructed graph (child
+    // states plus any surviving no-child actions). The count of *discovered*
+    // actions is not recoverable after the crawl prunes them — read the
+    // inventory for that.
+    const outDegree = new Map<string, number>();
+    for (const e of edges) {
+        outDegree.set(e.from, (outDegree.get(e.from) ?? 0) + 1);
+    }
+
+    const nodes: CrawlGraphNode[] = states.map((state: CrawlState) => ({
+        id: state.stateId,
+        stateHash: state.stateHash,
+        url: state.url,
+        crawlDepth: state.crawlDepth,
+        arrivalType: state.arrivalType,
+        actions: outDegree.get(state.stateId) ?? 0,
+        inputs: state.crawlInputs.length,
+        isRoot: root != null && state.stateId === root.stateId,
+    }));
 
     return {
         version: CRAWL_GRAPH_VERSION,
