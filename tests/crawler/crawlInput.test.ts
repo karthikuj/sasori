@@ -57,6 +57,37 @@ describe('CrawlInput', () => {
             expect(CrawlInput.INPUT_FIELDS.length).toBeGreaterThan(0);
         });
 
+        // SCAN-200 / SCAN-194 RC1: a bare <input> (no type attribute) is a text
+        // field by default, but the explicit-type selectors miss it, so the
+        // crawler used to never fill it — blocking form submission on required
+        // bare inputs and skipping marker injection.
+        it('discovers a bare <input> as a text field (discovery-only, not in INPUT_FIELDS)', () => {
+            const bare = CrawlInput.DISCOVERY_ONLY_INPUT_FIELDS.find((f) => f.CSS_PATH === 'input:not([type])');
+            expect(bare).toBeDefined();
+            expect(bare!.ELEMENT).toBe('input');
+            expect(bare!.TYPE).toBe('text');
+            // Deliberately NOT in INPUT_FIELDS: that list feeds DomStripper, and
+            // `input:not([type])` would match every type-stripped input there.
+            expect(CrawlInput.INPUT_FIELDS.some((f) => f.CSS_PATH === 'input:not([type])')).toBe(false);
+        });
+
+        it('the bare-input selector matches a bare <input> but not typed or hidden ones', () => {
+            const cheerio = require('cheerio');
+            const $ = cheerio.load(
+                '<form>' +
+                '<input name="displayName">' +          // bare -> should match
+                '<input type="text" name="a">' +         // explicit text -> its own selector
+                '<input type="email" name="e">' +        // typed -> not bare
+                '<input type="hidden" name="csrf">' +    // hidden -> must NOT be filled
+                '</form>',
+            );
+            const matched = $('input:not([type])');
+            expect(matched.length).toBe(1);
+            expect(matched.attr('name')).toBe('displayName');
+            // and the old explicit-text selector never matched the bare one — the gap.
+            expect($('input[type="text"]').filter((_: number, el: unknown) => (el as { attribs: Record<string, string> }).attribs.name === 'displayName').length).toBe(0);
+        });
+
         it('should have VALUES constant', () => {
             expect(CrawlInput.VALUES).toBeDefined();
             expect(CrawlInput.VALUES.inputText).toBe('Sasori');
@@ -363,6 +394,12 @@ describe('CrawlInput', () => {
                     type: jest.fn(),
                     click: jest.fn(),
                     uploadFile: jest.fn(),
+                    focus: jest.fn(),
+                    // replaceValue selects the field's existing value before
+                    // typing; the callback runs against a real DOM node in the
+                    // browser, so here we just run it against a stub exposing
+                    // select() to prove the clear path executes.
+                    evaluate: jest.fn(async (fn: (el: unknown) => unknown) => fn({ select: jest.fn() })),
                 };
                 mockPage.waitForSelector.mockResolvedValue(mockNode);
             });
@@ -373,6 +410,22 @@ describe('CrawlInput', () => {
                 await textInput.inputHandler(mockPage);
 
                 expect(mockNode.type).toHaveBeenCalledWith('Sasori');
+            });
+
+            it('clears a prefilled field before typing (focus + select, then type)', async () => {
+                // Regression for SCAN-201: appending to a prefilled email produced
+                // an invalid `a@b c@d` value that blocked the whole form's submit.
+                const emailInput = new CrawlInput('input', 'email', 'input[type="email"]', mockParentState);
+
+                await emailInput.inputHandler(mockPage);
+
+                expect(mockNode.focus).toHaveBeenCalled();
+                expect(mockNode.evaluate).toHaveBeenCalled();
+                // The clear (focus + select) must happen before the value is typed.
+                const focusOrder = mockNode.focus.mock.invocationCallOrder[0];
+                const typeOrder = mockNode.type.mock.invocationCallOrder[0];
+                expect(focusOrder).toBeLessThan(typeOrder);
+                expect(mockNode.type).toHaveBeenCalledWith('sasori@hiddensand.bot');
             });
 
             it('should handle email input', async () => {
@@ -456,6 +509,8 @@ describe('CrawlInput', () => {
             beforeEach(() => {
                 mockNode = {
                     type: jest.fn(),
+                    focus: jest.fn(),
+                    evaluate: jest.fn(async (fn: (el: unknown) => unknown) => fn({ select: jest.fn() })),
                 };
                 mockPage.waitForSelector.mockResolvedValue(mockNode);
             });
@@ -466,6 +521,15 @@ describe('CrawlInput', () => {
                 await textareaInput.textareaHandler(mockPage);
 
                 expect(mockNode.type).toHaveBeenCalledWith('Sasori');
+            });
+
+            it('clears a prefilled textarea before typing (SCAN-201)', async () => {
+                const textareaInput = new CrawlInput('textarea', null, 'textarea', mockParentState);
+
+                await textareaInput.textareaHandler(mockPage);
+
+                expect(mockNode.focus).toHaveBeenCalled();
+                expect(mockNode.focus.mock.invocationCallOrder[0]).toBeLessThan(mockNode.type.mock.invocationCallOrder[0]);
             });
 
             it('should handle selector not found error', async () => {

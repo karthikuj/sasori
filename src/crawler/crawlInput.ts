@@ -1,7 +1,7 @@
 import chalk from 'chalk';
 import path from 'path';
 import { randomUUID } from 'crypto';
-import { Page } from 'puppeteer';
+import { Page, ElementHandle } from 'puppeteer';
 import {
     CrawlInput as CrawlInputInterface,
     CrawlInputInterface as CrawlInputClassInterface,
@@ -31,6 +31,27 @@ class CrawlInput implements CrawlInputInterface, CrawlInputClassInterface {
         { ELEMENT: 'input', TYPE: 'file', CSS_PATH: 'input[type="file"]' },
         { ELEMENT: 'textarea', TYPE: null, CSS_PATH: 'textarea' },
         { ELEMENT: 'select', TYPE: null, CSS_PATH: 'select' },
+    ];
+
+    /**
+     * Extra input selectors used for discovery and filling **only** — kept out
+     * of {@link INPUT_FIELDS} on purpose (SCAN-200 / SCAN-194 RC1).
+     *
+     * A bare `<input>` (no `type` attribute) is a text field by default, but the
+     * explicit-type selectors above never match it, so the crawler used to never
+     * fill it — a required bare input then blocks the form's submit and the field
+     * never gets the crawler's marker for reflected-XSS / SQLi testing.
+     *
+     * It cannot simply be added to `INPUT_FIELDS` because that list also feeds
+     * `DomStripper`'s interactable set (via `Crawler.allInteractables`), and the
+     * stripper removes the `type` attribute before re-testing interactability —
+     * so an `input:not([type])` selector there would match *every* type-stripped
+     * input (submit, text, …), keep them all, and silently repartition the crawl
+     * graph (its output feeds `stateHash`). Discovery runs against the live DOM
+     * where the distinction still holds, so this belongs here, not there.
+     */
+    static readonly DISCOVERY_ONLY_INPUT_FIELDS: InputFieldDefinition[] = [
+        { ELEMENT: 'input', TYPE: 'text', CSS_PATH: 'input:not([type])' },
     ];
 
     /**
@@ -281,6 +302,37 @@ class CrawlInput implements CrawlInputInterface, CrawlInputClassInterface {
     }
 
     /**
+     * Types `value` into a field after clearing any pre-existing content.
+     *
+     * A bare `node.type()` *appends* — it does not replace. That is silently
+     * wrong on the authenticated forms the crawler exists to exercise, because
+     * they arrive *prefilled*: an account-settings page renders the current
+     * name and email as the fields' values. Appending our probe string to a
+     * real email yields `sasori@hiddensand.botbuyer1@host` — two `@`, which
+     * fails the `<input type="email">` constraint, so the browser refuses to
+     * submit the whole form and the `POST` endpoint we are trying to reach is
+     * never hit (SCAN-201). Selecting the existing content first makes the
+     * first keystroke replace it; doing it through a real selection plus
+     * keystrokes (rather than assigning `value = ''`) keeps controlled,
+     * React-style inputs in sync, which a raw value write would not.
+     * @param node - The resolved input/textarea element handle.
+     * @param value - The value to type once the field is cleared.
+     */
+    private async replaceValue(node: ElementHandle<Element>, value: string): Promise<void> {
+        await node.focus();
+        await node.evaluate((el) => {
+            // `el` is a plain `Element` to the compiler (no DOM lib in this
+            // tsconfig); an input/textarea exposes `select()` to highlight its
+            // whole value, so the following `type()` overwrites it.
+            const field = el as unknown as { select?: () => void };
+            if (typeof field.select === 'function') {
+                field.select();
+            }
+        });
+        await node.type(value);
+    }
+
+    /**
      * Handles all input elements on the given page
      * @param page - Puppeteer page object
      */
@@ -303,7 +355,7 @@ class CrawlInput implements CrawlInputInterface, CrawlInputClassInterface {
         switch (this.type) {
             case 'text':
                 try {
-                    await node.type(CrawlInput.VALUES.inputText);
+                    await this.replaceValue(node, CrawlInput.VALUES.inputText);
                 } catch (error) {
                     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
                     console.error(chalk.red(`\n[ERROR] ${errorMessage}`));
@@ -312,7 +364,7 @@ class CrawlInput implements CrawlInputInterface, CrawlInputClassInterface {
 
             case 'email':
                 try {
-                    await node.type(CrawlInput.VALUES.inputEmail);
+                    await this.replaceValue(node, CrawlInput.VALUES.inputEmail);
                 } catch (error) {
                     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
                     console.error(chalk.red(`\n[ERROR] ${errorMessage}`));
@@ -321,7 +373,7 @@ class CrawlInput implements CrawlInputInterface, CrawlInputClassInterface {
 
             case 'password':
                 try {
-                    await node.type(CrawlInput.VALUES.inputPassword);
+                    await this.replaceValue(node, CrawlInput.VALUES.inputPassword);
                 } catch (error) {
                     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
                     console.error(chalk.red(`\n[ERROR] ${errorMessage}`));
@@ -330,7 +382,7 @@ class CrawlInput implements CrawlInputInterface, CrawlInputClassInterface {
 
             case 'search':
                 try {
-                    await node.type(CrawlInput.VALUES.inputSearch);
+                    await this.replaceValue(node, CrawlInput.VALUES.inputSearch);
                 } catch (error) {
                     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
                     console.error(chalk.red(`\n[ERROR] ${errorMessage}`));
@@ -339,7 +391,7 @@ class CrawlInput implements CrawlInputInterface, CrawlInputClassInterface {
 
             case 'url':
                 try {
-                    await node.type(CrawlInput.VALUES.inputUrl);
+                    await this.replaceValue(node, CrawlInput.VALUES.inputUrl);
                 } catch (error) {
                     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
                     console.error(chalk.red(`\n[ERROR] ${errorMessage}`));
@@ -401,7 +453,7 @@ class CrawlInput implements CrawlInputInterface, CrawlInputClassInterface {
         }
 
         try {
-            await node.type(CrawlInput.VALUES.inputText);
+            await this.replaceValue(node, CrawlInput.VALUES.inputText);
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : 'Unknown error';
             console.error(chalk.red(`\n[ERROR] ${errorMessage}`));
