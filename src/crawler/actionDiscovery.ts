@@ -94,7 +94,11 @@ export class ActionDiscovery {
         const crawlInputs: CrawlInput[] = [];
         let cssPaths: string[];
 
-        for (const input of CrawlInput.INPUT_FIELDS) {
+        // INPUT_FIELDS also feeds the DomStripper interactable set, so it stays
+        // type-specific; DISCOVERY_ONLY_INPUT_FIELDS adds bare `<input>` (and any
+        // other fill-only selectors) here without touching state identity
+        // (SCAN-200 / SCAN-194 RC1).
+        for (const input of [...CrawlInput.INPUT_FIELDS, ...CrawlInput.DISCOVERY_ONLY_INPUT_FIELDS]) {
             cssPaths = await domPath.getCssPaths(input.CSS_PATH);
             crawlInputs.push(...cssPaths.map((cssPath) => {
                 return new CrawlInput(input.ELEMENT, input.TYPE, cssPath, currentState);
