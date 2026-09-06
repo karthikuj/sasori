@@ -103,6 +103,25 @@ export interface CrawlerSettings {
      * stopped part-way, and opt-in like `inventoryFile` (SCAN-197).
      */
     crawlGraphFile?: string;
+    /**
+     * Record the crawl graph in memory even when no `crawlGraphFile` is set.
+     *
+     * The recorder used to be switched on by the file path alone, which meant a
+     * scan driven through the API — the only way Nara runs Sasori — recorded
+     * nothing at all, and the artifact that diagnoses a coverage gap was
+     * available exactly where nobody was looking (a hand-run CLI crawl). Serving
+     * it from memory keeps the server writing no files.
+     */
+    recordCrawlGraph?: boolean;
+    /**
+     * Ceiling on recorded edges. The recorder holds one small object per action,
+     * which is nothing at a few thousand and is not nothing on a crawl that runs
+     * for hours — and this process serves every scan, so it may not trade its own
+     * liveness for a diagnostic. Past the cap no *new* edge is added and the
+     * graph is marked truncated; edges already recorded still receive their
+     * outcomes, so what the artifact does contain stays true. 0 means no cap.
+     */
+    maxCrawlGraphEdges?: number;
 }
 
 /**

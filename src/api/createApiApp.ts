@@ -65,6 +65,23 @@ export function createApiApp(registry: ScanRegistry): express.Application {
         res.json(inventory);
     });
 
+    v1.get('/scans/:scanId/crawl-graph', (req: Request, res: Response) => {
+        const id = typeof req.params.scanId === 'string' ? req.params.scanId : req.params.scanId?.[0] ?? '';
+        const graph = registry.getCrawlGraph(id);
+        if (graph === undefined) {
+            res.status(404).json({ error: 'Scan not found' });
+            return;
+        }
+        if (graph === null) {
+            // The scan exists but recorded no graph — `recordCrawlGraph` was off,
+            // or it failed before a crawl began. Distinguished from 404 because
+            // the caller can act on it: turn recording on for the next scan.
+            res.status(404).json({ error: 'No crawl graph for this scan' });
+            return;
+        }
+        res.json(graph);
+    });
+
     v1.delete('/scans/:scanId', (req: Request, res: Response) => {
         const id = typeof req.params.scanId === 'string' ? req.params.scanId : req.params.scanId?.[0] ?? '';
         const result = registry.stopScan(id);

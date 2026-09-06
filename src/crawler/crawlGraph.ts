@@ -93,6 +93,16 @@ export interface CrawlGraphEdge {
 export interface CrawlGraph {
     version: number;
     entryPoint: string;
+    /**
+     * True when the recorder hit its edge ceiling and stopped adding new edges.
+     * A truncated graph is still sound — every edge it holds carries its real
+     * fate — but it is not complete, so an absent action means "not recorded"
+     * rather than "not discovered". Says so explicitly rather than letting a
+     * reader mistake a ceiling for a coverage gap.
+     */
+    truncated?: boolean;
+    /** How many edges were not recorded because of the ceiling. */
+    edgesDropped?: number;
     /** How the edges were obtained: live recording (complete) or end-of-crawl
      * reconstruction (traversed tree only). */
     source: 'recorded' | 'reconstructed';

@@ -139,4 +139,53 @@ describe('CrawlGraphRecorder', () => {
             expect(counts.revisited).toBe(0);
         });
     });
+
+    // The recorder holds one object per action, and in API mode this process
+    // serves every scan — so a diagnostic may not be allowed to grow without
+    // bound. Past the ceiling the graph stops growing and says so, rather than
+    // silently looking like a crawl that discovered less.
+    describe('edge ceiling', () => {
+        it('stops recording new edges past the cap and reports the graph truncated', () => {
+            const rec = new CrawlGraphRecorder(2);
+            const root = state('http://x/', 'root', 0);
+            rec.recordState(root);
+            for (let i = 0; i < 5; i++) {
+                rec.recordDiscovered(new CrawlAction('a', 'click', `a:nth-child(${i})`, `h-${i}`, root));
+            }
+
+            const g = rec.snapshot('http://x/');
+            expect(g.edgeCount).toBe(2);
+            expect(g.truncated).toBe(true);
+            expect(g.edgesDropped).toBe(3);
+        });
+
+        it('still records outcomes for edges it already holds, so the partial graph stays true', () => {
+            const rec = new CrawlGraphRecorder(1);
+            const root = state('http://x/', 'root', 0);
+            const child = state('http://x/a', 'c', 1);
+            const kept = new CrawlAction('a', 'click', 'a.one', 'h-kept', root);
+            const dropped = new CrawlAction('a', 'click', 'a.two', 'h-dropped', root);
+            rec.recordState(root);
+            rec.recordDiscovered(kept);
+            rec.recordDiscovered(dropped); // over the ceiling
+
+            rec.recordExecuted(kept, child);
+
+            const g = rec.snapshot('http://x/');
+            expect(g.statusCounts.executed).toBe(1);
+            expect(g.edgesDropped).toBe(1);
+        });
+
+        it('is uncapped when no ceiling is given', () => {
+            const rec = new CrawlGraphRecorder();
+            const root = state('http://x/', 'root', 0);
+            rec.recordState(root);
+            for (let i = 0; i < 50; i++) {
+                rec.recordDiscovered(new CrawlAction('a', 'click', `a:nth-child(${i})`, `h-${i}`, root));
+            }
+            const g = rec.snapshot('http://x/');
+            expect(g.edgeCount).toBe(50);
+            expect(g.truncated).toBeUndefined();
+        });
+    });
 });
