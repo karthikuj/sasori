@@ -10,7 +10,7 @@ import CrawlAction from './crawlAction';
 import CrawlInput from './crawlInput';
 import CrawlState from './crawlState';
 import CrawlStateManager from './crawlStateManager';
-import { buildCrawlGraph, crawlGraphToDot, crawlGraphToMermaid } from './crawlGraph';
+import { buildCrawlGraph, crawlGraphToDot, crawlGraphToMermaid, PruneReason } from './crawlGraph';
 import { CrawlGraphRecorder } from './crawlGraphRecorder';
 import DomStripper from './domStripper';
 import EndpointInventory from './endpointInventory';
@@ -171,7 +171,7 @@ class Crawler {
             this.crawlerConfig,
             (page: Page) => this.getPageHash(page),
             (url: string) => this.recordDiscoveredUrl(url),
-            (crawlAction: CrawlAction) => this.graphRecorder?.recordPruned(crawlAction),
+            (crawlAction: CrawlAction, reason: PruneReason) => this.graphRecorder?.recordPruned(crawlAction, reason),
         );
         this.endTime = null;
         this.browserStartDelays = 1000; // 1 millisecond(s)
@@ -390,8 +390,8 @@ class Crawler {
      * @param crawlerAction - The action to perform
      * @param page - Puppeteer page instance
      */
-    async performAction(crawlManager: CrawlStateManager, crawlerAction: CrawlAction, page: Page): Promise<void> {
-        await this.replay.performAction(crawlManager, crawlerAction, page);
+    async performAction(crawlManager: CrawlStateManager, crawlerAction: CrawlAction, page: Page): Promise<boolean> {
+        return this.replay.performAction(crawlManager, crawlerAction, page);
     }
 
     /**
@@ -399,11 +399,13 @@ class Crawler {
      * @param crawlManager - Crawl state manager instance
      * @param crawlAction - The action to remove
      */
-    removeCrawlActionFromState(crawlManager: CrawlStateManager, crawlAction: CrawlAction): void {
+    removeCrawlActionFromState(crawlManager: CrawlStateManager, crawlAction: CrawlAction, reason: PruneReason = 'unresolved'): void {
         // The graph recorder's prune hook lives inside ActionReplay's own
         // removeCrawlActionFromState — every prune, crawler- or replay-initiated,
-        // funnels through it — so nothing to record here (SCAN-197).
-        this.replay.removeCrawlActionFromState(crawlManager, crawlAction);
+        // funnels through it — so nothing to record here (SCAN-197). The reason
+        // travels with it so the artifact can separate a healthy revisit from a
+        // failed resolution (SCAN-198).
+        this.replay.removeCrawlActionFromState(crawlManager, crawlAction, reason);
     }
 
     /**
@@ -459,19 +461,43 @@ class Crawler {
                 (this.crawlerConfig.maxDuration === 0 || Date.now() < this.endTime!)
             ) {
                 const currentAction = nextCrawlAction;
+
+                // Another copy of this widget was clicked while this one waited on
+                // the frontier, so clicking it again would re-walk ground already
+                // covered. Skipping here rather than dropping it at discovery is
+                // what keeps site chrome to one click per crawl while leaving a
+                // page-local form free to be exercised by whichever copy the
+                // frontier reaches first (SCAN-198).
+                if (crawlManager.hasExecutedActionSignature(currentAction.cssPath, currentAction.actionHash)) {
+                    this.removeCrawlActionFromState(crawlManager, currentAction, 'duplicate');
+                    continue;
+                }
+
+                let clicked = false;
                 try {
-                    await this.performAction(crawlManager, currentAction, page);
+                    clicked = await this.performAction(crawlManager, currentAction, page);
                 } catch (err) {
                     if (this.abortController.signal.aborted) {
                         break;
                     }
                     throw err;
                 }
+                // Only a dispatched click spends the signature. An action that was
+                // pruned before it ran must leave the widget available to its other
+                // copies, or the receipt model reintroduces the starvation it was
+                // built to remove.
+                if (clicked) {
+                    crawlManager.markActionSignatureExecuted(currentAction.cssPath, currentAction.actionHash);
+                }
+
                 const currentStateHash = await this.getPageHash(page);
                 const existingState = crawlManager.getStateByHash(currentStateHash);
                 if (existingState) {
+                    // The action ran and landed on a state we already hold: it is
+                    // explored, not failed. Recording it as a plain prune is what
+                    // made a healthy crawl look like an 80% replay failure.
                     currentState = existingState;
-                    this.removeCrawlActionFromState(crawlManager, currentAction);
+                    this.removeCrawlActionFromState(crawlManager, currentAction, 'revisited');
                 } else {
                     if (this.inContext(page.url())) {
                         const previousUrl = currentAction.getParentState().url.split('#')[0];
@@ -484,7 +510,9 @@ class Crawler {
                             this.graphRecorder?.recordExecuted(currentAction, currentState);
                         }
                     } else {
-                        this.removeCrawlActionFromState(crawlManager, currentAction);
+                        // Ran, but left the configured scope — a boundary the crawl
+                        // declines to cross, not a coverage gap.
+                        this.removeCrawlActionFromState(crawlManager, currentAction, 'out-of-scope');
                     }
                 }
             }

@@ -12,6 +12,9 @@ export interface CrawlStateManagerInterface {
     registerState(state: CrawlState): void;
     registerActionSignature(cssPath: string, actionHash: string): void;
     unregisterActionSignature(cssPath: string, actionHash: string): void;
+    shouldRetainAction(cssPath: string, actionHash: string): boolean;
+    hasExecutedActionSignature(cssPath: string, actionHash: string): boolean;
+    markActionSignatureExecuted(cssPath: string, actionHash: string): void;
     getStateByHash(stateHash: string): CrawlState | null;
     getStates(): CrawlState[];
     getNextCrawlAction(): CrawlAction | null;
@@ -45,7 +48,39 @@ export class CrawlStateManager implements CrawlStateManagerInterface {
      * Ref-count of (cssPath, actionHash) signatures across all actions in the graph.
      * Used for O(1) duplicate detection; decremented when actions are removed from a state.
      */
+    /**
+     * How many *un-executed* actions with each signature are currently held in
+     * the graph. Not a claim — see {@link shouldRetainAction} — only a bound on
+     * how many copies of the same widget are kept waiting at once.
+     */
     private readonly actionSignatureRefCount: Map<string, number> = new Map();
+
+    /**
+     * Signatures that have actually been clicked, once each, for the life of the
+     * crawl. Monotonic on purpose: this is a receipt, not a lock (SCAN-198).
+     */
+    private readonly executedActionSignatures: Set<string> = new Set();
+
+    /**
+     * How many un-executed copies of one signature the graph will hold.
+     *
+     * The dedup exists because a nav bar and a global search box appear in every
+     * state, and clicking them once per page is the crawl equivalent of walking
+     * in circles. But keeping exactly *one* copy made that copy a single point of
+     * failure: it is claimed by whichever page discovered it first, and if the
+     * frontier never reaches that page the widget is never exercised anywhere,
+     * because every later copy is dropped at discovery in deference to it. That
+     * is how a price-filter form present on 44 category pages ended up submitted
+     * zero times — one copy parked on the frontier, eight twins discarded.
+     *
+     * A small redundancy removes the single point of failure without giving up
+     * the bound: whichever copy the frontier reaches first spends the signature,
+     * and the rest are skipped at pop time for the cost of a set lookup. Three is
+     * enough that a copy has to be unlucky three times over to strand a widget,
+     * and small enough that a ten-thousand-product catalogue holds three
+     * "add to cart" actions rather than ten thousand.
+     */
+    private static readonly MAX_UNEXECUTED_TWINS = 3;
 
     /**
      * LIFO frontier of pending actions (array end = stack top). New states enqueue via
@@ -347,8 +382,52 @@ export class CrawlStateManager implements CrawlStateManagerInterface {
     }
 
     /**
+     * Whether discovery should keep an action with this signature.
+     *
+     * Two reasons to say no: the widget has already been clicked somewhere (the
+     * receipt is in), or the graph is already holding
+     * {@link MAX_UNEXECUTED_TWINS} copies of it waiting to be clicked. Note what
+     * is *not* a reason: another copy merely existing. That was the old rule, and
+     * it let one un-executed copy speak for every page it appeared on.
+     * @param cssPath - The CSS path of the candidate action.
+     * @param actionHash - The structural hash of the candidate action.
+     * @return True when the action should be added to its state.
+     */
+    public shouldRetainAction(cssPath: string, actionHash: string): boolean {
+        const key = CrawlStateManager.makeActionSignatureKey(cssPath, actionHash);
+        if (this.executedActionSignatures.has(key)) {
+            return false;
+        }
+        return (this.actionSignatureRefCount.get(key) ?? 0) < CrawlStateManager.MAX_UNEXECUTED_TWINS;
+    }
+
+    /**
+     * Whether this widget has already been clicked during this crawl. Checked
+     * when an action is popped, so a copy that became redundant while it waited
+     * costs a set lookup instead of a click and a replay.
+     * @param cssPath - The CSS path of the action.
+     * @param actionHash - The structural hash of the action.
+     * @return True when the signature has already been executed.
+     */
+    public hasExecutedActionSignature(cssPath: string, actionHash: string): boolean {
+        return this.executedActionSignatures.has(CrawlStateManager.makeActionSignatureKey(cssPath, actionHash));
+    }
+
+    /**
+     * Records that this widget has now been clicked. Never undone: a signature
+     * spent is spent, which is what holds site chrome to one click per crawl
+     * rather than one per page.
+     * @param cssPath - The CSS path of the action that ran.
+     * @param actionHash - The structural hash of the action that ran.
+     */
+    public markActionSignatureExecuted(cssPath: string, actionHash: string): void {
+        this.executedActionSignatures.add(CrawlStateManager.makeActionSignatureKey(cssPath, actionHash));
+    }
+
+    /**
      * Returns false if CrawlAction with the same cssPath and actionHash is found, otherwise true.
-     * Uses a ref-count index for O(1) average-time checks when the root is attached.
+     * Retained for callers that ask the narrow question; discovery uses
+     * {@link shouldRetainAction}, which also allows a bounded number of twins.
      * @param cssPath - The CSS path to check for uniqueness
      * @param actionHash - The action hash to check for uniqueness
      * @returns True if the action is unique, false if a duplicate is found

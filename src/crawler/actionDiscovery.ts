@@ -388,13 +388,19 @@ export class ActionDiscovery {
                     : '';
 
                 const actionHash = createHash('sha256').update(prevElementStrippedDOM + nodeStrippedDOM + nextElementStrippedDOM).digest('hex');
-                if (crawlManager.isCrawlActionUnique(cssPath, actionHash)) {
+                // Keep it unless the widget has already been clicked somewhere, or
+                // the graph is already holding its quota of copies waiting to be
+                // clicked. Deferring the real dedup to execution is what stops a
+                // single un-executed copy speaking for every page it appears on
+                // (SCAN-198).
+                if (crawlManager.shouldRetainAction(cssPath, actionHash)) {
                     crawlActions.push(new CrawlAction(node.tagName, 'click', cssPath, actionHash, currentState));
                     crawlManager.registerActionSignature(cssPath, actionHash);
                 } else if (onDedup) {
-                    // Dropped at discovery: its (cssPath, actionHash) signature was
-                    // already seen. Reported so the crawl graph can distinguish a
-                    // coverage gap caused by dedup from one caused by pruning.
+                    // Dropped at discovery: already clicked elsewhere, or enough
+                    // copies are already waiting. Reported so the crawl graph can
+                    // distinguish a coverage gap caused by dedup from one caused by
+                    // pruning.
                     onDedup(node.tagName, cssPath, actionHash);
                 }
             } catch (error) {
