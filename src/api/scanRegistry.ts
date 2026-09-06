@@ -6,6 +6,7 @@ import { ConfigValidator } from '../config/configLoader';
 import { CompletionOutbox } from './completionOutbox';
 import type { CrawlerConfig } from '../types/crawler';
 import type { CrawlInventory } from '../types/inventory';
+import type { CrawlGraph } from '../crawler/crawlGraph';
 import type { ScanRecord, ScanStatus } from './scanTypes';
 
 export type CrawlerFactory = (config: CrawlerConfig) => Crawler;
@@ -57,6 +58,10 @@ interface InternalScan {
     // would be collected along with it, and a finished scan — the only kind
     // anyone scores — could never report what it covered.
     inventory?: CrawlInventory;
+    /** Snapshot taken in the same place and for the same reason as the
+     * inventory: the crawler reference is dropped when a scan ends, and without
+     * a snapshot the crawl graph would be readable only while the scan runs. */
+    crawlGraph?: CrawlGraph | null;
     callback?: CompletionCallbackMeta;
     backendScanId?: number;
 }
@@ -165,6 +170,22 @@ export class ScanRegistry {
             return undefined;
         }
         return internal.crawler ? internal.crawler.getInventory() : internal.inventory;
+    }
+
+    /**
+     * The crawl graph for a scan: served live while it runs — a four-hour crawl
+     * is worth watching, not only autopsying — and from the snapshot once it has
+     * finished. Undefined for an unknown scan; null when the scan ran without
+     * recording one.
+     * @param scanId - Scan identifier
+     * @return The graph, null, or undefined.
+     */
+    getCrawlGraph(scanId: string): CrawlGraph | null | undefined {
+        const internal = this.scans.get(scanId);
+        if (!internal) {
+            return undefined;
+        }
+        return internal.crawler ? internal.crawler.getCrawlGraph() : internal.crawlGraph;
     }
 
     listScans(): ScanRecord[] {
@@ -291,6 +312,7 @@ export class ScanRegistry {
             if (done) {
                 if (done.crawler) {
                     done.inventory = done.crawler.getInventory();
+                    done.crawlGraph = done.crawler.getCrawlGraph();
                 }
                 delete done.crawler;
                 done.finishedAt = Date.now();

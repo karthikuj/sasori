@@ -113,6 +113,8 @@ export const crawlerSchema = Joi.object<CrawlerSettings>({
     outputFile: Joi.string().optional(),
     inventoryFile: Joi.string().optional(),
     crawlGraphFile: Joi.string().optional(),
+    recordCrawlGraph: Joi.boolean().optional(),
+    maxCrawlGraphEdges: Joi.number().integer().min(0).optional(),
 }).required();
 
 /**

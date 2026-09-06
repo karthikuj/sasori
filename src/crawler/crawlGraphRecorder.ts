@@ -46,6 +46,22 @@ export class CrawlGraphRecorder {
     private readonly nodes = new Map<string, CrawlGraphNode>();
     private readonly edges = new Map<string, LiveEdge>();
     private rootStateId: string | null = null;
+    private edgesDropped = 0;
+
+    /**
+     * @param maxEdges - Ceiling on recorded edges; 0 or undefined means no cap.
+     * The recorder holds one small object per action, which is nothing at a few
+     * thousand and is not nothing on a crawl that runs for hours — and in API
+     * mode this process serves every scan, so it may not trade its own liveness
+     * for a diagnostic. Past the ceiling no new edge is added, but edges already
+     * recorded still receive their outcomes, so the partial graph stays true.
+     */
+    constructor(private readonly maxEdges = 0) { }
+
+    /** Whether a new edge may still be recorded. */
+    private hasRoom(): boolean {
+        return this.maxEdges <= 0 || this.edges.size < this.maxEdges;
+    }
 
     private edgeKey(fromStateId: string, actionHash: string): string {
         return `${fromStateId}|${actionHash}`;
@@ -78,6 +94,10 @@ export class CrawlGraphRecorder {
         if (this.edges.has(key)) {
             return;
         }
+        if (!this.hasRoom()) {
+            this.edgesDropped++;
+            return;
+        }
         this.edges.set(key, {
             from,
             to: null,
@@ -101,6 +121,10 @@ export class CrawlGraphRecorder {
         if (existing && existing.status !== 'discovered') {
             return; // already has a terminal fate
         }
+        if (!existing && !this.hasRoom()) {
+            this.edgesDropped++;
+            return;
+        }
         this.edges.set(key, {
             from: fromState.stateId,
             to: null,
@@ -116,6 +140,10 @@ export class CrawlGraphRecorder {
     /** An action that executed and produced (or collapsed onto) a child state. */
     recordExecuted(action: CrawlAction, child: CrawlState): void {
         const key = this.edgeKey(action.parentState.stateId, action.actionHash);
+        if (!this.edges.has(key) && !this.hasRoom()) {
+            this.edgesDropped++;
+            return;
+        }
         const edge = this.edges.get(key) ?? {
             from: action.parentState.stateId,
             to: null,
@@ -150,6 +178,10 @@ export class CrawlGraphRecorder {
         const edge = this.edges.get(key);
         if (edge && edge.status === 'executed') {
             return; // it already produced a child; a later removal does not undo that
+        }
+        if (!edge && !this.hasRoom()) {
+            this.edgesDropped++;
+            return;
         }
         const status: CrawlGraphEdgeStatus =
             reason === 'revisited' ? 'revisited'
@@ -196,6 +228,7 @@ export class CrawlGraphRecorder {
             version: CRAWL_GRAPH_VERSION,
             entryPoint,
             source: 'recorded',
+            ...(this.edgesDropped > 0 ? { truncated: true, edgesDropped: this.edgesDropped } : {}),
             stateCount: nodes.length,
             edgeCount: edges.length,
             statusCounts: countEdgeStatuses(edges),

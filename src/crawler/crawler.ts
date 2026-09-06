@@ -10,7 +10,19 @@ import CrawlAction from './crawlAction';
 import CrawlInput from './crawlInput';
 import CrawlState from './crawlState';
 import CrawlStateManager from './crawlStateManager';
-import { buildCrawlGraph, crawlGraphToDot, crawlGraphToMermaid, PruneReason } from './crawlGraph';
+import { buildCrawlGraph, crawlGraphToDot, crawlGraphToMermaid, CrawlGraph, PruneReason } from './crawlGraph';
+
+/**
+ * Default ceiling on recorded crawl-graph edges.
+ *
+ * Sized from measurement rather than taste: a ten-minute akasuna crawl records
+ * ~3,300 edges and serialises to 1.4 MB, so 200,000 edges is roughly a
+ * ten-hour crawl and tens of megabytes — beyond what a browser will render or a
+ * reader will read, and the point past which the artifact has stopped earning
+ * the memory it costs in a process that serves every scan. Recording is opt-in
+ * (`recordCrawlGraph`); this only bounds what saying yes can cost.
+ */
+const DEFAULT_MAX_CRAWL_GRAPH_EDGES = 200_000;
 import { CrawlGraphRecorder } from './crawlGraphRecorder';
 import DomStripper from './domStripper';
 import EndpointInventory from './endpointInventory';
@@ -89,6 +101,12 @@ class Crawler {
      * fed at the discovery / dedup / execute / prune hooks so the dumped graph
      * shows every discovered action's fate, which end-of-crawl reconstruction
      * cannot recover after the crawler prunes the frontier (SCAN-197).
+     */
+    /**
+     * Live crawl-graph recorder, or null when neither destination asked for one.
+     * Built in the constructor rather than at crawl start so the graph is
+     * readable from a crawler that has not started (or was stopped) — the API
+     * serves it on demand, not only after a run.
      */
     private graphRecorder: CrawlGraphRecorder | null = null;
 
@@ -173,6 +191,9 @@ class Crawler {
             (url: string) => this.recordDiscoveredUrl(url),
             (crawlAction: CrawlAction, reason: PruneReason) => this.graphRecorder?.recordPruned(crawlAction, reason),
         );
+        this.graphRecorder = this.recordsCrawlGraph()
+            ? new CrawlGraphRecorder(this.crawlerConfig.maxCrawlGraphEdges ?? DEFAULT_MAX_CRAWL_GRAPH_EDGES)
+            : null;
         this.endTime = null;
         this.browserStartDelays = 1000; // 1 millisecond(s)
     }
@@ -711,7 +732,11 @@ class Crawler {
             this.crawlManager = crawlManager;
             // Record the graph live when a dump is requested, so pruned/deduped
             // action fates survive to the dump.
-            this.graphRecorder = this.crawlerConfig.crawlGraphFile ? new CrawlGraphRecorder() : null;
+            // A fresh recorder per run, so a reused crawler does not report a
+            // previous crawl's edges.
+            this.graphRecorder = this.recordsCrawlGraph()
+                ? new CrawlGraphRecorder(this.crawlerConfig.maxCrawlGraphEdges ?? DEFAULT_MAX_CRAWL_GRAPH_EDGES)
+                : null;
 
             if (allPages.length === 0) {
                 throw new Error('No pages available for crawling');
@@ -797,6 +822,35 @@ class Crawler {
     /**
      * Returns the crawl inventory — every endpoint and DOM state reached.
      */
+    /**
+     * The crawl graph as it stands: states, the actions between them, and each
+     * action's fate. Prefers the live recording — which is the only source that
+     * knows about actions that were deduped or never executed — and falls back
+     * to end-of-crawl reconstruction, which can only see the traversed tree.
+     * Null when neither is available, which is the honest answer for a scan that
+     * failed before a crawl graph existed.
+     * @return The graph, or null when there is nothing recorded.
+     */
+    /**
+     * Whether this crawl records a graph. Either destination wants the same
+     * recording: a file for a CLI run, memory for an API scan the backend reads
+     * back (SCAN-197).
+     * @return True when the recorder should run.
+     */
+    private recordsCrawlGraph(): boolean {
+        return Boolean(this.crawlerConfig.crawlGraphFile || this.crawlerConfig.recordCrawlGraph);
+    }
+
+    getCrawlGraph(): CrawlGraph | null {
+        if (this.graphRecorder) {
+            return this.graphRecorder.snapshot(this.crawlerConfig.entryPoint);
+        }
+        if (this.crawlManager) {
+            return buildCrawlGraph(this.crawlManager, this.crawlerConfig.entryPoint);
+        }
+        return null;
+    }
+
     getInventory(): CrawlInventory {
         return this.inventory.snapshot();
     }
