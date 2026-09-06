@@ -36,20 +36,48 @@ export interface CrawlGraphNode {
 }
 
 /**
- * An edge's fate. The live recorder ({@link CrawlGraphRecorder}) records the
- * first three during the crawl; end-of-crawl reconstruction ({@link
+ * An edge's fate. The live recorder ({@link CrawlGraphRecorder}) records all but
+ * `no-child-state` during the crawl; end-of-crawl reconstruction ({@link
  * buildCrawlGraph}) can only emit `executed` (from `parentAction`) and, for a
  * stopped crawl, `no-child-state` (surviving frontier actions):
- *   - `executed`       — the action ran and produced a child state.
- *   - `pruned`         — discovered, then removed on a failed replay / stale
- *     selector (`removeCrawlActionFromState`). The signal that a coverage gap is
- *     an execution/replay failure, not a discovery one.
+ *   - `executed`       — the action ran and produced a new child state.
+ *   - `revisited`      — the action ran and landed on a state already known.
+ *     A healthy outcome, and the common one: it is how the crawl avoids
+ *     re-exploring, not a coverage gap.
+ *   - `out-of-scope`   — the action ran and left the configured scope. Also
+ *     healthy; the crawl deliberately does not follow it.
+ *   - `pruned`         — **never executed**: the action's selector did not
+ *     resolve on revisit, or the click failed, so it was dropped
+ *     (`removeCrawlActionFromState`). This is the only status that means a
+ *     coverage gap caused by an execution/replay failure.
  *   - `deduped`        — dropped at discovery because its (cssPath, actionHash)
  *     signature was already seen (`isCrawlActionUnique` false); never executed.
  *   - `no-child-state` — reconstruction-only: a discovered action still on the
  *     frontier at stop time with no child recorded.
+ *
+ * `revisited` and `out-of-scope` were split out of `pruned` in SCAN-198 because
+ * conflating them made the artifact worse than useless for the question it
+ * exists to answer. All three funnel through the same
+ * `removeCrawlActionFromState`, so a scoped crawl of one page reported "118 of
+ * 148 actions pruned" — read as a catastrophic replay failure, when nearly all
+ * of those actions had executed perfectly well and simply landed somewhere the
+ * crawler had already been. A number that cannot tell a healthy revisit from a
+ * failed resolution will be misread, and was: twice, in this ticket.
  */
-export type CrawlGraphEdgeStatus = 'executed' | 'pruned' | 'deduped' | 'no-child-state';
+export type CrawlGraphEdgeStatus =
+    | 'executed'
+    | 'revisited'
+    | 'out-of-scope'
+    | 'pruned'
+    | 'deduped'
+    | 'no-child-state';
+
+/**
+ * Why an action was removed from its parent state. Maps onto the edge statuses
+ * above; `unresolved` is the default because the replay failure paths are the
+ * ones that do not know any better reason.
+ */
+export type PruneReason = 'unresolved' | 'revisited' | 'out-of-scope' | 'duplicate';
 
 export interface CrawlGraphEdge {
     from: string;
@@ -80,6 +108,8 @@ export interface CrawlGraph {
 export function countEdgeStatuses(edges: CrawlGraphEdge[]): Record<CrawlGraphEdgeStatus, number> {
     const counts: Record<CrawlGraphEdgeStatus, number> = {
         executed: 0,
+        revisited: 0,
+        'out-of-scope': 0,
         pruned: 0,
         deduped: 0,
         'no-child-state': 0,

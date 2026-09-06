@@ -6,6 +6,7 @@ import {
     CrawlGraphEdge,
     CrawlGraphEdgeStatus,
     CrawlGraphNode,
+    PruneReason,
     countEdgeStatuses,
 } from './crawlGraph';
 
@@ -131,13 +132,33 @@ export class CrawlGraphRecorder {
         this.edges.set(key, edge);
     }
 
-    /** An action removed from its state on a failed replay / stale selector. */
-    recordPruned(action: CrawlAction): void {
+    /**
+     * An action removed from its parent state, recorded by *why* (SCAN-198).
+     *
+     * All three removal paths call one funnel, so the reason has to be carried
+     * in rather than inferred here: an action that executed and landed on a
+     * known state is a healthy revisit, an action that left the scope is a
+     * healthy boundary, and only an action that never executed — its selector
+     * did not resolve, or the click failed — is the coverage gap the artifact
+     * exists to surface. Recording all three as `pruned` is what made a
+     * perfectly healthy crawl read as an 80%-failure one.
+     * @param action - The action being removed from its parent state.
+     * @param reason - Why it was removed; defaults to a genuine resolution failure.
+     */
+    recordPruned(action: CrawlAction, reason: PruneReason = 'unresolved'): void {
         const key = this.edgeKey(action.parentState.stateId, action.actionHash);
         const edge = this.edges.get(key);
         if (edge && edge.status === 'executed') {
-            return; // it already produced a child; a later prune does not undo that
+            return; // it already produced a child; a later removal does not undo that
         }
+        const status: CrawlGraphEdgeStatus =
+            reason === 'revisited' ? 'revisited'
+                : reason === 'out-of-scope' ? 'out-of-scope'
+                    // Spent by another copy of the same widget while this one
+                    // waited: the same fate as a discovery-time dedup, and it
+                    // reads as one in the artifact.
+                    : reason === 'duplicate' ? 'deduped'
+                        : 'pruned';
         this.edges.set(key, {
             from: action.parentState.stateId,
             to: null,
@@ -146,7 +167,7 @@ export class CrawlGraphRecorder {
             action: action.action,
             cssPath: action.cssPath,
             actionHash: action.actionHash,
-            status: 'pruned',
+            status,
         });
     }
 

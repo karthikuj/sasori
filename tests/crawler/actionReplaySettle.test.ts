@@ -84,6 +84,9 @@ describe('ActionReplay settle-after-action (SCAN-198)', () => {
         page.evaluate = jest.fn().mockRejectedValue(new Error('context destroyed'));
 
         const replay = new ActionReplay(settings(0), async () => 'hash-account', () => undefined);
-        await expect(replay.performAction({} as any, action, page as any)).resolves.toBeUndefined();
+        // A settle that fails is still a click that happened: it must not throw,
+        // and it must report the click so the caller can spend the widget's
+        // signature (SCAN-198).
+        await expect(replay.performAction({} as any, action, page as any)).resolves.toBe(true);
     });
 });

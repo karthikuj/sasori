@@ -76,4 +76,67 @@ describe('CrawlGraphRecorder', () => {
         expect(rec.snapshot('http://x/').statusCounts.executed).toBe(1);
         expect(rec.snapshot('http://x/').statusCounts.pruned).toBe(0);
     });
+
+    // SCAN-198. Every removal funnels through removeCrawlActionFromState, so
+    // before this the artifact called all of them `pruned` — and a crawl where
+    // nearly every action executed and landed on an already-known state read as
+    // a catastrophic replay failure. The whole point of the graph is to answer
+    // "was this a coverage gap?", and it cannot if a healthy revisit and a
+    // selector that would not resolve are the same word.
+    describe('removal reasons (SCAN-198)', () => {
+        it('separates a healthy revisit and an out-of-scope landing from a real prune', () => {
+            const rec = new CrawlGraphRecorder();
+            const root = state('http://x/', 'root', 0);
+            const revisited = new CrawlAction('a', 'click', 'a.one', 'h-revisit', root);
+            const outOfScope = new CrawlAction('a', 'click', 'a.two', 'h-scope', root);
+            const unresolved = new CrawlAction('button', 'click', 'form > button', 'h-gone', root);
+            root.crawlActions = [revisited, outOfScope, unresolved];
+
+            rec.recordState(root);
+            for (const a of root.crawlActions) {
+                rec.recordDiscovered(a);
+            }
+
+            rec.recordPruned(revisited, 'revisited');
+            rec.recordPruned(outOfScope, 'out-of-scope');
+            rec.recordPruned(unresolved, 'unresolved');
+
+            const counts = rec.snapshot('http://x/').statusCounts;
+            expect(counts).toMatchObject({
+                revisited: 1,
+                'out-of-scope': 1,
+                pruned: 1,
+            });
+        });
+
+        it('defaults to a real prune, so a replay failure is never silently counted as healthy', () => {
+            const rec = new CrawlGraphRecorder();
+            const root = state('http://x/', 'root', 0);
+            const a = new CrawlAction('button', 'click', 'form > button', 'h', root);
+            root.crawlActions = [a];
+            rec.recordState(root);
+            rec.recordDiscovered(a);
+
+            rec.recordPruned(a); // no reason given — the replay failure paths
+
+            expect(rec.snapshot('http://x/').statusCounts.pruned).toBe(1);
+            expect(rec.snapshot('http://x/').statusCounts.revisited).toBe(0);
+        });
+
+        it('keeps an executed edge executed whatever reason arrives later', () => {
+            const rec = new CrawlGraphRecorder();
+            const root = state('http://x/', 'root', 0);
+            const child = state('http://x/a', 'c', 1);
+            const a = new CrawlAction('a', 'click', 'a', 'h', root);
+            rec.recordState(root);
+            rec.recordDiscovered(a);
+            rec.recordExecuted(a, child);
+
+            rec.recordPruned(a, 'revisited');
+
+            const counts = rec.snapshot('http://x/').statusCounts;
+            expect(counts.executed).toBe(1);
+            expect(counts.revisited).toBe(0);
+        });
+    });
 });

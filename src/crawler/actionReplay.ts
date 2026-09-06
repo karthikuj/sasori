@@ -4,6 +4,7 @@ import chalk from 'chalk';
 import CrawlAction from './crawlAction';
 import CrawlInput from './crawlInput';
 import CrawlStateManager from './crawlStateManager';
+import { PruneReason } from './crawlGraph';
 import { CrawlerSettings } from '../types/crawler';
 
 /**
@@ -49,7 +50,7 @@ export class ActionReplay {
         private readonly config: CrawlerSettings,
         private readonly hashPage: (page: Page) => Promise<string>,
         private readonly recordUrl: (url: string) => void,
-        private readonly onPrune?: (crawlAction: CrawlAction) => void,
+        private readonly onPrune?: (crawlAction: CrawlAction, reason: PruneReason) => void,
     ) { }
 
     /**
@@ -74,7 +75,7 @@ export class ActionReplay {
      * @param crawlerAction - The action to perform
      * @param page - Puppeteer page instance
      */
-    async performAction(crawlManager: CrawlStateManager, crawlerAction: CrawlAction, page: Page): Promise<void> {
+    async performAction(crawlManager: CrawlStateManager, crawlerAction: CrawlAction, page: Page): Promise<boolean> {
         let node;
         const currentStateHash = await this.hashPage(page);
         if (currentStateHash !== crawlerAction.parentState.stateHash) {
@@ -109,7 +110,7 @@ export class ActionReplay {
             // } else {
             //     console.log('\tNo replay plan available.');
             // }
-            if (!replayPlan) return;
+            if (!replayPlan) return false;
             {
                 const maxRetries = this.config.maxActionRetries ?? 3;
                 let success = false;
@@ -128,7 +129,7 @@ export class ActionReplay {
                 }
                 if (!success) {
                     console.error(chalk.red('[ERROR] Exhausted retries navigating to baseline state'));
-                    return;
+                    return false;
                 }
             }
 
@@ -142,11 +143,11 @@ export class ActionReplay {
                     node = await page.waitForSelector(crawlAction.cssPath);
                 } catch (error) {
                     this.removeCrawlActionFromState(crawlManager, crawlAction);
-                    return;
+                    return false;
                 }
                 if (!node) {
                     this.removeCrawlActionFromState(crawlManager, crawlAction);
-                    return;
+                    return false;
                 }
                 try {
                     await node.click();
@@ -158,12 +159,12 @@ export class ActionReplay {
                         } catch (evalError) {
                             console.error(chalk.red(`\n[ERROR] ${evalError instanceof Error ? evalError.message : 'Unknown error'}`));
                             this.removeCrawlActionFromState(crawlManager, crawlAction);
-                            return;
+                            return false;
                         }
                     } else {
                         console.error(chalk.red(`\n[ERROR] ${message}`));
                         this.removeCrawlActionFromState(crawlManager, crawlAction);
-                        return;
+                        return false;
                     }
                 }
             }
@@ -176,11 +177,11 @@ export class ActionReplay {
             node = await page.waitForSelector(crawlerAction.cssPath);
         } catch (error) {
             this.removeCrawlActionFromState(crawlManager, crawlerAction);
-            return;
+            return false;
         }
         if (!node) {
             this.removeCrawlActionFromState(crawlManager, crawlerAction);
-            return;
+            return false;
         }
         try {
             await node.click();
@@ -213,6 +214,12 @@ export class ActionReplay {
         // interceptor reported — a same-document route change, for instance. The
         // crawler owns the discovered-URL set, so recording goes back through it.
         this.recordUrl(page.url());
+
+        // The click was dispatched. Only then may the caller spend this widget's
+        // signature: marking one that was pruned before it ever ran would strand
+        // every other copy of it, which is precisely the failure the receipt model
+        // exists to remove (SCAN-198).
+        return true;
     }
 
     /**
@@ -237,6 +244,7 @@ export class ActionReplay {
             this.waitForDomQuiet(page, ActionReplay.SETTLE_QUIET_MS, ActionReplay.SETTLE_CAP_MS).catch(() => undefined),
             page.waitForNetworkIdle({ idleTime: ActionReplay.SETTLE_QUIET_MS, timeout: ActionReplay.SETTLE_CAP_MS }).catch(() => undefined),
         ]);
+
         if (this.config.eventWait && this.config.eventWait > 0) {
             await new Promise((resolve) => setTimeout(resolve, this.config.eventWait));
         }
@@ -287,9 +295,14 @@ export class ActionReplay {
 
     /**
      * Removes the given CrawlAction from the parent CrawlState.
-     * @param crawlAction - The action to remove
+     * @param crawlManager - Crawl state manager instance.
+     * @param crawlAction - The action to remove.
+     * @param reason - Why it is being removed. Defaults to `unresolved`, the
+     * replay failures below; the crawl loop passes the healthy reasons
+     * (`revisited`, `out-of-scope`) so the crawl graph can tell a coverage gap
+     * from an action that simply landed somewhere already known (SCAN-198).
      */
-    removeCrawlActionFromState(crawlManager: CrawlStateManager, crawlAction: CrawlAction): void {
+    removeCrawlActionFromState(crawlManager: CrawlStateManager, crawlAction: CrawlAction, reason: PruneReason = 'unresolved'): void {
         crawlManager.unregisterActionSignature(crawlAction.cssPath, crawlAction.actionHash);
         crawlAction.getParentState().crawlActions = crawlAction.getParentState().crawlActions.filter((value) =>
             crawlAction.actionId !== value.actionId
@@ -297,7 +310,7 @@ export class ActionReplay {
         // Every prune — whether initiated by the crawl loop or by a replay
         // failure inside performAction — funnels through here, so this is the one
         // place the crawl-graph recorder needs to see them (SCAN-197).
-        this.onPrune?.(crawlAction);
+        this.onPrune?.(crawlAction, reason);
     }
 
     /**
