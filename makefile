@@ -34,7 +34,10 @@ INVENTORY  ?= inventory.json
 # diagnosed after the fact; .mmd and .dot siblings are written for visualisation.
 CRAWL_GRAPH ?= crawl-graph.json
 HOST       ?= 0.0.0.0
-PORT       ?= 8080
+# The REST API port nara-backend talks to (its config: sasori.base_url =
+# http://localhost:3100). It used to default to 8080, which is the backend's own
+# port -- a collision waiting to happen when both run on one box.
+PORT       ?= 3100
 
 # ─── Phony targets ─────────────────────────────────────────
 .PHONY: help check-tools install ci \
@@ -91,8 +94,9 @@ clean: ## Remove dist/ (npm run clean)
 	@$(NPM) run clean
 	@echo "Done."
 
-run: build ## Run built CLI with no args (prints yargs help)
-	@$(NODE) $(CLI_ENTRY)
+run: build ## Start the REST API server (what nara-backend talks to) on $(PORT)
+	@echo "Sasori API on http://$(HOST):$(PORT)  (nara-backend expects http://localhost:3100)"
+	@$(NODE) $(CLI_ENTRY) api --host "$(HOST)" --port "$(PORT)"
 
 run-cli: build ## Run a crawl: CONFIG=path/to/config.json (default: config/config.json)
 	@test -f "$(CONFIG)" || (echo "Config not found: $(CONFIG)  (set CONFIG=...)"; exit 1)
