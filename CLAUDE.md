@@ -84,6 +84,20 @@ under review.
 nara-core's nightly benchmark checks this repository out and rebuilds it, so a
 change here that breaks the build turns that run red too (SCAN-116).
 
+## Commit conventions
+
+**Do not credit Claude, or any AI assistant, in a commit.** No
+`Co-Authored-By: Claude …` trailer, no "generated with" footer, and no mention of
+Claude or Anthropic in the subject or body. This holds even though Claude Code's
+own default behaviour is to append that trailer — the repository's convention
+wins, so the trailer is left off.
+
+The same goes for pull-request descriptions.
+
+Nothing else about commit style changes: a precise subject line and a body that
+explains *why* the change is right, with the measurement or the failing case that
+motivated it, is still the bar.
+
 ## Architecture
 
 ### Two entry modes, one crawler
