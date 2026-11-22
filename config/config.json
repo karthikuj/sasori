@@ -1,24 +1,27 @@
 {
     "browser": {
-        "headless": false,
+        "headless": true,
         "maximize": true,
         "proxy": {
-            "enabled": false,
+            "enabled": true,
             "host": "127.0.0.1",
-            "port": 8080
+            "port": 3200
         },
-        "instances": 4
+        "instances": 1
     },
     "crawler": {
-        "entryPoint": "https://security-crawl-maze.app/",
+        "entryPoint": "https://demo.testfire.net/bank/main.jsp",
         "eventTimeout": 10000,
         "navigationTimeout": 30000,
         "eventWait": 0,
+        "debugNetwork": false,
+        "maxActionRetries": 3,
         "maxDuration": 0,
         "elements": [
             "a",
             "button",
-            "input[type=\"submit\"]"
+            "input[type=\"submit\"]",
+            "[click]"
         ],
         "maxChildren": 0,
         "maxDepth": 10,
@@ -29,15 +32,23 @@
                 "password": "password"
             },
             "recorderAuth": {
-                "enabled": false,
-                "pptrRecording": "/path/to/login/recording"
+                "enabled": true,
+                "pptrRecording": "/home/sup3r541y4n/Dev/sasori-private/coverage/testfire.pptr.json"
             }
         },
         "includeRegexes": [
-            "https?://security-crawl-maze.app(?:/.*|)"
+            "https?://demo.testfire.net(?:/.*|)"
         ],
         "excludeRegexes": [
             ".*logout.*"
         ]
+    },
+    "logging": {
+        "file": "logs/sasori.log",
+        "console": true,
+        "maxSizeMB": 100,
+        "maxBackups": 20,
+        "maxAgeDays": 30,
+        "compress": true
     }
 }

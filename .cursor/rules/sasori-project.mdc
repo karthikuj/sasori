@@ -1,0 +1,123 @@
+---
+alwaysApply: true
+description: Sasori (sasori-crawl) project structure, crawl model, config, and conventions for AI assistants.
+---
+
+# Sasori – Project & Convention Rules
+
+Source-of-truth for **sasori-private** / **sasori-crawl**: a Puppeteer-based dynamic web crawler for endpoint discovery and security testing. Keep this file updated when architecture or entrypoints change.
+
+## Tech Stack
+
+| Area | Choice |
+|------|--------|
+| Language | TypeScript **5.9** |
+| Runtime | Node.js |
+| Browser automation | **Puppeteer** ^24 |
+| Auth replay | **@puppeteer/replay** (JSON recordings + custom `executeScript` steps) |
+| HTML parsing | **Cheerio** |
+| CLI | **yargs** |
+| HTTP API (optional mode) | **Express** 4 |
+| Config validation | **Joi** |
+| Logging / UX | **chalk** |
+
+## Repository Layout
+
+```
+sasori-private/
+├── bin/index.ts          # CLI entry (`sasori init`, `sasori start`, `sasori api`)
+├── config/config.json    # Default config (copied to dist on build)
+├── src/
+│   ├── api/                # REST API: `createApiApp`, `ScanRegistry`, `startApiServer`
+│   ├── auth/authenticator.ts   # Replay Puppeteer recorder JSON for login
+│   ├── browser/browser.ts      # launch() options from BrowserConfig
+│   ├── config/
+│   │   ├── configLoader.ts     # loadFromFile, defaults, helpers
+│   │   └── configSchema.ts     # Joi schemas + presets (parallel to models)
+│   ├── crawler/
+│   │   ├── crawler.ts          # Main orchestration, scope, hashing, crawl loop
+│   │   ├── crawlState.ts       # Vertex: DOM state (url, stateHash, depth, …)
+│   │   ├── crawlAction.ts      # Edge: click action + parent/child state
+│   │   ├── crawlInput.ts       # Form fields + handlers
+│   │   ├── crawlStateManager.ts # Graph ops: next action, replay plan, traversal
+│   │   └── domPath.ts          # CSS path / XPath generation ($$eval in page)
+│   ├── models/configModel.ts   # ConfigValidator + Joi (used by CLI path)
+│   └── types/                  # CrawlerConfig, input types, browser, auth
+├── tests/                  # Jest (crawler, config, browser, auth)
+├── package.json            # name: sasori-crawl, main: dist/bin/index.js
+└── tsconfig.json
+```
+
+## Entry Points & CLI
+
+- **Build**: `npm run build` → `tsc`; `postbuild` copies `config/` into `dist/`.
+- **Makefile** (same repo root): `make help` — `build`, `clean`, `install`, `run-cli` (`CONFIG=…`), `run-api` (`HOST` / `PORT`), `test`, `test-coverage`, `ci`, etc. (mirrors Nara-style grouped targets).
+- **Run (built)**: `node dist/bin/index.js start --config /path/to/config.json` or global `sasori`.
+- **Commands** (`bin/index.ts`):
+  - `init` — copies packaged `config/config.json` to cwd.
+  - `start --config <file> [--output <file>]` — validates config, optional URL output file (single CLI crawl).
+  - `api [--host 0.0.0.0] [--port 8080]` — HTTP server for **concurrent** scans: `POST /api/v1/scans` with JSON body = full `CrawlerConfig`; `GET /api/v1/scans`, `GET /api/v1/scans/:id`, `DELETE /api/v1/scans/:id` (stop); `GET /health`.
+
+## Configuration
+
+- **Shape**: `CrawlerConfig` = `{ browser: BrowserConfig, crawler: CrawlerSettings }` (`src/types/crawler.ts` and related).
+- **Validation**: `ConfigValidator.validate()` in `src/models/configModel.ts` is what **`bin/index.ts`** uses (via re-export from `configLoader`).
+- **Note**: There is a second Joi layer in `src/config/configSchema.ts` (presets, `validateConfig`). Prefer **one** canonical schema when changing options to avoid drift.
+- **Important paths**: Recorder auth uses `path.resolve(__dirname, …)` in the crawler for `pptrRecording` — correct path depends on cwd / compiled `dist/` layout.
+
+### Crawler settings (conceptual)
+
+- **Scope**: `includeRegexes` / `excludeRegexes`; request interception can block out-of-scope requests with 403.
+- **Limits**: `maxDepth`, `maxChildren`, `maxDuration` (0 = run until work queue empty), `eventWait`, timeouts.
+- **Interactions**: `elements` — CSS selectors and special `[click]` to discover click listeners via CDP.
+- **Auth**: HTTP Basic (`page.authenticate`) and/or Puppeteer recorder JSON (`authenticator.ts`).
+
+## Crawl Model (Graph)
+
+- **CrawlState** — vertex: URL, `stateHash` (SHA-256 of stripped DOM), depth, `arrivalType` (`link` vs `dom`), lists of `CrawlAction` / `CrawlInput`, optional `parentAction`.
+- **CrawlAction** — edge: element tag, `click`, `cssPath`, `actionHash` (structural hash), `parentState`, optional `childState`.
+- **CrawlStateManager** — holds `rootState`, `visitedActions`, and implements:
+  - **`getNextCrawlAction()`** — pops from an explicit **LIFO frontier** (fed by `registerState`, reseeded on `reindexFromRoot`); **does not** re-walk the graph from the root on every call. `clearVisitedActions` rebuilds the frontier via a legacy DFS simulation.
+  - **`getStateByHash(hash)`** — `Map<stateHash, CrawlState>` (O(1) average); vertices still expose `stateHash` on `CrawlState`.
+  - **`isCrawlActionUnique` / `registerActionSignature` / `unregisterActionSignature`** — ref-counted global signatures for duplicate action detection; **`attachRootState`** rebuilds indexes from the tree.
+  - **`getOptimizedReplayPlan(destination)`** — walks `parentAction` pointers upward to find a `link` baseline URL, then returns `baselineUrl` + `actionsToReplay`.
+- **State identity**: New states are detected by comparing **page hash** after an action to existing states; duplicates collapse to the existing `CrawlState`.
+
+## Browser & Concurrency
+
+- **`Browser.getBrowserConfig` / `getBrowserInstance`** — headless, `--start-maximized`, optional proxy args, `slowMo`.
+- **`crawler.startCrawling`** launches **N** browser instances (`browser.instances`), staggers starts with `browserStartDelays`, and runs **`handleCrawl` in parallel** on a **shared** `CrawlStateManager`.
+- **Stop / API**: **`crawler.stopCrawling()`** aborts an internal `AbortController`, closes **`activeBrowsers`**, and exits the main crawl loop cooperatively; **`wasStopped()`** reflects completion via stop vs natural finish. Used by **`DELETE /api/v1/scans/:id`**.
+
+## HTTP API (`src/api/`)
+
+- **`ScanRegistry`** — in-memory `Map` of `scanId` → scan metadata + optional live **`Crawler`**; injectable **`CrawlerFactory`** for tests.
+- **`createApiApp(registry)`** — Express app with JSON body parser; **`startApiServer`** binds and returns `{ server, registry, port, host }`.
+
+## Auth (`src/auth/authenticator.ts`)
+
+- Extends `@puppeteer/replay` `PuppeteerRunnerExtension`.
+- **`customStep` + `executeScript`**: runs `page.evaluate` with string from `parameters.target`.
+- Reads recording JSON from disk synchronously and `createRunner(...).run()`.
+
+## DOM & Actions (`crawler.ts` + `domPath.ts`)
+
+- **`stripDOM`**: Cheerio-based reduction — removes text/comments, strips most attributes (keeps `href`/`src` where needed), prunes nodes that do not contain any configured interactable selector (can be expensive on large DOMs).
+- **`getPageHash`**: loads page HTML, strips DOM, hashes with SHA-256.
+- **`getCrawlActions`**: resolves selectors (including CDP scan for `[click]` listeners — expensive), dedupes paths, **batched `page.evaluate`** for DOM snapshots (per-path errors isolated), hashes node + siblings snippet for uniqueness, respects `maxDepth` / `maxChildren`.
+- **`DomPath`**: In-page CSS path builder (DevTools-style), duplicated inner `Step` classes for CSS vs XPath evaluators.
+
+## Testing
+
+- Jest (`npm test`); tests under `tests/` mirror `src/` areas.
+- Use existing patterns in `tests/crawler/` when adding coverage.
+
+## Known Implementation Notes (for assistants)
+
+- **`types/crawler.ts`** defines a `CrawlStateManagerInterface` with `states: Map<…>` that **does not match** the actual `CrawlStateManager` class (graph is linked via `CrawlState` / `CrawlAction`, not a central map). Trust the implementation in `crawlStateManager.ts`.
+- **Parallel browsers + one manager**: multiple tabs consume **`getNextCrawlAction`** on the same manager without locks — understand race implications before changing concurrency.
+- **Config drift**: `configSchema.ts` and `configModel.ts` may differ (e.g. optional fields). Align Joi when adding new `crawler` keys.
+
+## When Updating This Rule
+
+Update when you change: CLI commands, config shape, crawl graph semantics, auth flow, or major dependencies.

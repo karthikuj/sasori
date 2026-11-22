@@ -1,29 +1,57 @@
 {
     "env": {
-        "browser": true,
-        "es2021": true
+        "node": true,
+        "es2022": true,
+        "jest": true
     },
-    "extends": "google",
+    "extends": [
+        "eslint:recommended"
+    ],
+    "parser": "@typescript-eslint/parser",
     "parserOptions": {
-        "ecmaVersion": "latest",
+        "ecmaVersion": 2022,
         "sourceType": "module"
     },
+    "plugins": [
+        "@typescript-eslint"
+    ],
     "rules": {
-        "max-len": "off",
-        "sort-imports": [
+        "@typescript-eslint/no-unused-vars": [
             "error",
             {
-                "ignoreCase": false,
-                "ignoreDeclarationSort": false,
-                "ignoreMemberSort": false,
-                "memberSyntaxSortOrder": [
-                    "none",
-                    "all",
-                    "multiple",
-                    "single"
-                ],
-                "allowSeparatedGroups": false
+                "argsIgnorePattern": "^_",
+                "varsIgnorePattern": "^_",
+                "caughtErrorsIgnorePattern": "^_"
             }
-        ]
+        ],
+        "@typescript-eslint/no-explicit-any": "warn",
+
+        "no-unused-vars": "off",
+        "no-undef": "off",
+
+        "indent": "off",
+        "@typescript-eslint/indent": [
+            "error",
+            4,
+            {
+                "SwitchCase": 1,
+                "ignoreComments": true
+            }
+        ],
+
+        "linebreak-style": [
+            "error",
+            "unix"
+        ],
+        "quotes": [
+            "error",
+            "single"
+        ],
+        "semi": [
+            "error",
+            "always"
+        ],
+        "no-console": "off",
+        "no-debugger": "error"
     }
 }

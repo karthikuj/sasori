@@ -90,6 +90,7 @@ out
 # Nuxt.js build / generate output
 .nuxt
 dist
+release/
 
 # Gatsby files
 .cache/
@@ -132,3 +133,8 @@ dist
 # Project notes
 crawlConfigs
 to-fix.md
+# Sasori durable completion outbox (runtime state)
+.sasori/
+
+# Benchmark artifacts (crawl outputs, timings)
+bench/results/
