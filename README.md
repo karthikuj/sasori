@@ -1,227 +1,356 @@
-<h1 align="center">
-  <br>
-  <img src="resources/sasori-logo.png" alt="Sasori Logo" width="200" />
-  <br>
-  Sasori: Dynamic Web Crawler
-  <br>
-</h1>
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="resources/brand/sasori-wordmark-dark.svg">
+    <img src="resources/brand/sasori-wordmark-light.svg" alt="Sasori" width="520" />
+  </picture>
+</p>
+
+<p align="center">
+  <a href="https://www.npmjs.com/package/sasori-crawl"><img src="https://img.shields.io/npm/v/sasori-crawl.svg" alt="npm version" /></a>
+  <a href="https://www.npmjs.com/package/sasori-crawl"><img src="https://img.shields.io/npm/dm/sasori-crawl.svg" alt="npm downloads" /></a>
+  <img src="https://img.shields.io/node/v/sasori-crawl.svg" alt="node version" />
+  <a href="LICENSE"><img src="https://img.shields.io/npm/l/sasori-crawl.svg" alt="license" /></a>
+  <img src="https://img.shields.io/badge/TypeScript-5.9-blue.svg" alt="typescript" />
+</p>
 
 <p align="center"><img src="resources/sasori.gif" alt="Sasori Demo" width="700" /></p>
 
-## Project Description:
+## Contents
 
-Sasori is a powerful and flexible dynamic web crawler built on Puppeteer. It allows you to automate the crawling of web applications, even those behind authentication, offers seamless integration with security testing tools like Zaproxy or Burp Suite and provides customizable configurations for enhanced flexibility.
+- [What is Sasori](#what-is-sasori)
+- [Why use it](#why-use-it)
+- [Features](#features)
+- [How it works](#how-it-works)
+- [Requirements](#requirements)
+- [Quick start](#quick-start)
+- [Ways to run Sasori](#ways-to-run-sasori)
+- [Output files](#output-files)
+- [Configuration](#configuration)
+- [Proxy and TLS](#proxy-and-tls)
+- [Creating a Puppeteer recording](#creating-a-puppeteer-recording)
+- [Contributing](#contributing)
+- [License](#license)
+
+## What is Sasori
+
+Sasori drives a real Chromium browser through a web application and reports every
+URL it reaches. It clicks links and buttons, fills inputs, follows pages that
+load content with JavaScript, and can log in first so it can reach pages that
+sit behind authentication. You can point it at a proxy such as ZAP or Burp so a
+scanner sees everything the crawl touches.
+
+The name means scorpion. The crawler walks an app the way a scorpion walks the
+ground, one careful step at a time, and keeps track of where it has already
+been.
+
+## Why use it
+
+A plain crawler that only reads HTML misses most of a modern web app. Menus open
+with JavaScript, forms submit over AJAX, and whole screens never change the URL.
+Sasori uses a real browser, so it sees those screens and the requests they make.
+It also understands login, scope, and proxies, which are the three things you
+need for crawling a target during a security test.
 
 ## Features
 
-- **Dynamic Crawling:** Sasori excels at crawling dynamic web applications, handling AJAX-loaded content, and interacting with complex user interfaces.
+| Feature | What it does |
+| --- | --- |
+| Dynamic crawling | Uses a real browser, so it handles AJAX content and screens that never change the URL. |
+| Authentication | Logs in before the crawl using a Chrome DevTools recording, or HTTP Basic auth. |
+| Proxy support | Routes all traffic through a proxy such as ZAP or Burp for security testing. |
+| Scope control | Include and exclude rules decide which URLs count as in scope. |
+| State model | Tracks URLs, page states, and clickable elements so it does not crawl the same thing twice. |
+| Concurrency | Runs several browsers at once against one shared crawl graph. |
+| Custom targets | You choose which elements Sasori clicks, so you can aim it at specific flows. |
+| Coverage reports | Writes a list of URLs, an endpoint inventory, and a crawl graph you can diff and render. |
+| API mode | A REST server runs many scans at once, one config per scan. |
 
-- **Authentication Support:** Easily spider applications behind authentication barriers by passing the puppeteer recording for the login sequence.
+## How it works
 
-- **Proxy Integration:** Sasori provides the option to set up a proxy server, allowing you to route requests through tools like Zaproxy or Burp Suite for security testing.
+Sasori builds a map of the app while it crawls. Each page state is a node. Each
+click is an edge that leads to another state. When a click produces a page it has
+seen before, Sasori joins the branches instead of crawling the page again, which
+keeps the crawl from going in circles.
 
-- **State-Based Navigation:** The project is designed around a state-based system, keeping track of URLs, DOM structures, and interactable elements for efficient crawling.
+Because several browsers share one map, the page in front of a browser is not
+always the one it needs next. When that happens, Sasori loads a known URL and
+replays only the clicks needed to get back to the right place, rather than
+starting over from the home page every time.
 
-- **Efficient Endpoint Coverage:** Utilizes efficient algorithms for intelligent crawling, ensuring coverage of more endpoints while maintaining speed.
+Scope is enforced on every request. Requests that are in scope are recorded and
+allowed through. Requests that are out of scope get a synthetic response and go
+no further, so the crawl stays on the target you asked for.
 
-- **Crawl Customization:** Allows you to customize what elements to interact with to target specific use cases.
+## Requirements
 
-## Getting Started:
+- Node.js 18 or newer
+- A Chromium browser, which Puppeteer installs for you
+- `libnss3-tools` only if you use a proxy CA, see [Proxy and TLS](#proxy-and-tls)
 
-To get started with Sasori, follow these steps:
+## Quick start
 
-### Recommended
-
-1. Install the package globally:
+Install Sasori, create a config, edit it, and run.
 
 ```bash
 npm install -g sasori-crawl
-```
-
-2. Create Sasori's configuration file:
-
-```bash
 sasori init
+# edit config.json, see the Configuration section
+sasori start --config ./config.json --output urls.txt
 ```
 
-3. Edit the configuration file. Check [Configuration](#configuration)
+When the crawl finishes, `urls.txt` holds every in scope URL it reached.
 
-4. Run Sasori:
+## Ways to run Sasori
+
+### Install from npm (recommended)
 
 ```bash
+npm install -g sasori-crawl
+sasori init
 sasori start --config /path/to/config.json
 ```
 
-### Alternative
-
-1. Clone the repository:
+### Run from source
 
 ```bash
 git clone https://github.com/karthikuj/sasori.git
-```
-
-2. Install dependencies:
-
-```bash
 cd sasori
 npm install
+npm run build
+node dist/bin/index.js start --config ./config/config.json
 ```
 
-3. Configure Sasori by editing the configuration file in the `config` directory. Check [Configuration](#configuration).
+Sasori runs from the built output in `dist/`, so build first after any change.
 
-4. Run Sasori:
+### Start a single crawl
 
 ```bash
-node . start --config ./config/config.json
+sasori start --config ./config.json [--output urls.txt] [--inventory inv.json] [--crawl-graph graph.json]
 ```
+
+| Flag | Alias | What it does |
+| --- | --- | --- |
+| `--config` | `-c` | Path to the config file. Required. |
+| `--output` | `-o` | Write every in scope URL to this file. |
+| `--inventory` | `-i` | Write the endpoint and state inventory as JSON. |
+| `--crawl-graph` | `-g` | Write the crawl graph as JSON, plus `.mmd` and `.dot` versions next to it. |
+
+Press Ctrl+C to stop early. Sasori unwinds cleanly and still writes the output,
+inventory, and crawl graph for what it covered so far.
+
+### Run the API server
+
+Start a server that runs many scans at once. Each scan is a POST whose JSON body
+is a full crawler config.
+
+```bash
+sasori api --host 0.0.0.0 --port 8080
+```
+
+| Method and path | What it does |
+| --- | --- |
+| `POST /api/v1/scans` | Start a scan. The body is a crawler config. |
+| `GET /api/v1/scans` | List scans. |
+| `GET /api/v1/scans/:id` | Get the status of one scan. |
+| `GET /api/v1/scans/:id/inventory` | Get the inventory for one scan. |
+| `GET /api/v1/scans/:id/crawl-graph` | Get the crawl graph for one scan. |
+| `DELETE /api/v1/scans/:id` | Stop a scan. |
+| `GET /health` | Health check. |
+
+## Output files
+
+Sasori can write three kinds of output, and you can ask for any mix of them.
+
+- **URL list** (`--output`): a plain list of every in scope URL the crawl
+  reached. This is the simplest way to feed results into another tool.
+- **Inventory** (`--inventory`): a JSON report of what the crawl reached,
+  grouped by endpoint and by page state. Endpoints keep their parameter names,
+  since those names are the attack surface. The file is sorted and carries no
+  timestamps, so two crawls that reach the same surface produce the same file
+  and a diff shows a real change in coverage.
+- **Crawl graph** (`--crawl-graph`): a JSON graph of states and the clicks
+  between them, with the status of each click. It is also written as a Mermaid
+  file you can render on GitHub and a DOT file for large graphs. This is the
+  file to read when you want to know why something was or was not crawled.
 
 ## Configuration
 
-The Sasori configuration consists of two main sections: `browser` and `crawler`. Each section contains specific settings to customize the behavior of the crawler and the browser used for crawling.
+A config file has three sections. `browser` and `crawler` are required, and
+`logging` is optional. The types live in `src/types/`, and a working example
+ships in `config/config.json`.
 
-### Browser Configuration
+### Browser
 
-The `browser` section contains settings related to the browser used by the crawler.
+Settings for the browser that does the crawling.
 
-- **headless**: (boolean) Specifies whether the browser should run in headless mode. Default: `false`.
-- **maximize**: (boolean) Specifies whether the browser window should be maximized. Default: `false`.
-- **proxy**: (object) Configuration for proxy settings.
-  - **enabled**: (boolean) Specifies whether proxy is enabled.
-  - **host**: (string) Hostname of the proxy server. Required if `enabled` is `true`.
-  - **port**: (integer) Port of the proxy server. Required if `enabled` is `true`.
-- **tls**: (object) Optional TLS settings for proxied HTTPS traffic.
-  - **extraCaCerts**: (array of strings) Paths to PEM CA cert files that should be trusted by the crawler browser profile (for MITM proxy certs).
-- **instances**: (integer): Number of browser instances to use simultaneously for crawling.
+- **headless**: run the browser with no window. Default `false`.
+- **maximize**: maximize the browser window. Default `false`.
+- **instances**: how many browsers to run at the same time.
+- **proxy**: proxy settings.
+  - **enabled**: turn the proxy on.
+  - **host**: proxy host. Required when the proxy is on.
+  - **port**: proxy port. Required when the proxy is on.
+- **tls**: optional TLS settings for proxied HTTPS.
+  - **extraCaCerts**: paths to PEM CA files the crawler should trust, used for a
+    proxy that intercepts HTTPS.
+  - **allowInsecureFallback**: allow Sasori to skip certificate checks when it
+    cannot import your CA. Off by default on purpose.
 
-Example:
+### Crawler
+
+Settings for how the crawl behaves.
+
+- **entryPoint**: the URL the crawl starts from. Required.
+- **eventTimeout**: how long to wait for an event, in milliseconds. Required.
+- **navigationTimeout**: how long to wait for a page to load, in milliseconds. Required.
+- **eventWait**: how long to wait between events, in milliseconds. Required.
+- **maxDuration**: how long the crawl may run, in milliseconds. `0` means run until done. Required.
+- **maxActionRetries**: how many times to retry a failed click before dropping it.
+- **elements**: the elements Sasori clicks, as CSS selectors. Use `[click]` to
+  find elements that have a click handler. Required.
+- **maxChildren**: how many children to crawl from each state. `0` means no limit. Required.
+- **maxDepth**: how deep the crawl may go. `0` means no limit. Required.
+- **includeRegexes**: a URL counts as in scope when it matches one of these.
+- **excludeRegexes**: a URL is dropped when it matches one of these, even if it was included.
+- **debugNetwork**: log extra network detail while crawling.
+- **authentication**: login settings.
+  - **basicAuth**: HTTP Basic auth.
+    - **enabled**: turn Basic auth on.
+    - **username**: required when enabled.
+    - **password**: required when enabled.
+  - **recorderAuth**: login with a recorded flow.
+    - **enabled**: turn recorder auth on.
+    - **pptrRecording**: path to a [Puppeteer recording](#creating-a-puppeteer-recording). Use an absolute path. Required when enabled.
+
+### Logging
+
+Optional. When set, Sasori tees its console output to a log file that rotates by
+size. Leave this section out to log to the screen only.
+
+- **file**: path to the log file.
+- **console**: also keep printing to the screen.
+- **maxSizeMB**: rotate the file once it passes this size.
+- **maxBackups**: how many old files to keep.
+- **maxAgeDays**: how long to keep old files.
+- **compress**: compress rotated files.
+
+### Example
 
 ```json
 {
   "browser": {
     "headless": true,
-    "maximize": false,
+    "maximize": true,
     "proxy": {
       "enabled": true,
-      "host": "proxy.example.com",
-      "port": 8080
+      "host": "127.0.0.1",
+      "port": 3200
     },
-    "tls": {
-      "extraCaCerts": ["/path/to/proxy-ca.crt"]
+    "instances": 1
+  },
+  "crawler": {
+    "entryPoint": "https://demo.testfire.net/bank/main.jsp",
+    "eventTimeout": 10000,
+    "navigationTimeout": 30000,
+    "eventWait": 0,
+    "maxActionRetries": 3,
+    "maxDuration": 0,
+    "elements": ["a", "button", "input[type=\"submit\"]", "[click]"],
+    "maxChildren": 0,
+    "maxDepth": 10,
+    "authentication": {
+      "basicAuth": {
+        "enabled": false,
+        "username": "username",
+        "password": "password"
+      },
+      "recorderAuth": {
+        "enabled": true,
+        "pptrRecording": "/path/to/recording.json"
+      }
     },
-    "instances": 4
+    "includeRegexes": ["https?://demo.testfire.net(?:/.*|)"],
+    "excludeRegexes": [".*logout.*"]
+  },
+  "logging": {
+    "file": "logs/sasori.log",
+    "console": true,
+    "maxSizeMB": 100,
+    "maxBackups": 20,
+    "maxAgeDays": 30,
+    "compress": true
   }
 }
 ```
 
-#### TLS + proxy troubleshooting
+## Proxy and TLS
 
-If you see this warning:
+When you crawl through a proxy that intercepts HTTPS, the browser has to trust
+the proxy CA or every HTTPS page fails. Set `browser.tls.extraCaCerts` to your
+CA file and Sasori imports it into a fresh browser profile so HTTPS validates
+the right way.
+
+This needs the `certutil` tool. If you see this warning:
 
 ```text
 [sasori] browser.tls.extraCaCerts: certutil not found (install nss-tools / libnss3-tools) to use browser.tls.extraCaCerts — falling back to --ignore-certificate-errors when a proxy is used
 ```
 
-install NSS tools so Sasori can import your proxy CA into Chromium's profile:
+install the NSS tools:
 
 ```bash
-# Debian/Ubuntu/Kali
+# Debian, Ubuntu, Kali
 sudo apt update && sudo apt install -y libnss3-tools
 ```
 
-Then rerun Sasori. Without `certutil`, Sasori falls back to `--ignore-certificate-errors` when proxying HTTPS.
+Then run Sasori again. Without `certutil`, Sasori falls back to ignoring
+certificate errors while proxying HTTPS, which is less safe, so install the tool
+when you can.
 
-### Crawler Configuration
+## Creating a Puppeteer recording
 
-The `crawler` section contains settings related to the behavior of the crawler.
+Use Chrome to record your login steps, then point `recorderAuth.pptrRecording`
+at the exported file.
 
-- **entryPoint**: (string) URL of the entry point from where the crawling starts. Required.
-- **eventTimeout**: (integer) Timeout (in milliseconds) for waiting for events during crawling. Required.
-- **navigationTimeout**: (integer) Timeout (in milliseconds) for waiting for navigation to complete during crawling. Required.
-- **eventWait**: (integer) Timeout (in milliseconds) for waiting between events during crawling. Required.
-- **maxDuration**: (integer) Maximum duration (in milliseconds) for the crawling process. `0` means crawl indefinitely. Required.
-- **elements**: (array of css paths) List of HTML css paths to click during crawling. Required.
-- **maxChildren**: (integer) Maximum number of child elements to crawl from each parent state. `0` means infinite children. Required.
-- **maxDepth**: (integer) Maximum depth of the crawling process. `0` means infinite depth. Required.
-- **authentication**: (object) Authentication settings for crawler.
-  - **basicAuth**: (object) Configuration for HTTP basic authentication.
-    - **enabled**: (boolean) Specifies whether basic authentication is enabled.
-    - **username**: (string) Username for basic authentication. Required if `enabled` is `true`.
-    - **password**: (string) Password for basic authentication. Required if `enabled` is `true`.
-  - **recorderAuth**: (object) Configuration for recorder based authentication.
-    - **enabled**: (boolean) Specifies whether recorder based authentication is enabled.
-    - **pptrRecording**: (string) Path to [Puppeteer recording](#creating-a-puppeteer-recording) for authentication. Required if `enabled` is `true`.
-
-Example:
-
-```json
-{
-  "crawler": {
-    "entryPoint": "https://example.com",
-    "eventTimeout": 10000,
-    "navigationTimeout": 30000,
-    "eventWait": 1000,
-    "maxDuration": 600000,
-    "elements": ["a", "button", "input[type=\"submit\"]"],
-    "maxChildren": 10,
-    "maxDepth": 5,
-    "authentication": {
-      "basicAuth": {
-        "enabled": true,
-        "username": "user",
-        "password": "password"
-      },
-      "recorderAuth": {
-        "enabled": false,
-        "pptrRecording": "/path/to/pptr/recording.json"
-      }
-    },
-    "includeRegexes": ["https?://example\\.com(?:/.*|)"],
-    "excludeRegexes": ["^.*\\.pdf$", "https?://example\\.com/logout"]
-  }
-}
-```
-
-### Creating a puppeteer recording
-1. Open DevTools in Google Chrome and click on the 3 dots icon in the top-right corner.
+1. Open DevTools in Google Chrome and click the three dots in the top right corner.
 
 <p align="center">
   <img src="resources/devtools-options.png" alt="DevTools Options">
 </p>
 
-2. Go to `More tools` > `Recorder`.
+2. Go to `More tools` then `Recorder`.
 
 <p align="center">
   <img src="resources/recorder.png" alt="Recorder">
 </p>
 
-3. Click on `Create a new recording`.
+3. Click `Create a new recording`.
 
-4. Give a name to your recording and then click on `Start recording`.
+4. Give it a name and click `Start recording`.
 
-5. Create the recording and then click on `End recording`.
+5. Do the login steps, then click `End recording`.
 
 <p align="center">
   <img src="resources/create-recording.gif" alt="Create Recording">
 </p>
 
-7. If you want to execute a custom JS script while authenticating, add another step in the auth flow, set the type as `customStep`, set the name as `executeScript` and lastly in the `parameters` field add a JSON object with a `target` key and the value should be the script that you want to run.
-
-<!--
-<p align="center">
-  <img src="resources/custom-js.png" alt="Execute custom JS step">
-</p>
--->
-
-6. Lastly export the recording by clicking on the downward arrow and then choosing `JSON` as the type.
+6. Export the recording by clicking the download arrow and choosing `JSON`.
 
 <p align="center">
   <img src="resources/export-recording.png" alt="Export Recording">
 </p>
 
-## Contributing:
+To run a custom script during login, add a step to the flow, set its type to
+`customStep`, set its name to `executeScript`, and in the `parameters` field add
+a JSON object with a `target` key whose value is the script you want to run.
 
-Contributions to Sasori are welcome! If you encounter any bugs, have feature requests, or would like to contribute code improvements, please follow the guidelines in the [CONTRIBUTING.md](CONTRIBUTING.md) file.
+## Contributing
 
-## License:
+Contributions are welcome. If you find a bug, have an idea, or want to improve
+the code, please read [CONTRIBUTING.md](CONTRIBUTING.md) first.
 
-This project is licensed under the [MIT License](LICENSE).
+## License
+
+Sasori is released under the [MIT License](LICENSE).
+</content>
+</invoke>
