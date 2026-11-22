@@ -100,6 +100,23 @@ Nothing else about commit style changes: a precise subject line and a body that
 explains *why* the change is right, with the measurement or the failing case that
 motivated it, is still the bar.
 
+### Update the changelog on every branch
+
+**Every branch updates `CHANGELOG.md` before it is merged.** Add an entry under
+`## Unreleased`, in the section that fits: `Breaking`, `Added`, `Changed` or
+`Fixed`. Write it for someone upgrading Sasori: what changed for them, not how
+it was built. Give the ticket ID where there is one, and put anything that can
+break an existing config or command under `Breaking`.
+
+This is a rule because the changelog has already decayed once. It stopped at
+1.0.0 in July 2024 and missed 39 commits, the TypeScript port and API mode among
+them, until it was rebuilt from git history. A changelog written at release time
+is reconstructed from memory, and the breaking changes are what get lost.
+
+A branch with no user-visible effect, such as a test-only change or a CI tweak,
+still says so in its pull request, so a missing entry is a decision and not an
+oversight. The file uses CRLF line endings; keep them.
+
 ## Architecture
 
 ### Two entry modes, one crawler
