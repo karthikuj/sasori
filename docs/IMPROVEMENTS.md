@@ -13,6 +13,8 @@ This document lists **analysis-only** improvement ideas for the codebase. It is 
 
 ### Multiple seed URLs (array of entry points)
 
+> **Ticketed:** planned as the multi-seed graph foundation in **SCAN-229** (shared with sitemap/robots seeding below and with SCAN-44).
+
 - **Today**: config exposes a single **`entryPoint`**; startup builds **one** root `CrawlState` after `goto(entryPoint)`.
 - **Desired**: an **array of seed URLs** (or `entryPoints`) so crawling can start from several places without duplicating runs.
 - **Graph shape**: one seed → tree-like exploration (with hash-based merges). Multiple seeds → a **forest** of disjoint subgraphs at first, until exploration discovers a **shared crawl state** (same stripped DOM **`stateHash`** as an existing `CrawlState`) — then subgraphs **join** at that vertex.
@@ -25,6 +27,8 @@ This document lists **analysis-only** improvement ideas for the codebase. It is 
 - **Relation to other items**: multi-seed support interacts with **multi-browser concurrency** (shared queue vs races) and with **indexes** (e.g. `Map<stateHash, CrawlState>`) for fast merge detection.
 
 ### robots.txt and sitemap.xml (discovery & extra seeds)
+
+> **Ticketed as SCAN-229** (`Sitemap.xml and robots.txt as crawl seeds`), which owns both this discovery layer and the multi-seed graph foundation it feeds. The notes below are the original analysis; the ticket carries the locked-in plan.
 
 **Goal:** broaden **starting URL set** using standard site signals: **`robots.txt`** (policy + `Sitemap:` lines) and **`sitemap.xml`** / **sitemap index** (`<loc>` URLs), then feed those URLs into the same **scope** and **crawl pipeline** as `entryPoint` (eventually as **additional seeds** once multi-seed exists, or as a **pre-queue** of `goto` targets).
 
@@ -170,6 +174,6 @@ Some “buttons” use **`href="#"`** or **`javascript:void(0)`** and rely on **
 2. Align **Joi / `ConfigValidator`** so optional crawler fields (e.g. **`maxActionRetries`**) are not accidentally stripped.
 3. **Document or fix** multi-browser + shared manager semantics.
 4. Revisit cost of **`[click]`** / CDP-based listener discovery on large DOMs.
-5. Support **multiple seed URLs** (see *Multiple seed URLs* under graph algorithms) — config + manager + replay semantics.
-6. **robots.txt + sitemap.xml** discovery (see subsection under graph algorithms): fetch/parse, merge with `entryPoint`, scope filters, optional `respectRobots`, limits and proxy alignment.
+5. Support **multiple seed URLs** (see *Multiple seed URLs* under graph algorithms) — config + manager + replay semantics. **(SCAN-229)**
+6. **robots.txt + sitemap.xml** discovery (see subsection under graph algorithms): fetch/parse, merge with `entryPoint`, scope filters, optional `respectRobots`, limits and proxy alignment. **(SCAN-229)**
 7. **Out-of-scope link pruning** (see *Out-of-scope link pruning* under Performance): resolve `href` with **document URL** + **`<base>`**, then **`inContext`** — skip crawl actions for anchors that would navigate out of scope; handle **non-HTTP** `href` schemes and SPA edge cases carefully.
