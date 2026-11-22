@@ -1,12 +1,12 @@
 <h1 align="center">
   <br>
-  <img src="https://karthikuj.github.io/images/sasori-logo.png" alt="Sasori Logo" width="200" />
+  <img src="resources/sasori-logo.png" alt="Sasori Logo" width="200" />
   <br>
   Sasori: Dynamic Web Crawler
   <br>
 </h1>
 
-<p align="center"><img src="https://karthikuj.github.io/images/sasori.gif" alt="Sasori Demo" width="700" /></p>
+<p align="center"><img src="resources/sasori.gif" alt="Sasori Demo" width="700" /></p>
 
 ## Project Description:
 
@@ -185,13 +185,13 @@ Example:
 1. Open DevTools in Google Chrome and click on the 3 dots icon in the top-right corner.
 
 <p align="center">
-  <img src="https://karthikuj.github.io/images/devtools-options.png" alt="DevTools Options">
+  <img src="resources/devtools-options.png" alt="DevTools Options">
 </p>
 
 2. Go to `More tools` > `Recorder`.
 
 <p align="center">
-  <img src="https://karthikuj.github.io/images/recorder.png" alt="Recorder">
+  <img src="resources/recorder.png" alt="Recorder">
 </p>
 
 3. Click on `Create a new recording`.
@@ -201,19 +201,21 @@ Example:
 5. Create the recording and then click on `End recording`.
 
 <p align="center">
-  <img src="https://karthikuj.github.io/images/create-recording.gif" alt="Create Recording">
+  <img src="resources/create-recording.gif" alt="Create Recording">
 </p>
 
 7. If you want to execute a custom JS script while authenticating, add another step in the auth flow, set the type as `customStep`, set the name as `executeScript` and lastly in the `parameters` field add a JSON object with a `target` key and the value should be the script that you want to run.
 
+<!--
 <p align="center">
-  <img src="https://karthikuj.github.io/images/custom-js.png" alt="Create Recording">
+  <img src="resources/custom-js.png" alt="Execute custom JS step">
 </p>
+-->
 
 6. Lastly export the recording by clicking on the downward arrow and then choosing `JSON` as the type.
 
 <p align="center">
-  <img src="https://karthikuj.github.io/images/export-recording.png" alt="Export Recording">
+  <img src="resources/export-recording.png" alt="Export Recording">
 </p>
 
 ## Contributing:
