@@ -1,0 +1,49 @@
+{
+    "browser": {
+        "headless": true,
+        "maximize": true,
+        "proxy": {
+            "enabled": false,
+            "host": "127.0.0.1",
+            "port": 3200
+        },
+        "instances": 4
+    },
+    "crawler": {
+        "entryPoint": "https://security-crawl-maze.app/",
+        "eventTimeout": 10000,
+        "navigationTimeout": 30000,
+        "eventWait": 0,
+        "debugNetwork": false,
+        "maxActionRetries": 3,
+        "maxDuration": 0,
+        "elements": [
+            "a",
+            "button",
+            "input[type=\"submit\"]",
+            "[click]"
+        ],
+        "maxChildren": 0,
+        "maxDepth": 10,
+        "authentication": {
+            "basicAuth": {
+                "enabled": false,
+                "username": "username",
+                "password": "password"
+            },
+            "recorderAuth": {
+                "enabled": false,
+                "pptrRecording": ""
+            }
+        },
+        "includeRegexes": [
+            "https?://security-crawl-maze\\.app(?:/.*|)"
+        ],
+        "excludeRegexes": [
+            ".*logout.*"
+        ],
+        "sitemap": {
+            "enabled": true
+        }
+    }
+}

@@ -213,6 +213,20 @@ Settings for how the crawl behaves.
 - **includeRegexes**: a URL counts as in scope when it matches one of these.
 - **excludeRegexes**: a URL is dropped when it matches one of these, even if it was included.
 - **debugNetwork**: log extra network detail while crawling.
+- **extraSeeds**: more URLs to start crawling from, as well as `entryPoint`.
+  Each one starts its own crawl tree. Trees that reach the same page merge.
+  Sasori skips seeds that are out of scope.
+- **sitemap**: find more starting URLs in the site's `robots.txt` and sitemaps.
+  Sasori reads them from the entry point's origin before the crawl starts.
+  Seeds load one at a time, and that time counts toward `maxDuration`. When
+  time runs out, Sasori stops loading seeds and crawls from the ones it has.
+  - **enabled**: turn sitemap discovery on.
+  - **maxSeedUrls**: the most starting URLs to take from sitemaps. Default `100`.
+  - **maxSitemapDepth**: how many levels of sitemap index to follow. Default `3`.
+  - **maxSitemapUrls**: the most URLs to read across all sitemaps. Default `5000`.
+  - **respectRobots**: obey `robots.txt` `Allow` and `Disallow` rules for the
+    whole crawl, not only for the starting URLs. A disallowed URL is treated
+    as out of scope. Default `true`.
 - **authentication**: login settings.
   - **basicAuth**: HTTP Basic auth.
     - **enabled**: turn Basic auth on.
@@ -270,7 +284,15 @@ size. Leave this section out to log to the screen only.
       }
     },
     "includeRegexes": ["https?://demo.testfire.net(?:/.*|)"],
-    "excludeRegexes": [".*logout.*"]
+    "excludeRegexes": [".*logout.*"],
+    "extraSeeds": [],
+    "sitemap": {
+      "enabled": false,
+      "maxSeedUrls": 100,
+      "maxSitemapDepth": 3,
+      "maxSitemapUrls": 5000,
+      "respectRobots": true
+    }
   },
   "logging": {
     "file": "logs/sasori.log",

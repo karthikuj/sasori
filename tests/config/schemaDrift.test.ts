@@ -21,8 +21,9 @@
 
 import Joi from 'joi';
 
-import configModel from '../../src/models/configModel';
-import { configSchema } from '../../src/config/configSchema';
+import configModel, { validateConfig as validateLiveConfig } from '../../src/models/configModel';
+import { configSchema, validateConfig as validateSchemaConfig } from '../../src/config/configSchema';
+import { CrawlerConfig } from '../../src/types';
 
 /** A Joi `describe()` result, narrowed to the part this test walks. */
 interface SchemaDescription {
@@ -133,5 +134,69 @@ describe('maxActionRetries reaches the crawler (SCAN-89)', () => {
         expect(() => ConfigValidator.validate(configWith({ maxActionRetries: 99 }))).toThrow(
             /maxActionRetries/,
         );
+    });
+});
+
+describe('seed options reach the crawler (SCAN-229)', () => {
+    function configWith(overrides: Record<string, unknown>): CrawlerConfig {
+        const base = global.testUtils.createValidConfig();
+        Object.assign(base.crawler, overrides);
+        return base;
+    }
+
+    type Validate = (c: unknown) => { error?: unknown; value?: CrawlerConfig };
+    const layers: Array<[string, Validate]> = [
+        ['configModel (live)', (c) => validateLiveConfig(c)],
+        ['configSchema', (c) => validateSchemaConfig(c)],
+    ];
+
+    it('declares every sitemap key in the live model', () => {
+        const live = declaredKeys(configModel);
+        for (const key of [
+            'crawler.extraSeeds',
+            'crawler.sitemap',
+            'crawler.sitemap.enabled',
+            'crawler.sitemap.maxSeedUrls',
+            'crawler.sitemap.maxSitemapDepth',
+            'crawler.sitemap.maxSitemapUrls',
+            'crawler.sitemap.respectRobots',
+        ]) {
+            expect(live).toContain(key);
+        }
+    });
+
+    describe.each(layers)('%s', (_name, validate) => {
+        it('keeps a full sitemap block and extraSeeds through validation', () => {
+            const sitemap = { enabled: true, maxSeedUrls: 50, maxSitemapDepth: 2, maxSitemapUrls: 1000, respectRobots: false };
+            const result = validate(configWith({ sitemap, extraSeeds: ['https://example.com/app'] }));
+            expect(result.error).toBeFalsy();
+            expect(result.value?.crawler.sitemap).toEqual(sitemap);
+            expect(result.value?.crawler.extraSeeds).toEqual(['https://example.com/app']);
+        });
+
+        it('leaves both optional', () => {
+            const result = validate(configWith({}));
+            expect(result.error).toBeFalsy();
+            expect(result.value?.crawler.sitemap).toBeUndefined();
+            expect(result.value?.crawler.extraSeeds).toBeUndefined();
+        });
+
+        it('requires sitemap.enabled', () => {
+            expect(validate(configWith({ sitemap: { maxSeedUrls: 5 } })).error).toBeTruthy();
+        });
+
+        it.each([
+            ['maxSeedUrls', 0],
+            ['maxSitemapDepth', -1],
+            ['maxSitemapDepth', 6],
+            ['maxSitemapUrls', 0],
+        ])('rejects sitemap.%s = %p', (key, value) => {
+            expect(validate(configWith({ sitemap: { enabled: true, [key]: value } })).error).toBeTruthy();
+        });
+
+        it('rejects a non-http extra seed', () => {
+            expect(validate(configWith({ extraSeeds: ['ftp://example.com/x'] })).error).toBeTruthy();
+            expect(validate(configWith({ extraSeeds: ['not a url'] })).error).toBeTruthy();
+        });
     });
 });

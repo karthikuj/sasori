@@ -8,6 +8,7 @@ import {
     BasicAuthConfig,
     RecorderAuthConfig,
     ProxyConfig,
+    SitemapConfig,
     TlsConfig,
 } from '../types';
 
@@ -92,6 +93,18 @@ export const browserSchema = Joi.object<BrowserConfig>({
 }).required();
 
 /**
+ * Seed discovery from robots.txt and sitemap.xml (SCAN-229). Kept identical in
+ * configModel.ts and configSchema.ts.
+ */
+export const sitemapSchema: Joi.ObjectSchema<SitemapConfig> = Joi.object({
+    enabled: Joi.boolean().required(),
+    maxSeedUrls: Joi.number().integer().min(1).max(10000).optional(),
+    maxSitemapDepth: Joi.number().integer().min(0).max(5).optional(),
+    maxSitemapUrls: Joi.number().integer().min(1).max(1000000).optional(),
+    respectRobots: Joi.boolean().optional(),
+});
+
+/**
  * Crawler settings schema
  */
 export const crawlerSchema = Joi.object<CrawlerSettings>({
@@ -115,6 +128,9 @@ export const crawlerSchema = Joi.object<CrawlerSettings>({
     crawlGraphFile: Joi.string().optional(),
     recordCrawlGraph: Joi.boolean().optional(),
     maxCrawlGraphEdges: Joi.number().integer().min(0).optional(),
+    // SCAN-229. Declared in both Joi layers; schemaDrift.test.ts enforces it.
+    extraSeeds: Joi.array().items(Joi.string().uri({ scheme: ['http', 'https'] })).max(1000).optional(),
+    sitemap: sitemapSchema.optional(),
 }).required();
 
 /**

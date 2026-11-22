@@ -28,6 +28,7 @@ import DomStripper from './domStripper';
 import EndpointInventory from './endpointInventory';
 import ScopeMatcher from './scopeMatcher';
 import UrlSink from './urlSink';
+import { discoverSeeds, MAX_SEED_BODY_BYTES, normalizeSeedUrl } from './seedDiscovery';
 import authenticate from '../auth/authenticator';
 import { CrawlerConfig, CrawlerSettings } from '../types/crawler';
 import { CrawlInventory } from '../types/inventory';
@@ -747,35 +748,14 @@ class Crawler {
                 throw new Error('No pages available for crawling');
             }
 
-            {
-                const maxRetries = this.crawlerConfig.maxActionRetries ?? 3;
-                let success = false;
-                for (let attempt = 1; attempt <= maxRetries; attempt++) {
-                    if (this.abortController.signal.aborted) {
-                        return;
-                    }
-                    try {
-                        await firstPage.goto(this.crawlerConfig.entryPoint, { waitUntil: ['domcontentloaded'] });
-                        await firstPage.waitForFunction(() => document.readyState === 'complete', { timeout: this.crawlerConfig.navigationTimeout });
-                        success = true;
-                        break;
-                    } catch (error) {
-                        console.error(chalk.red(`[ERROR] Failed to navigate to entry point (attempt ${attempt}/${maxRetries}): ${error instanceof Error ? error.message : 'Unknown error'}`));
-                        if (attempt < maxRetries) {
-                            await new Promise(resolve => setTimeout(resolve, 500));
-                        }
-                    }
-                }
-                if (!success) {
-                    throw new Error('Crawler initialization failed: exhausted retries navigating to entry point');
-                }
-            }
+            const roots = await this.seedCrawl(firstPage, crawlManager);
             if (this.abortController.signal.aborted) {
                 return;
             }
-            const rootStateHash = await this.getPageHash(firstPage);
-            const rootState = await this.getNewCrawlState(firstPage, 0, rootStateHash, crawlManager, 'link');
-            crawlManager.attachRootState(rootState);
+            const rootState = roots[0];
+            if (!rootState) {
+                throw new Error('Crawler initialization failed: no seed URL could be loaded (exhausted retries navigating to entry point)');
+            }
 
             const delay = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
             const handleCrawls = browsers.map((browser, index) => async () => {
@@ -816,6 +796,223 @@ class Crawler {
             this.writeInventoryFile();
             this.writeCrawlGraphFile();
             await this.closeOutputFile();
+        }
+    }
+
+    /**
+     * Navigates a page to a URL, retrying up to `maxActionRetries` times.
+     * @param page - Page to drive.
+     * @param url - URL to load.
+     * @param label - What the URL is, for the log.
+     * @return True once the page has loaded; false when every attempt failed
+     * or the crawl was stopped.
+     */
+    private async navigateWithRetries(page: Page, url: string, label: string): Promise<boolean> {
+        const maxRetries = this.crawlerConfig.maxActionRetries ?? 3;
+        for (let attempt = 1; attempt <= maxRetries; attempt++) {
+            if (this.abortController.signal.aborted) {
+                return false;
+            }
+            try {
+                await page.goto(url, { waitUntil: ['domcontentloaded'] });
+                await page.waitForFunction(() => document.readyState === 'complete', { timeout: this.crawlerConfig.navigationTimeout });
+                return true;
+            } catch (error) {
+                console.error(chalk.red(`[ERROR] Failed to navigate to ${label} ${url} (attempt ${attempt}/${maxRetries}): ${errorMessage(error)}`));
+                if (attempt < maxRetries) {
+                    await new Promise(resolve => setTimeout(resolve, 500));
+                }
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Builds the crawl forest's roots, one per seed URL (SCAN-229).
+     *
+     * The entry point is always the first seed. When `sitemap.enabled`, the
+     * entry origin's robots.txt and sitemaps are read for more; `extraSeeds`
+     * adds the operator's own. Each seed is loaded on `page` in turn and becomes
+     * a depth-0 `link` state — its own URL is then a valid replay baseline, which
+     * is all the replay planner needs to move a browser between trees.
+     *
+     * Runs before any browser pops the shared frontier, so none of this races.
+     * A seed that fails to load, leaves scope or redirects out of it is skipped;
+     * a seed whose DOM matches a state already held merges onto it rather than
+     * becoming a second root. The caller decides what zero roots means.
+     *
+     * @param page - Page to load the seeds on.
+     * @param crawlManager - Manager the roots are added to.
+     * @return The roots, entry point first when it loaded.
+     */
+    async seedCrawl(page: Page, crawlManager: CrawlStateManager): Promise<CrawlState[]> {
+        const entryPoint = this.crawlerConfig.entryPoint;
+        const seeded = new Set<string>();
+
+        await this.addSeedRoot(page, entryPoint, crawlManager, 'entry point');
+        seeded.add(normalizeSeedUrl(entryPoint) ?? entryPoint);
+
+        // maxDuration bounds the whole crawl, seeding included. Seeds load one at
+        // a time on one page, so a large seed list would otherwise spend the
+        // crawl's entire budget before any browser started clicking.
+        const discovered = this.crawlerConfig.sitemap?.enabled && !this.isPastEndTime()
+            ? await this.discoverSitemapSeeds(page)
+            : [];
+
+        // Explicit seeds first: the operator asked for them by name, whereas
+        // sitemap seeds are capped and fill whatever room is left.
+        const candidates: string[] = [];
+        for (const raw of [...(this.crawlerConfig.extraSeeds ?? []), ...discovered]) {
+            const url = normalizeSeedUrl(raw);
+            if (!url || seeded.has(url)) {
+                continue;
+            }
+            seeded.add(url);
+            if (!this.inContext(url)) {
+                console.log(chalk.yellow(`[INFO] Skipping out-of-scope seed ${url}`));
+                continue;
+            }
+            candidates.push(url);
+        }
+
+        for (const [index, url] of candidates.entries()) {
+            if (this.abortController.signal.aborted) {
+                break;
+            }
+            if (this.isPastEndTime()) {
+                console.warn(chalk.yellow(
+                    `[WARN] maxDuration reached while seeding; skipping the last ${candidates.length - index} of ${candidates.length} seed(s).`,
+                ));
+                break;
+            }
+            await this.addSeedRoot(page, url, crawlManager, 'seed');
+        }
+
+        const roots = crawlManager.getRootStates();
+        if (roots.length > 1) {
+            console.log(chalk.greenBright(`[INFO] Crawling from ${roots.length} seed states.`));
+        }
+        return roots;
+    }
+
+    /**
+     * Whether the crawl's time budget is spent. False when there is no budget
+     * (`maxDuration` 0) or the crawl has not started its clock.
+     */
+    private isPastEndTime(): boolean {
+        return this.crawlerConfig.maxDuration !== 0 && this.endTime !== null && Date.now() >= this.endTime;
+    }
+
+    /**
+     * Loads one seed and adds it as a root, unless it fails, leaves scope, or
+     * lands on a DOM state the crawl already holds.
+     * @return The new root, or null when nothing was added.
+     */
+    private async addSeedRoot(
+        page: Page,
+        url: string,
+        crawlManager: CrawlStateManager,
+        label: string,
+    ): Promise<CrawlState | null> {
+        try {
+            if (!(await this.navigateWithRetries(page, url, label))) {
+                return null;
+            }
+            // A redirect can carry a seed somewhere the crawl may not go.
+            if (!this.inContext(page.url())) {
+                console.log(chalk.yellow(`[INFO] Seed ${url} redirected out of scope to ${page.url()}; skipping.`));
+                return null;
+            }
+            const stateHash = await this.getPageHash(page);
+            if (crawlManager.getStateByHash(stateHash)) {
+                // Two seeds rendering one DOM (both redirecting to a login page,
+                // say) are one state; a second root would crawl it twice.
+                this.debugLog(`seed ${url} matches a known state; merged`);
+                return null;
+            }
+            const state = await this.getNewCrawlState(page, 0, stateHash, crawlManager, 'link');
+            crawlManager.addRootState(state);
+            this.graphRecorder?.markRoot(state.stateId);
+            return state;
+        } catch (error) {
+            if (!this.abortController.signal.aborted) {
+                console.error(chalk.red(`[ERROR] Could not seed from ${url}: ${errorMessage(error)}`));
+            }
+            return null;
+        }
+    }
+
+    /**
+     * Reads the entry origin's robots.txt and sitemaps and returns the seed
+     * URLs they list. When `respectRobots` (the default) the robots rules are
+     * installed into scope for the whole crawl, so a disallowed URL is refused
+     * exactly as an excluded one is. Never throws: discovery failing leaves the
+     * crawl with the seeds it already has.
+     * @param page - Page to fetch with.
+     * @return Seed URLs, sorted and capped.
+     */
+    private async discoverSitemapSeeds(page: Page): Promise<string[]> {
+        const settings = this.crawlerConfig.sitemap!;
+        const origin = new URL(this.crawlerConfig.entryPoint).origin;
+        const respectRobots = settings.respectRobots ?? true;
+        try {
+            const result = await discoverSeeds(
+                (url) => this.fetchSeedResource(page, url),
+                origin,
+                {
+                    maxSeedUrls: settings.maxSeedUrls ?? 100,
+                    maxSitemapDepth: settings.maxSitemapDepth ?? 3,
+                    maxSitemapUrls: settings.maxSitemapUrls ?? 5000,
+                    respectRobots,
+                    inScope: (url) => this.inContext(url),
+                },
+            );
+            if (respectRobots && result.robotsRules.length > 0) {
+                this.scope.setRobotsRules(origin, result.robotsRules);
+                if (!this.inContext(this.crawlerConfig.entryPoint)) {
+                    console.warn(chalk.yellow(
+                        `[WARN] robots.txt disallows the entry point ${this.crawlerConfig.entryPoint}; ` +
+                        'set crawler.sitemap.respectRobots to false to crawl it anyway.',
+                    ));
+                }
+            }
+            console.log(chalk.greenBright(
+                `[INFO] Sitemap discovery: ${result.seeds.length} seed(s) from ${result.sitemapsRead.length} sitemap(s)` +
+                (result.robots ? ', robots.txt read' : ', no robots.txt') +
+                (result.truncated ? ' (capped)' : '') + '.',
+            ));
+            return result.seeds;
+        } catch (error) {
+            console.error(chalk.red(`[ERROR] Sitemap discovery failed: ${errorMessage(error)}`));
+            return [];
+        }
+    }
+
+    /**
+     * Fetches robots.txt or a sitemap by loading it in the crawl's own page, so
+     * the request carries the configured proxy, MITM CA trust and session
+     * cookies without a second HTTP client. It also passes through request
+     * interception like every other request, so an out-of-scope sitemap is
+     * refused there too.
+     * @param page - Page to load with.
+     * @param url - Resource to fetch.
+     * @return The body, or null on a non-2xx, a failure, or an oversized body.
+     */
+    async fetchSeedResource(page: Page, url: string): Promise<string | null> {
+        try {
+            const response = await page.goto(url, { waitUntil: 'domcontentloaded' });
+            if (!response || !response.ok()) {
+                return null;
+            }
+            const body = await response.text();
+            if (body.length > MAX_SEED_BODY_BYTES) {
+                console.warn(chalk.yellow(`[WARN] Ignoring ${url}: body exceeds ${MAX_SEED_BODY_BYTES} bytes.`));
+                return null;
+            }
+            return body;
+        } catch (error) {
+            this.debugLog(`fetchSeedResource failed url=${url} error=${errorMessage(error)}`);
+            return null;
         }
     }
 

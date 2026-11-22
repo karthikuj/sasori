@@ -24,6 +24,8 @@ Benchmarks have no npm script — they run from `dist/`, so go through make:
 make bench-stripdom               # micro-benchmark DomStripper (FILTER=synth-deep to narrow)
 make bench-crawlmaze LABEL=before # timed crawl of security-crawl-maze.app
 make bench-crawlmaze-after        # crawl again, then diff against `before`
+make bench-crawlmaze LABEL=sitemap BENCH_CONFIG=bench/crawlmaze.sitemap.config.json
+                                  # same crawl with robots.txt/sitemap seeding on
 ```
 
 `make bench-stripdom` is the one to reach for when changing DOM stripping: it is
@@ -117,6 +119,8 @@ The crawler models the app as a graph built at runtime in `src/crawler/`:
 - **`CrawlAction`** (edge) — one click: element tag, `cssPath`, `actionHash` (structural hash of the node plus siblings), `parentState`, optional `childState`.
 - **`CrawlStateManager`** — owns `rootState` and the indexes: `stateByHash` for O(1) state merging, a ref-counted `actionSignatureRefCount` for duplicate-action detection, and an explicit LIFO `pendingFrontier` that `getNextCrawlAction()` pops from. The frontier is fed by `registerState()` and reseeded by `reindexFromRoot()`; it is **not** a DFS re-walk from the root on every call. `clearVisitedActions()` rebuilds it via a legacy DFS simulation that preserves the old ordering.
 
+**Several roots (SCAN-229).** The graph is a *forest*: one depth-0 `link` root per seed URL (`entryPoint` first, then `extraSeeds`, then sitemap seeds), held in `rootStates` with `rootState` mirroring the first. `Crawler.seedCrawl` builds them on one page before any browser pops the frontier, so seeding never races. Trees join wherever two branches reach the same hash, and a seed whose DOM is already held merges instead of becoming a root. Replay needed no new logic: each root is reached by a full navigation, so `getOptimizedReplayPlan` stops at a state's own seed. The one rule to keep: when no `link` ancestor is found, the baseline is the root the walk *ended on*, never `rootStates[0]`. The frontier is rebuilt with the entry point's actions on top, so its tree is explored first.
+
 State identity is purely hash-based: after an action, `getPageHash()` strips the DOM and SHA-256s it; if that hash matches an existing state the branch collapses onto it, otherwise a new child state is created and linked.
 
 ### Replay, not backtracking
@@ -125,7 +129,7 @@ Multiple browsers share one `CrawlStateManager`, so the page in front of you is 
 
 ### Scope enforcement
 
-Scope lives in request interception, not in the navigation code. Every page gets `setRequestInterception(true)`; in-scope URLs are logged/recorded and continued, out-of-scope ones are answered with a synthetic `403 Out of Sasori's scope` rather than being blocked. `inContext(url)` applies `includeRegexes` then `excludeRegexes`. While `authInProgress` is true the interceptor *temporarily widens* `includeRegexes` with whatever host the login flow hits — an SSO redirect legitimately mutates config at runtime.
+Scope lives in request interception, not in the navigation code. Every page gets `setRequestInterception(true)`; in-scope URLs are logged/recorded and continued, out-of-scope ones are answered with a synthetic `403 Out of Sasori's scope` rather than being blocked. `inContext(url)` applies `excludeRegexes`, then any installed robots.txt rules, then `includeRegexes`. Robots rules are installed only when `sitemap.enabled` and `sitemap.respectRobots` (the default). They are kept per origin and follow RFC 9309: the longest match wins, an `Allow` wins a tie, and `*`/`$` work. They can only narrow scope. While `authInProgress` is true the interceptor *temporarily widens* `includeRegexes` with whatever host the login flow hits — an SSO redirect legitimately mutates config at runtime.
 
 ### Concurrency
 
@@ -224,6 +228,7 @@ call sites and tests still go through it.
 | `ActionReplay` | `performAction`, input filling, pruning selectors that no longer resolve |
 | `ScopeMatcher` | `inContext` and the auth-time include widening |
 | `UrlSink` | the discovered-URL output stream |
+| `seedDiscovery` | robots.txt / sitemap parsing, RFC 9309 rule matching, capped seed collection behind an injected fetcher (SCAN-229) |
 
 ### Do not modify `domPath.ts`
 

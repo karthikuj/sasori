@@ -41,7 +41,15 @@
         ],
         "excludeRegexes": [
             ".*logout.*"
-        ]
+        ],
+        "extraSeeds": [],
+        "sitemap": {
+            "enabled": false,
+            "maxSeedUrls": 100,
+            "maxSitemapDepth": 3,
+            "maxSitemapUrls": 5000,
+            "respectRobots": true
+        }
     },
     "logging": {
         "file": "logs/sasori.log",

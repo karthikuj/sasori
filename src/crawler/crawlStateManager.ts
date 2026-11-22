@@ -9,6 +9,8 @@ export interface CrawlStateManagerInterface {
     visitedActions: Set<string>;
 
     attachRootState(root: CrawlState | null): void;
+    addRootState(root: CrawlState): void;
+    getRootStates(): CrawlState[];
     registerState(state: CrawlState): void;
     registerActionSignature(cssPath: string, actionHash: string): void;
     unregisterActionSignature(cssPath: string, actionHash: string): void;
@@ -29,9 +31,23 @@ export interface CrawlStateManagerInterface {
  */
 export class CrawlStateManager implements CrawlStateManagerInterface {
     /**
-     * The root state of the crawl graph
+     * The first root of the crawl graph (the entry point's state). Kept as a
+     * plain field because most readers only care about "the" root; the full
+     * forest lives in {@link rootStates}.
      */
     public rootState: CrawlState | null;
+
+    /**
+     * Every root of the crawl forest, in the order they were added (SCAN-229).
+     * A crawl with several seed URLs is a forest of trees that join wherever
+     * two branches reach the same DOM hash. Real roots, not a synthetic
+     * super-root: a fake node would leak into the inventory and crawl-graph
+     * artifacts, which promise to describe only states the crawl reached.
+     */
+    private readonly rootStates: CrawlState[] = [];
+
+    /** O(1) membership for {@link rootStates}; replay planning asks per step. */
+    private readonly rootSet: Set<CrawlState> = new Set();
 
     /**
      * Set of action IDs that have been visited to avoid duplicate processing
@@ -106,9 +122,10 @@ export class CrawlStateManager implements CrawlStateManagerInterface {
             }
         }
 
-        this.rootState = rootState ?? null;
+        this.rootState = null;
         this.visitedActions = new Set<string>();
-        if (this.rootState) {
+        if (rootState) {
+            this.setRoots([rootState]);
             this.reindexFromRoot();
         }
     }
@@ -128,8 +145,52 @@ export class CrawlStateManager implements CrawlStateManagerInterface {
         if (root !== null && root !== undefined && !this.isValidCrawlState(root)) {
             throw new Error('Invalid CrawlState provided to attachRootState');
         }
-        this.rootState = root ?? null;
+        this.setRoots(root ? [root] : []);
         this.reindexFromRoot();
+    }
+
+    /**
+     * Adds another root to the crawl forest — one per seed URL (SCAN-229).
+     * Adding a state that is already a root is a no-op. Seeding happens before
+     * any browser starts popping the frontier, so the full reindex here is off
+     * the concurrent path.
+     * @param root - A fully constructed depth-0 `link` state.
+     */
+    public addRootState(root: CrawlState): void {
+        if (!this.isValidCrawlState(root)) {
+            throw new Error('Invalid CrawlState provided to addRootState');
+        }
+        if (this.rootSet.has(root)) {
+            return;
+        }
+        this.setRoots([...this.rootStates, root]);
+        this.reindexFromRoot();
+    }
+
+    /**
+     * Every root of the crawl forest, in insertion order (entry point first).
+     * @return A copy, so callers cannot reorder the manager's roots.
+     */
+    public getRootStates(): CrawlState[] {
+        return [...this.rootStates];
+    }
+
+    /** Replaces the root list and keeps {@link rootState} and {@link rootSet} in step. */
+    private setRoots(roots: CrawlState[]): void {
+        this.rootStates.length = 0;
+        this.rootSet.clear();
+        for (const root of roots) {
+            if (!this.rootSet.has(root)) {
+                this.rootStates.push(root);
+                this.rootSet.add(root);
+            }
+        }
+        this.rootState = this.rootStates[0] ?? null;
+    }
+
+    /** Whether the state is one of the forest's roots. */
+    private isRoot(state: CrawlState): boolean {
+        return this.rootSet.has(state);
     }
 
     /**
@@ -175,10 +236,15 @@ export class CrawlStateManager implements CrawlStateManagerInterface {
     private rebuildPendingFrontierFromRoot(): void {
         this.pendingFrontier.length = 0;
         this.queuedActionIds.clear();
-        if (!this.rootState || !this.isValidCrawlState(this.rootState)) {
-            return;
+        // Later roots first: the frontier is LIFO, so this leaves the entry
+        // point's actions on top and its tree is explored first — the same
+        // order the legacy DFS rebuild produces after clearVisitedActions.
+        for (let i = this.rootStates.length - 1; i >= 0; i--) {
+            const root = this.rootStates[i]!;
+            if (this.isValidCrawlState(root)) {
+                this.enqueueActionsForState(root);
+            }
         }
-        this.enqueueActionsForState(this.rootState);
     }
 
     /**
@@ -220,13 +286,16 @@ export class CrawlStateManager implements CrawlStateManagerInterface {
     private reindexFromRoot(): void {
         this.stateByHash.clear();
         this.actionSignatureRefCount.clear();
-        if (!this.rootState) {
+        if (this.rootStates.length === 0) {
             this.pendingFrontier.length = 0;
             this.queuedActionIds.clear();
             return;
         }
 
-        const stack: CrawlState[] = [this.rootState];
+        // Every root seeds the walk; `visited` stops a state shared by two
+        // trees (a forest join) from being indexed twice. Reversed so the
+        // first root is popped — and indexed — first.
+        const stack: CrawlState[] = [...this.rootStates].reverse();
         const visited = new Set<string>();
 
         while (stack.length > 0) {
@@ -346,7 +415,7 @@ export class CrawlStateManager implements CrawlStateManagerInterface {
      * @returns The next unvisited CrawlAction, or null if all actions have been visited
      */
     public getNextCrawlAction(): CrawlAction | null {
-        if (!this.rootState) {
+        if (this.rootStates.length === 0) {
             return null;
         }
 
@@ -441,7 +510,7 @@ export class CrawlStateManager implements CrawlStateManagerInterface {
             throw new Error('actionHash must be a non-empty string');
         }
 
-        if (!this.rootState) {
+        if (this.rootStates.length === 0) {
             return true;
         }
 
@@ -534,22 +603,22 @@ export class CrawlStateManager implements CrawlStateManagerInterface {
             throw new Error('Invalid destinationState provided to getOptimizedReplayPlan method');
         }
 
-        if (!this.rootState) {
+        if (this.rootStates.length === 0) {
             return null;
         }
 
-        // If already at the root, there is nothing to replay.
-        if (this.rootState === destinationState) {
-            return { baselineUrl: this.rootState.url, actionsToReplay: [] };
+        // Any root is reached by a full navigation to its own URL, so landing
+        // on one needs nothing replayed.
+        if (this.isRoot(destinationState)) {
+            return { baselineUrl: destinationState.url, actionsToReplay: [] };
         }
 
         // Walk up from destination to find the nearest link ancestor
         const reversePath: CrawlAction[] = [];
         let currentState: CrawlState | null = destinationState;
-        let baselineUrl = this.rootState.url;
-        let foundLinkAncestor = false;
+        let baselineUrl: string | null = null;
 
-        while (currentState && currentState !== this.rootState) {
+        while (currentState && !this.isRoot(currentState)) {
             // Use the parentAction pointer on the state to move upward efficiently
             const parentAction: CrawlAction | null = currentState.parentAction ?? null;
             if (!parentAction) {
@@ -559,7 +628,6 @@ export class CrawlStateManager implements CrawlStateManagerInterface {
             // If this state arrived via link, we found our baseline
             if (currentState.arrivalType === 'link') {
                 baselineUrl = currentState.url;
-                foundLinkAncestor = true;
                 break; // Stop here - we found the nearest link ancestor
             }
 
@@ -569,12 +637,16 @@ export class CrawlStateManager implements CrawlStateManagerInterface {
             currentState = parentAction.parentState;
         }
 
-        // If we didn't reach root and didn't find a link ancestor, no valid path exists
-        if (currentState !== this.rootState && !foundLinkAncestor) {
-            return null;
+        if (baselineUrl === null) {
+            // No link ancestor below the root. The baseline is the root this
+            // walk actually reached — in a forest that is this tree's own seed,
+            // not whichever root happens to be first.
+            if (!currentState || !this.isRoot(currentState)) {
+                return null;
+            }
+            baselineUrl = currentState.url;
         }
 
-        // Return replay plan (same in both cases)
         return { baselineUrl, actionsToReplay: reversePath };
     }
 
@@ -593,17 +665,20 @@ export class CrawlStateManager implements CrawlStateManagerInterface {
      * executed set — used only to rebuild the frontier after clearVisited.
      */
     private findNextActionLegacyDFS(visitedExec: Set<string>): CrawlAction | null {
-        if (!this.rootState) {
+        if (this.rootStates.length === 0) {
             return null;
         }
 
         try {
-            const rootActions = this.rootState.getCrawlActions();
-            if (!Array.isArray(rootActions)) {
-                return null;
+            // Roots are walked in order: the stack is LIFO, so later roots'
+            // actions go underneath earlier ones.
+            const stack: CrawlAction[] = [];
+            for (let i = this.rootStates.length - 1; i >= 0; i--) {
+                const rootActions = this.rootStates[i]!.getCrawlActions();
+                if (Array.isArray(rootActions)) {
+                    stack.push(...rootActions);
+                }
             }
-
-            const stack: CrawlAction[] = [...rootActions];
             const visited = new Set<string>();
 
             while (stack.length > 0) {
@@ -644,7 +719,7 @@ export class CrawlStateManager implements CrawlStateManagerInterface {
     private rebuildPendingFrontierAfterClearVisited(): void {
         this.pendingFrontier.length = 0;
         this.queuedActionIds.clear();
-        if (!this.rootState) {
+        if (this.rootStates.length === 0) {
             return;
         }
 
@@ -682,7 +757,7 @@ export class CrawlStateManager implements CrawlStateManagerInterface {
      * @returns String representation of the manager
      */
     public toString(): string {
-        return `CrawlStateManager(rootState: ${this.rootState ? this.rootState.url : 'null'}, visitedActions: ${this.visitedActions.size})`;
+        return `CrawlStateManager(rootState: ${this.rootState ? this.rootState.url : 'null'}, roots: ${this.rootStates.length}, visitedActions: ${this.visitedActions.size})`;
     }
 }
 

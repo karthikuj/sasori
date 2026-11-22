@@ -136,7 +136,11 @@ export function countEdgeStatuses(edges: CrawlGraphEdge[]): Record<CrawlGraphEdg
  */
 export function buildCrawlGraph(manager: CrawlStateManager, entryPoint: string): CrawlGraph {
     const states = manager.getStates();
-    const root = manager.rootState;
+    // Every seed is a root (SCAN-229); a crawl with one entry point has one.
+    const rootIds = new Set(manager.getRootStates().map((r) => r.stateId));
+    if (rootIds.size === 0 && manager.rootState) {
+        rootIds.add(manager.rootState.stateId);
+    }
 
     const edges: CrawlGraphEdge[] = [];
     const seen = new Set<string>();
@@ -211,7 +215,7 @@ export function buildCrawlGraph(manager: CrawlStateManager, entryPoint: string):
         arrivalType: state.arrivalType,
         actions: outDegree.get(state.stateId) ?? 0,
         inputs: state.crawlInputs.length,
-        isRoot: root != null && state.stateId === root.stateId,
+        isRoot: rootIds.has(state.stateId),
     }));
 
     return {
