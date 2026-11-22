@@ -224,6 +224,53 @@ describe('Crawler.seedCrawl', () => {
         });
     });
 
+    describe('maxDuration', () => {
+        const site = (): Record<string, FakeResource> => ({
+            [ENTRY]: {},
+            'https://shop.test/a': {},
+            'https://shop.test/b': {},
+            'https://shop.test/robots.txt': { body: 'User-agent: *' },
+            'https://shop.test/sitemap.xml': { body: urlset('https://shop.test/c') },
+            'https://shop.test/c': {},
+        });
+
+        async function seedWithClock(maxDuration: number, endTime: number | null) {
+            const config = makeConfig({ maxDuration, extraSeeds: ['https://shop.test/a', 'https://shop.test/b'], sitemap: { enabled: true } });
+            const s = site();
+            const crawler = makeCrawler(config, s);
+            crawler.endTime = endTime;
+            const fake = fakePage(s);
+            const roots = await crawler.seedCrawl(fake.page, new CrawlStateManager());
+            return { urls: roots.map((r) => r.url), loads: fake.loads };
+        }
+
+        it('stops seeding, and skips discovery, once the crawl is out of time', async () => {
+            const warn = console.warn as jest.Mock;
+            warn.mockClear();
+            const { urls, loads } = await seedWithClock(60000, Date.now() - 1);
+
+            // The entry point is always tried; nothing after it is.
+            expect(urls).toEqual([ENTRY]);
+            expect(loads).toEqual([ENTRY]);
+            expect(warn.mock.calls.flat().join(' ')).toMatch(/skipping the last 2 of 2 seed\(s\)/);
+        });
+
+        it('seeds everything while time remains', async () => {
+            const { urls } = await seedWithClock(60000, Date.now() + 60000);
+            expect(urls).toEqual([ENTRY, 'https://shop.test/a', 'https://shop.test/b', 'https://shop.test/c']);
+        });
+
+        it('never cuts seeding short when maxDuration is 0 (unlimited)', async () => {
+            const { urls } = await seedWithClock(0, Date.now() - 1);
+            expect(urls).toHaveLength(4);
+        });
+
+        it('does not cut seeding short before the crawl has started its clock', async () => {
+            const { urls } = await seedWithClock(60000, null);
+            expect(urls).toHaveLength(4);
+        });
+    });
+
     describe('sitemap discovery', () => {
         const site = (): Record<string, FakeResource> => ({
             [ENTRY]: {},

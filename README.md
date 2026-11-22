@@ -218,6 +218,8 @@ Settings for how the crawl behaves.
   Sasori skips seeds that are out of scope.
 - **sitemap**: find more starting URLs in the site's `robots.txt` and sitemaps.
   Sasori reads them from the entry point's origin before the crawl starts.
+  Seeds load one at a time, and that time counts toward `maxDuration`. When
+  time runs out, Sasori stops loading seeds and crawls from the ones it has.
   - **enabled**: turn sitemap discovery on.
   - **maxSeedUrls**: the most starting URLs to take from sitemaps. Default `100`.
   - **maxSitemapDepth**: how many levels of sitemap index to follow. Default `3`.

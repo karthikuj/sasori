@@ -852,7 +852,10 @@ class Crawler {
         await this.addSeedRoot(page, entryPoint, crawlManager, 'entry point');
         seeded.add(normalizeSeedUrl(entryPoint) ?? entryPoint);
 
-        const discovered = this.crawlerConfig.sitemap?.enabled
+        // maxDuration bounds the whole crawl, seeding included. Seeds load one at
+        // a time on one page, so a large seed list would otherwise spend the
+        // crawl's entire budget before any browser started clicking.
+        const discovered = this.crawlerConfig.sitemap?.enabled && !this.isPastEndTime()
             ? await this.discoverSitemapSeeds(page)
             : [];
 
@@ -872,8 +875,14 @@ class Crawler {
             candidates.push(url);
         }
 
-        for (const url of candidates) {
+        for (const [index, url] of candidates.entries()) {
             if (this.abortController.signal.aborted) {
+                break;
+            }
+            if (this.isPastEndTime()) {
+                console.warn(chalk.yellow(
+                    `[WARN] maxDuration reached while seeding; skipping the last ${candidates.length - index} of ${candidates.length} seed(s).`,
+                ));
                 break;
             }
             await this.addSeedRoot(page, url, crawlManager, 'seed');
@@ -884,6 +893,14 @@ class Crawler {
             console.log(chalk.greenBright(`[INFO] Crawling from ${roots.length} seed states.`));
         }
         return roots;
+    }
+
+    /**
+     * Whether the crawl's time budget is spent. False when there is no budget
+     * (`maxDuration` 0) or the crawl has not started its clock.
+     */
+    private isPastEndTime(): boolean {
+        return this.crawlerConfig.maxDuration !== 0 && this.endTime !== null && Date.now() >= this.endTime;
     }
 
     /**
