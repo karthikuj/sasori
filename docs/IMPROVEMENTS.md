@@ -11,9 +11,9 @@ This document lists **analysis-only** improvement ideas for the codebase. It is 
 - ~~**`getShortestPath`** (BFS)~~ — **Removed**; use **`getOptimizedReplayPlan`** only.
 - The model is effectively a **tree from root** with optional state merging by hash. If you formalize **DAG** or **merged states** (multiple parents to one UI state), add explicit **dedup**, **cycle** handling, and updated replay semantics.
 
-### Multiple seed URLs (array of entry points)
+### ~~Multiple seed URLs (array of entry points)~~
 
-> **Ticketed:** planned as the multi-seed graph foundation in **SCAN-229** (shared with sitemap/robots seeding below and with SCAN-44).
+> **Done (SCAN-229):** `CrawlStateManager` holds one root per seed (`rootStates`, with `rootState` mirroring the first). `Crawler.seedCrawl` builds them before the browsers start, in this order: `entryPoint`, `crawler.extraSeeds`, then sitemap seeds. Trees join on a shared `stateHash`, and a seed whose DOM is already held merges into it. Replay plans from the root the walk ends on. The notes below are the original analysis.
 
 - **Today**: config exposes a single **`entryPoint`**; startup builds **one** root `CrawlState` after `goto(entryPoint)`.
 - **Desired**: an **array of seed URLs** (or `entryPoints`) so crawling can start from several places without duplicating runs.
@@ -26,9 +26,9 @@ This document lists **analysis-only** improvement ideas for the codebase. It is 
   - **Replay**: `getOptimizedReplayPlan` assumes a path from **one** root; with multiple roots, define which baseline/root applies or generalize “nearest link baseline” per branch.
 - **Relation to other items**: multi-seed support interacts with **multi-browser concurrency** (shared queue vs races) and with **indexes** (e.g. `Map<stateHash, CrawlState>`) for fast merge detection.
 
-### robots.txt and sitemap.xml (discovery & extra seeds)
+### ~~robots.txt and sitemap.xml (discovery & extra seeds)~~
 
-> **Ticketed as SCAN-229** (`Sitemap.xml and robots.txt as crawl seeds`), which owns both this discovery layer and the multi-seed graph foundation it feeds. The notes below are the original analysis; the ticket carries the locked-in plan.
+> **Done (SCAN-229):** `src/crawler/seedDiscovery.ts` handles robots.txt per RFC 9309 and sitemaps plus sitemap indexes through cheerio's XML mode, with every limit capped. Fetches go through the crawl's own page, so they reuse the proxy, TLS trust and cookies. `respectRobots` adds the robots rules to `ScopeMatcher`. Still open: `sitemap.gz`, prioritising by `lastmod`/`priority`, and caching. The notes below are the original analysis.
 
 **Goal:** broaden **starting URL set** using standard site signals: **`robots.txt`** (policy + `Sitemap:` lines) and **`sitemap.xml`** / **sitemap index** (`<loc>` URLs), then feed those URLs into the same **scope** and **crawl pipeline** as `entryPoint` (eventually as **additional seeds** once multi-seed exists, or as a **pre-queue** of `goto` targets).
 
@@ -81,14 +81,14 @@ This document lists **analysis-only** improvement ideas for the codebase. It is 
 
 ## Concurrency
 
-- **Multiple browser instances** share one **`CrawlStateManager`** and call **`getNextCrawlAction`** without synchronization — risk of **races** (duplicate work, skipped actions, corrupted `visitedActions`). Mitigations: single consumer, locked queue, partitioned managers per worker, or documented single-browser mode.
+- **Multiple browser instances** share one **`CrawlStateManager`** and call **`getNextCrawlAction`** without synchronization (documented in CLAUDE.md; popping from the shared frontier is the only coordination) — risk of **races** (duplicate work, skipped actions, corrupted `visitedActions`). Mitigations: single consumer, locked queue, partitioned managers per worker, or documented single-browser mode.
 
 ---
 
 ## Performance hotspots
 
 - **`findNodesWithClickListeners`**: walks **all DOM nodes** and inspects listeners — very expensive on large pages. Consider scoping (e.g. visible subtree, interactive tags only), different heuristics, or throttling.
-- **`stripDOM`**: per-element checks against **all** interactable CSS paths can approach **O(elements × selectors)**. Profiling and cheaper filters (e.g. tag-based) may help.
+- ~~**`stripDOM`**: per-element checks against **all** interactable CSS paths~~ — **Done (SCAN-85):** a four-pass mark-and-sweep in `DomStripper`, about 13x faster on the fixture corpus, with its output pinned by the golden test.
 - ~~**`getCrawlActions`** / **`page.$eval`**~~ — **Done:** batched **`page.evaluate`** (`batchFetchActionNodeSnapshots`), **per-path try/catch** in the page so one bad selector does not fail the chunk; **chunk size** `BATCH_ACTION_SELECTOR_CHUNK_SIZE` (100) per round-trip.
 
 ### Out-of-scope link pruning (`<a href>` before crawl actions)
@@ -141,7 +141,7 @@ Some “buttons” use **`href="#"`** or **`javascript:void(0)`** and rely on **
 ## Correctness & maintainability
 
 - ~~**`getCrawlActions` duplicate `if`/`else`~~ — **Fixed:** only the **`isCrawlActionUnique`** branch adds a `CrawlAction` and **`registerActionSignature`**; duplicates are skipped (see `crawler.ts` ~361–364).
-- **Dual Joi sources**: `src/config/configSchema.ts` vs `src/models/configModel.ts` can **drift**. The CLI uses **`ConfigValidator`** from **`configModel`**. **`maxActionRetries`** exists in schema/config JSON but may be **missing** from `configModel`’s crawler schema — with **`stripUnknown: true`**, the field might be **stripped** at validation (runtime still defaults via `?? 3`).
+- ~~**Dual Joi sources**~~ — **Done (SCAN-89):** `maxActionRetries` is declared in both layers, and `tests/config/schemaDrift.test.ts` fails on any key declared in only one. Original note: `src/config/configSchema.ts` vs `src/models/configModel.ts` can **drift**. The CLI uses **`ConfigValidator`** from **`configModel`**. **`maxActionRetries`** exists in schema/config JSON but may be **missing** from `configModel`’s crawler schema — with **`stripUnknown: true`**, the field might be **stripped** at validation (runtime still defaults via `?? 3`).
 - **`types/crawler.ts`**: **`CrawlStateManagerInterface`** describes a **Map-based** manager that does **not** match **`CrawlStateManager`** in `crawlStateManager.ts` — misleading for contributors and tools.
 
 ---
@@ -150,30 +150,30 @@ Some “buttons” use **`href="#"`** or **`javascript:void(0)`** and rely on **
 
 - **Selectors** are fragile when class names or DOM order change; neighbor+tag hashing mitigates but does not solve all SPA churn.
 - **`authenticator.ts`**: synchronous file read + `JSON.parse` — acceptable for small files; clearer errors for missing/invalid recordings would help operators.
-- **`stopCrawling`**: currently empty — no **cooperative cancellation** for graceful shutdown.
+- ~~**`stopCrawling`**: currently empty~~ — **Done:** it aborts an `AbortController` that the crawl loop and every retry loop check, and closes the active browsers.
 
 ---
 
 ## Security & hygiene
 
 - **`CrawlInput.VALUES`**: hard-coded placeholder strings (including password-like values) — ensure these are never treated as real secrets; prefer **config/env** for controlled test data in serious deployments.
-- **`inContext`**: builds **`new RegExp(...)`** inside hot paths — **pre-compile** regexes when config loads.
+- ~~**`inContext`**: builds `new RegExp(...)` inside hot paths~~ — **Done (SCAN-87):** `ScopeMatcher` compiles each pattern once and caches it by source.
 
 ---
 
 ## Engineering cleanup
 
-- **`domPath.ts`**: duplicated in-page **`Step`** / path logic between CSS and XPath **`$$eval`** blocks — high duplication cost; consider one shared injected helper.
-- **`package.json`** `repository.url` may point at a **public** repo while this copy is **private** — align with the canonical remote when publishing or forking.
+- ~~**`domPath.ts`**: duplicated in-page `Step` / path logic~~ — **Won't do:** the file is ported from Chromium DevTools and treated as vendored (see CLAUDE.md), so it is not refactored.
+- ~~**`package.json`** `repository.url`~~ — **Done:** it points at `github.com/karthikuj/sasori`, the canonical remote.
 
 ---
 
 ## Previously suggested high-impact themes (summary)
 
-1. Index **`stateHash`** (and possibly action keys) for fast lookup.
-2. Align **Joi / `ConfigValidator`** so optional crawler fields (e.g. **`maxActionRetries`**) are not accidentally stripped.
+1. ~~Index **`stateHash`** (and possibly action keys) for fast lookup.~~ **Done.**
+2. ~~Align **Joi / `ConfigValidator`** so optional crawler fields are not accidentally stripped.~~ **Done (SCAN-89).**
 3. **Document or fix** multi-browser + shared manager semantics.
 4. Revisit cost of **`[click]`** / CDP-based listener discovery on large DOMs.
-5. Support **multiple seed URLs** (see *Multiple seed URLs* under graph algorithms) — config + manager + replay semantics. **(SCAN-229)**
-6. **robots.txt + sitemap.xml** discovery (see subsection under graph algorithms): fetch/parse, merge with `entryPoint`, scope filters, optional `respectRobots`, limits and proxy alignment. **(SCAN-229)**
+5. ~~Support **multiple seed URLs**~~ **Done:** (see *Multiple seed URLs* under graph algorithms) — config + manager + replay semantics. **(SCAN-229)**
+6. ~~**robots.txt + sitemap.xml** discovery~~ **Done:** (see subsection under graph algorithms): fetch/parse, merge with `entryPoint`, scope filters, optional `respectRobots`, limits and proxy alignment. **(SCAN-229)**
 7. **Out-of-scope link pruning** (see *Out-of-scope link pruning* under Performance): resolve `href` with **document URL** + **`<base>`**, then **`inContext`** — skip crawl actions for anchors that would navigate out of scope; handle **non-HTTP** `href` schemes and SPA edge cases carefully.
