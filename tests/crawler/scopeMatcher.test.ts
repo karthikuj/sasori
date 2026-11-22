@@ -8,6 +8,7 @@
  */
 
 import ScopeMatcher from '../../src/crawler/scopeMatcher';
+import { compileRobotsRules } from '../../src/crawler/seedDiscovery';
 
 describe('ScopeMatcher', () => {
     it('admits included URLs and rejects unlisted ones', () => {
@@ -110,5 +111,69 @@ describe('ScopeMatcher', () => {
 
         spy.mockRestore();
         expect(constructed).toBe(2);
+    });
+});
+
+describe('ScopeMatcher — robots.txt rules (SCAN-229)', () => {
+    const include = ['https://shop\\.test(?:/.*|)', 'https://api\\.shop\\.test(?:/.*|)'];
+
+    it('changes nothing until rules are installed', () => {
+        const scope = new ScopeMatcher(include, []);
+        expect(scope.matches('https://shop.test/cart')).toBe(true);
+    });
+
+    it('refuses a disallowed path exactly like an excluded one', () => {
+        const scope = new ScopeMatcher(include, []);
+        scope.setRobotsRules('https://shop.test', compileRobotsRules([], ['/cart']));
+
+        expect(scope.matches('https://shop.test/cart/checkout')).toBe(false);
+        expect(scope.matches('https://shop.test/products')).toBe(true);
+    });
+
+    it('honours Allow precedence and the query string', () => {
+        const scope = new ScopeMatcher(include, []);
+        scope.setRobotsRules('https://shop.test', compileRobotsRules(['/cart/gift'], ['/cart', '/*?sort=']));
+
+        expect(scope.matches('https://shop.test/cart/gift/card')).toBe(true);
+        expect(scope.matches('https://shop.test/cart')).toBe(false);
+        expect(scope.matches('https://shop.test/list?sort=price')).toBe(false);
+        expect(scope.matches('https://shop.test/list?page=2')).toBe(true);
+    });
+
+    it('applies an origin\'s rules only to that origin', () => {
+        const scope = new ScopeMatcher(include, []);
+        scope.setRobotsRules('https://shop.test/robots.txt', compileRobotsRules([], ['/']));
+
+        expect(scope.matches('https://shop.test/anything')).toBe(false);
+        expect(scope.matches('https://api.shop.test/anything')).toBe(true);
+        // Same host, different scheme: a different origin, so a different robots.txt.
+        const both = new ScopeMatcher(['https?://shop\\.test(?:/.*|)'], []);
+        both.setRobotsRules('https://shop.test', compileRobotsRules([], ['/']));
+        expect(both.matches('http://shop.test/anything')).toBe(true);
+    });
+
+    it('never widens scope: an Allow cannot admit an unlisted or excluded URL', () => {
+        const scope = new ScopeMatcher(include, ['.*/logout.*']);
+        scope.setRobotsRules('https://shop.test', compileRobotsRules(['/'], []));
+
+        expect(scope.matches('https://shop.test/logout')).toBe(false);
+        expect(scope.matches('https://elsewhere.test/')).toBe(false);
+    });
+
+    it('replaces an origin\'s rules, and an empty list removes them', () => {
+        const scope = new ScopeMatcher(include, []);
+        scope.setRobotsRules('https://shop.test', compileRobotsRules([], ['/a']));
+        scope.setRobotsRules('https://shop.test', compileRobotsRules([], ['/b']));
+        expect(scope.matches('https://shop.test/a')).toBe(true);
+        expect(scope.matches('https://shop.test/b')).toBe(false);
+
+        scope.setRobotsRules('https://shop.test', []);
+        expect(scope.matches('https://shop.test/b')).toBe(true);
+    });
+
+    it('does not throw on an unparseable URL', () => {
+        const scope = new ScopeMatcher(['.*'], []);
+        scope.setRobotsRules('https://shop.test', compileRobotsRules([], ['/']));
+        expect(scope.matches('not a url')).toBe(true);
     });
 });

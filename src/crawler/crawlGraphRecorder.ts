@@ -45,7 +45,8 @@ interface LiveEdge {
 export class CrawlGraphRecorder {
     private readonly nodes = new Map<string, CrawlGraphNode>();
     private readonly edges = new Map<string, LiveEdge>();
-    private rootStateId: string | null = null;
+    /** Root states; the first state recorded is one, and every seed is marked (SCAN-229). */
+    private readonly rootStateIds = new Set<string>();
     private edgesDropped = 0;
 
     /**
@@ -69,8 +70,8 @@ export class CrawlGraphRecorder {
 
     /** Records a DOM state as a node. The first state recorded is the root. */
     recordState(state: CrawlState): void {
-        if (this.rootStateId === null) {
-            this.rootStateId = state.stateId;
+        if (this.rootStateIds.size === 0) {
+            this.rootStateIds.add(state.stateId);
         }
         if (this.nodes.has(state.stateId)) {
             return;
@@ -83,8 +84,21 @@ export class CrawlGraphRecorder {
             arrivalType: state.arrivalType,
             actions: 0, // filled from the edge tally at snapshot time
             inputs: state.crawlInputs.length,
-            isRoot: state.stateId === this.rootStateId,
+            isRoot: this.rootStateIds.has(state.stateId),
         });
+    }
+
+    /**
+     * Marks a state as a root of the crawl forest — one per seed URL. Safe to
+     * call before or after the state is recorded.
+     * @param stateId - The seed state's id.
+     */
+    markRoot(stateId: string): void {
+        this.rootStateIds.add(stateId);
+        const node = this.nodes.get(stateId);
+        if (node) {
+            node.isRoot = true;
+        }
     }
 
     /** An action that survived dedup and was added to the frontier. */

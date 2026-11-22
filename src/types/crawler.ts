@@ -122,6 +122,34 @@ export interface CrawlerSettings {
      * outcomes, so what the artifact does contain stays true. 0 means no cap.
      */
     maxCrawlGraphEdges?: number;
+
+    /**
+     * Extra URLs to start crawling from, alongside `entryPoint` (SCAN-229).
+     * Each becomes its own root; trees that reach the same DOM state merge.
+     * Out-of-scope entries are dropped.
+     */
+    extraSeeds?: string[];
+
+    /** Seed discovery from robots.txt and sitemap.xml (SCAN-229). */
+    sitemap?: SitemapConfig;
+}
+
+/**
+ * Seed discovery from the entry point origin's robots.txt and sitemaps.
+ * Every cap is enforced: seeds are crawled, so an uncapped sitemap would be an
+ * uncapped crawl.
+ */
+export interface SitemapConfig {
+    /** Read robots.txt and sitemaps at startup and seed from them. */
+    enabled: boolean;
+    /** Most seed URLs taken from sitemaps (default 100). */
+    maxSeedUrls?: number;
+    /** Levels of sitemap index to follow (default 3). */
+    maxSitemapDepth?: number;
+    /** Most `<loc>` URLs read across all sitemaps (default 5000). */
+    maxSitemapUrls?: number;
+    /** Honour robots.txt Allow/Disallow for the whole crawl (default true). */
+    respectRobots?: boolean;
 }
 
 /**

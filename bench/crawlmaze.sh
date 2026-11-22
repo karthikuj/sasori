@@ -20,7 +20,9 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 OUT="${ROOT}/bench/results"
 mkdir -p "${OUT}"
 
-CONFIG="${ROOT}/bench/crawlmaze.config.json"
+# BENCH_CONFIG swaps in a variant, e.g. bench/crawlmaze.sitemap.config.json to
+# measure sitemap/robots seed discovery (SCAN-229). Default is the plain crawl.
+CONFIG="${BENCH_CONFIG:-${ROOT}/bench/crawlmaze.config.json}"
 INVENTORY="${OUT}/${LABEL}.json"
 URLS="${OUT}/${LABEL}.urls"
 LOG="${OUT}/${LABEL}.log"
@@ -30,7 +32,7 @@ if [ ! -f "${ROOT}/dist/bin/index.js" ]; then
     exit 1
 fi
 
-echo "[bench] crawling security-crawl-maze.app (label: ${LABEL})"
+echo "[bench] crawling security-crawl-maze.app (label: ${LABEL}, config: ${CONFIG})"
 
 START=$(date +%s%3N)
 node "${ROOT}/dist/bin/index.js" start \

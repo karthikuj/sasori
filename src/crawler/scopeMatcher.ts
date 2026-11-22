@@ -1,3 +1,5 @@
+import { RobotsRule, robotsAllows } from './seedDiscovery';
+
 /**
  * Decides whether a URL is inside the crawl's scope.
  *
@@ -32,6 +34,44 @@ export class ScopeMatcher {
     ) { }
 
     /**
+     * robots.txt rules, by origin (SCAN-229). Empty unless `respectRobots`.
+     *
+     * Folded into {@link matches} rather than checked separately so there is
+     * one answer to "may the crawl visit this URL?": a disallowed URL is
+     * treated exactly like any other out-of-scope URL, in navigation and in
+     * request interception alike.
+     */
+    private readonly robotsRulesByOrigin = new Map<string, RobotsRule[]>();
+
+    /**
+     * Installs robots.txt rules for an origin, replacing any installed before.
+     * A rule applies only to the origin whose robots.txt declared it, which is
+     * what robots.txt means.
+     * @param origin - Origin the robots.txt was served from.
+     * @param rules - Compiled rules; an empty list removes the origin's rules.
+     */
+    setRobotsRules(origin: string, rules: RobotsRule[]): void {
+        const key = new URL(origin).origin;
+        if (rules.length === 0) {
+            this.robotsRulesByOrigin.delete(key);
+        } else {
+            this.robotsRulesByOrigin.set(key, rules);
+        }
+    }
+
+    /** Whether robots.txt rules installed for the URL's origin forbid it. */
+    private isRobotsDisallowed(url: string): boolean {
+        let parsed: URL;
+        try {
+            parsed = new URL(url);
+        } catch {
+            return false;
+        }
+        const rules = this.robotsRulesByOrigin.get(parsed.origin);
+        return rules !== undefined && !robotsAllows(rules, parsed.pathname + parsed.search);
+    }
+
+    /**
      * Whether the URL is in scope. Excludes are applied before includes.
      * @param url - URL to test.
      * @return True when the crawl may visit the URL.
@@ -41,6 +81,12 @@ export class ScopeMatcher {
             if (this.compile(pattern).test(url)) {
                 return false;
             }
+        }
+
+        // Empty unless `respectRobots` fed rules in, so the default path pays
+        // one size check per request and nothing more.
+        if (this.robotsRulesByOrigin.size > 0 && this.isRobotsDisallowed(url)) {
+            return false;
         }
 
         for (const pattern of this.includeRegexes) {

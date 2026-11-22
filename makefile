@@ -169,14 +169,16 @@ test-ci: check-tools ## Jest CI mode with coverage (non-interactive)
 # to link resources in every way a valid HTML document can. It is the
 # end-to-end gate: a change may make the crawl faster, but it must not make it
 # find less. Run BEFORE=... and AFTER=... around a change and compare.
+# BENCH_CONFIG=bench/crawlmaze.sitemap.config.json crawls with robots.txt /
+# sitemap seed discovery on (SCAN-229); compare it against a plain run.
 
 bench: bench-stripdom ## Run the fast micro-benchmarks
 
 bench-stripdom: build ## Micro-benchmark DomStripper over the fixture corpus (FILTER= to narrow)
 	@$(NODE) $(DIST_DIR)/bench/stripdom.bench.js $(FILTER)
 
-bench-crawlmaze: build ## Timed crawl of security-crawl-maze.app: LABEL=before|after
-	@bench/crawlmaze.sh "$(LABEL)"
+bench-crawlmaze: build ## Timed crawl of security-crawl-maze.app: LABEL=before|after [BENCH_CONFIG=path]
+	@BENCH_CONFIG="$(BENCH_CONFIG)" bench/crawlmaze.sh "$(LABEL)"
 
 bench-crawlmaze-before: build ## Record the pre-change crawlmaze baseline
 	@bench/crawlmaze.sh before
