@@ -50,7 +50,19 @@ node dist/bin/index.js init            # copies packaged config.json into cwd
 make run-cli CONFIG=path/to.json       # builds, then runs
 make run-crawl CONFIG=path/to.json INVENTORY=inv.json
 make run-api HOST=127.0.0.1 PORT=8080
+make install-app                  # build, npm pack, npm install -g the tarball (the `sasori` command)
+make uninstall-app
 ```
+
+`make install-app` installs a packed copy, not `npm link`: a link would point
+at `dist/`, which every build deletes first (`prebuild` cleans it), so the
+installed command would break mid-build. What the package contains is the
+`files` list in `package.json` (`dist/bin`, `dist/src`, `dist/config`,
+`dist/package.json`). `dist/package.json` is easy to forget: `bin/index.ts`
+imports `../package.json` for the version, so tsc emits a copy next to
+`dist/bin`, and a package without it fails on start with
+`Cannot find module '../package.json'`. A new runtime file outside those paths
+must be added to the list, or the installed app will not have it.
 
 ### `npm run lint` is safe to run
 

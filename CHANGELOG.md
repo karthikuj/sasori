@@ -23,6 +23,10 @@ All notable changes to this project will be documented in this file.
   calls. It used to print the CLI help.
 
 ### Added
+- `make install-app` builds this checkout and installs it as the global
+  `sasori` command, from a packed copy rather than a link; `make
+  uninstall-app` removes it. The README now covers building and running from
+  source with make.
 - Several starting URLs. The crawl now starts from the entry point, then from
   `crawler.extraSeeds`. Each one starts its own crawl tree, and trees that reach
   the same page merge. (SCAN-229)
@@ -61,6 +65,9 @@ All notable changes to this project will be documented in this file.
 - CI runs type-check, tests, build and lint on every push and pull request.
 
 ### Changed
+- The npm package now contains only the built app (`dist/`), the README, the
+  changelog and the licence: 190 KB instead of 5.3 MB. It used to ship the
+  tests, the TypeScript sources and the README images as well.
 - The crawler is split into units that can be tested on their own:
   `DomStripper`, `ActionDiscovery`, `ActionReplay`, `ScopeMatcher`, `UrlSink`
   and `seedDiscovery`.
