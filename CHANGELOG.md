@@ -121,6 +121,10 @@ All notable changes to this project will be documented in this file.
 - Looking up a state by its hash no longer walks the whole graph.
 
 ### Fixed
+- The example config (`config/config.json`, what `sasori init` writes) crawls
+  `https://security-crawl-maze.app/` instead of `https://demo.testfire.net`, whose
+  HTTPS certificate expired on 21 June 2026, so every attempt failed with
+  `net::ERR_CERT_DATE_INVALID`.
 - `sasori start` waits for the crawl and reports a failure as one line,
   `[ERROR] Crawl failed: …`, with exit code 1. It used to let the error escape,
   so Node printed a stack trace, and an invalid config exited with code 0.

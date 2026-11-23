@@ -11,7 +11,7 @@
         "sessionMode": "shared"
     },
     "crawler": {
-        "entryPoint": "https://demo.testfire.net/bank/main.jsp",
+        "entryPoint": "https://security-crawl-maze.app/",
         "eventTimeout": 10000,
         "navigationTimeout": 30000,
         "eventWait": 0,
@@ -43,7 +43,7 @@
             "reloginIntervalMs": 0
         },
         "includeRegexes": [
-            "https?://demo.testfire.net(?:/.*|)"
+            "https?://security-crawl-maze\\.app(?:/.*|)"
         ],
         "excludeRegexes": [
             ".*logout.*"
