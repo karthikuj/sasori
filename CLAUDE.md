@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Sasori (`sasori-crawl`) is a Puppeteer-based dynamic web crawler for endpoint discovery and security testing. It drives real browsers through a web app — including behind authentication — and emits every in-scope URL it touches, optionally through a proxy such as ZAP or Burp.
 
-**This file is the source of truth for AI assistant rules in this repo.** The rules in `.cursor/rules/` are legacy and are no longer maintained; do not update them. Update this file when CLI commands, config shape, crawl-graph semantics, the auth flow, or major dependencies change.
+**This file is the source of truth for AI assistant rules in this repo.** (The old `.cursor/rules/` files duplicated it and had gone stale, so they were removed.) Update this file when CLI commands, config shape, crawl-graph semantics, the auth flow, or major dependencies change.
 
 ## Commands
 
