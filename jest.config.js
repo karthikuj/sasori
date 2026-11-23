@@ -20,5 +20,12 @@ module.exports = {
     coverageReporters: ['text', 'lcov', 'html'],
     setupFilesAfterEnv: ['<rootDir>/tests/setup.ts'],
     moduleFileExtensions: ['ts', 'js', 'json'],
+    // Puppeteer 25 and @puppeteer/replay 4 are ES modules only, which Jest's
+    // CommonJS loader cannot load. Unit tests never launch a browser, so they
+    // get CommonJS stand-ins with the same exports (see tests/stubs/).
+    moduleNameMapper: {
+        '^puppeteer$': '<rootDir>/tests/stubs/puppeteer.ts',
+        '^@puppeteer/replay$': '<rootDir>/tests/stubs/puppeteer-replay.ts',
+    },
     testTimeout: 10000,
 };
