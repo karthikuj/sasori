@@ -259,6 +259,8 @@ diagnostic artifact must never turn a completed crawl into a failed one.
 
 ### Browser launch and MITM TLS
 
+Every browser launches with `BASE_LAUNCH_ARGS`: the background-throttling flags (see Concurrency) and `NO_HTTPS_UPGRADE_ARGS`, `--disable-features=HttpsUpgrades,HttpsFirstBalancedMode`. Since Chrome 157, Chrome tries `https://` before every `http://` navigation and blocks the page when that fails, so without those flags no plain-HTTP site off localhost loads, and with only the blocking off Chrome still sends unrequested `https://` requests to the target. Keep both.
+
 `Browser.getBrowserInstance` (`src/browser/browser.ts`) translates `BrowserConfig` into Puppeteer launch options. When a proxy is enabled *and* `browser.tls.extraCaCerts` is set, `prepareTlsUserDataDir` (`src/browser/tlsProfile.ts`) shells out to `certutil` to build a throwaway Chromium profile whose NSS DB trusts those PEM CAs — that is how proxied HTTPS validates properly. This is the integration point for a MITM proxy like Nara.
 
 CA import **fails closed**: if `certutil` is missing or the PEM is unreadable, `getBrowserInstance` throws rather than launching, because configuring a CA signals that the operator wants verified TLS and silently downgrading would disable certificate verification for the whole crawl. `browser.tls.allowInsecureFallback: true` opts back into `--ignore-certificate-errors` with a loud warning. Preserve that default when touching this path.

@@ -34,6 +34,27 @@ export const NO_BACKGROUND_THROTTLING_ARGS: readonly string[] = [
 ];
 
 /**
+ * Flags that make Chrome load an `http://` URL as `http://`.
+ *
+ * Since Chrome 157 (Puppeteer 25), Chrome tries `https://` first for every
+ * `http://` navigation (`HttpsUpgrades`), and when that fails it blocks the
+ * page with `net::ERR_BLOCKED_BY_CLIENT` instead of falling back
+ * (`HttpsFirstBalancedMode`). Sasori could not crawl any plain-HTTP site off
+ * localhost: even `http://neverssl.com` failed, as did a site whose HTTPS
+ * certificate had expired. With only the blocking turned off, Chrome still
+ * sends an `https://` request to the target before every `http://` one, and
+ * those are requests nobody asked the crawler to make; they would reach the
+ * proxy and the inventory. Turning off both makes Chrome request exactly the
+ * URL it is given. HTTPS sites are unaffected.
+ */
+export const NO_HTTPS_UPGRADE_ARGS: readonly string[] = [
+    '--disable-features=HttpsUpgrades,HttpsFirstBalancedMode',
+];
+
+/** Flags every crawl browser is launched with. */
+export const BASE_LAUNCH_ARGS: readonly string[] = [...NO_BACKGROUND_THROTTLING_ARGS, ...NO_HTTPS_UPGRADE_ARGS];
+
+/**
  * The Browser class is responsible for instantiating and
  * returning a properly configured browser.
  */
@@ -47,7 +68,7 @@ class Browser {
      */
     static getBrowserConfig(config: BrowserConfig, extras?: BrowserLaunchExtras): LaunchOptions {
         const browserConfig: LaunchOptions = { headless: true };
-        const args: string[] = [...NO_BACKGROUND_THROTTLING_ARGS];
+        const args: string[] = [...BASE_LAUNCH_ARGS];
 
         browserConfig.headless = config.headless;
 
