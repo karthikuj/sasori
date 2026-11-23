@@ -184,8 +184,9 @@ Some “buttons” use **`href="#"`** or **`javascript:void(0)`** and rely on **
 1. ~~Index **`stateHash`** (and possibly action keys) for fast lookup.~~ **Done.**
 2. ~~Align **Joi / `ConfigValidator`** so optional crawler fields are not accidentally stripped.~~ **Done (SCAN-89).**
 3. ~~**Document**~~ or fix multi-browser + shared manager semantics. **Documented (SCAN-236)**; the races remain (see *Concurrency*).
-4. Revisit cost of **`[click]`** / CDP-based listener discovery on large DOMs.
+4. Revisit cost of **`[click]`** / CDP-based listener discovery on large DOMs: replace the per-element CDP sweep with an injected script that records click handlers as the page adds them, and open closed shadow roots. See [crawl-instrumentation-and-ai.md](crawl-instrumentation-and-ai.md), part 1. **(SCAN-239)**
 5. ~~Support **multiple seed URLs**~~ **Done:** (see *Multiple seed URLs* under graph algorithms) — config + manager + replay semantics. **(SCAN-229)**
 6. ~~**robots.txt + sitemap.xml** discovery~~ **Done:** (see subsection under graph algorithms): fetch/parse, merge with `entryPoint`, scope filters, optional `respectRobots`, limits and proxy alignment. **(SCAN-229)**
 7. **Out-of-scope link pruning** (see *Out-of-scope link pruning* under Performance): resolve `href` with **document URL** + **`<base>`**, then **`inContext`** — skip crawl actions for anchors that would navigate out of scope; handle **non-HTTP** `href` schemes and SPA edge cases carefully.
 8. **TOTP two-factor login** (see *Authentication*): generate the code at replay time from a configured secret, via a `{{totp}}` placeholder in the recording. **(SCAN-238)**
+9. **Assist mode and a budgeted AI fallback** (see [crawl-instrumentation-and-ai.md](crawl-instrumentation-and-ai.md), parts 2 and 3): a browser extension that records a person clicking through flows Sasori cannot get through alone (MFA, wizards), and AI only where the rules give up (form values first), cached and capped per crawl. **(SCAN-239)**
