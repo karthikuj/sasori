@@ -162,11 +162,33 @@ Multiple browsers share one `CrawlStateManager`, so the page in front of you is 
 
 Scope lives in request interception, not in the navigation code. Every page gets `setRequestInterception(true)`; in-scope URLs are logged/recorded and continued, out-of-scope ones are answered with a synthetic `403 Out of Sasori's scope` rather than being blocked. `inContext(url)` applies `excludeRegexes`, then any installed robots.txt rules, then `includeRegexes`. Robots rules are installed only when `sitemap.enabled` and `sitemap.respectRobots` (the default). They are kept per origin and follow RFC 9309: the longest match wins, an `Allow` wins a tie, and `*`/`$` work. They can only narrow scope. While `authInProgress` is true the interceptor *temporarily widens* `includeRegexes` with whatever host the login flow hits — an SSO redirect legitimately mutates config at runtime.
 
-### Concurrency
+### Concurrency: sessions, workers, windows (SCAN-236)
 
-`startCrawling()` launches `browser.instances` browsers, staggers their starts by `browserStartDelays`, and runs `handleCrawl` on all of them against the **same** `CrawlStateManager` with no locking. `getNextCrawlAction()` popping from a shared frontier is the only coordination. Understand the race implications before touching anything in `crawlStateManager.ts` or the crawl loop.
+`browser.instances` is the number of **workers**. A worker (`CrawlWorker`) is one window taking actions off the shared frontier. A **session** (`CrawlSession`) is one browser (`BrowserSession`, `src/browser/browserSession.ts`) and its workers:
 
-`stopCrawling()` aborts an internal `AbortController` and closes `activeBrowsers`; the crawl loop and every retry loop check `signal.aborted` and unwind cooperatively. `wasStopped()` distinguishes a requested stop from a natural finish, which is how the API decides between `stopped` and `completed`.
+- `browser.sessionMode: "shared"` (default): one session holding every worker. Chrome is launched once, the login recording runs once in the session's **control window** (its first page, which then becomes the first worker's window), and every other worker gets its own window via CDP `Target.createTarget({ newWindow: true })`. All windows share the browser's cookie jar and storage, so they are all logged in. Windows, not tabs: a tab-based proof of concept failed, and background tabs are throttled (the `--disable-*-throttling` flags in `browser.ts` cover covered windows).
+- `"perBrowser"`: one session per worker, each logging in on its own, as before. For apps whose login lives only in `sessionStorage`, which is per window.
+
+Sessions start one after another, never in parallel (N parallel logins against a CPU-heavy password hash push navigation past its timeout). Every worker runs `handleCrawl` against the **same** `CrawlStateManager` with no locking; `getNextCrawlAction()` popping from a shared frontier is the only coordination. Understand the race implications before touching anything in `crawlStateManager.ts` or the crawl loop.
+
+Rules that keep several workers in one browser from breaking each other:
+
+- **A worker closes only its own window**, never the browser, and never the browser's last window (Chrome quits when its last window closes, which looks like a crash). Browsers close once, in `startCrawling`'s `finally`, which also deletes any profile Sasori made.
+- **Pop-ups**: `BrowserSession` tracks its own pages and closes only pages the crawled app opened. The old handler closed any page once a browser had more than one, i.e. every worker.
+- **Per-window setup** (`setupPage`): timeouts, viewport, Basic auth, request interception and dialog dismissal are applied to every window, including windows reopened after a restart.
+- **Scope widening during login is per page** (`authPages`), so one browser logging in does not let the others leave scope.
+
+Each session has a `PauseGate` (`src/crawler/pauseGate.ts`). Workers `enter()` before each action and `leave()` after; `pause()` resolves only when no action is running. Restarts use it, and pausing a crawl on request (SCAN-231) should reuse it.
+
+`stopCrawling()` aborts an internal `AbortController`, cancels the gates and closes every session; the crawl loop and every retry loop check `signal.aborted` and unwind cooperatively. `wasStopped()` distinguishes a requested stop from a natural finish, which is how the API decides between `stopped` and `completed`. A crawl that cannot go on (three failed re-logins) sets `crawlFailure` instead, so it is reported as failed, not stopped.
+
+### Session checks, re-login and crash recovery (SCAN-236)
+
+With recorder auth, `logInAndObserve` records the app's own requests while the recording runs and the landing page settles. `chooseSessionCheck` picks the check. **Automatic**: only API requests (fetch/XHR **`GET`**, never a write or a page load), in scope, 2xx in the browser. Each candidate (`classifyRequest`) is sent twice logged in and once **without credentials**, **straight to the target from Node** (`src/auth/directRequest.ts`), never through the browser or the proxy, so no unauthenticated copy lands in the inventory. `classifyCandidate` makes it a **`status`** check when the status tells them apart (401/403, another status class, or a redirect elsewhere), else a **`body`** check with markers (`deriveMarkers`: tokens in both logged-in answers and not in the logged-out one, so per-request values never qualify; emails rank first); `pickCheck` prefers a status check. If nothing qualifies, Sasori says it found no endpoint and asks for a configured one; it never guesses. **Configured**: `sessionCheck.url` with `loggedInRegex` is a **`regex`** check (the pattern must match right after login, or the check is refused); `url` alone is classified like a candidate. `judgeProbe` reads every answer by its kind. The rules are pure, in `src/auth/sessionCheck.ts`.
+
+No window is kept aside for the check. Every `intervalMs` (default 120 s) the timer starts a **check round** (`runSessionCheckRound`): pause the session's gate, which waits for every running action to finish and starts no new one; borrow one worker's window (`borrowWindow`); send the check from it (`runSessionCheck`); on a logout, log in again **in that window** (`logInAgainInPlace`); resume. Logging in again in place needs no restart and no new windows: every window shares the browser's cookie jar and storage, so the others are logged in as soon as this one is, and each worker's next action reloads from a real URL that carries the new session. Before the recording runs, `clearSessionData` clears every cookie (`Network.clearBrowserCookies`) and the app origins' storage, so the login page behaves as on a fresh profile. The check is an in-page `fetch` (`probeInPage`) and must be sent from the app's own origin, or the browser may block it as cross-site or drop SameSite cookies and it would look like a logout: a window on another origin first loads `checkPageUrl` (where the app landed after login), a window already on that origin sends it as it is. One round runs at a time, and none runs during a restart. A 5xx or failed request is `inconclusive`, never a logout. The check follows the app's latest `Authorization` header, so a token the app refreshes is not mistaken for a logout.
+
+`restartSession` handles a scheduled re-login (`reloginIntervalMs`), a crash, and a logout whose in-place login failed: pause the session's workers, close the browser and delete its profile, launch fresh, log in once, reopen the workers' windows, find the check again, resume. A fresh profile every time, because a recording replayed in an already logged-in window can break. Three failures in a row end the crawl with an error. A worker whose action is interrupted puts the action back (`requeueAction`); a worker whose window alone was closed gets a new window without a restart. Pages crawled before a logout was noticed are kept as they are; re-running them is SCAN-237.
 
 ### The crawl inventory
 
@@ -243,7 +265,7 @@ CA import **fails closed**: if `certutil` is missing or the PEM is unreadable, `
 
 ### Authentication
 
-`src/auth/authenticator.ts` extends `@puppeteer/replay`'s `PuppeteerRunnerExtension` and replays a DevTools Recorder JSON file. It supports a non-standard step: `type: customStep`, `name: executeScript`, with `parameters.target` holding a JS string that is passed to `page.evaluate`. HTTP Basic auth is handled separately via `page.authenticate` before the crawl starts.
+`src/auth/authenticator.ts` extends `@puppeteer/replay`'s `PuppeteerRunnerExtension` and replays a DevTools Recorder JSON file. It supports a non-standard step: `type: customStep`, `name: executeScript`, with `parameters.target` holding a JS string that is passed to `page.evaluate`. HTTP Basic auth is handled separately via `page.authenticate`, applied to every window in `setupPage`. With several workers, the recording runs once per session, not once per worker (see Concurrency).
 
 ### The units inside `src/crawler/`
 
@@ -260,6 +282,9 @@ call sites and tests still go through it.
 | `ScopeMatcher` | `inContext` and the auth-time include widening |
 | `UrlSink` | the discovered-URL output stream |
 | `seedDiscovery` | robots.txt / sitemap parsing, RFC 9309 rule matching, capped seed collection behind an injected fetcher (SCAN-229) |
+| `PauseGate` | stopping a session's workers between actions, and resuming them (SCAN-236) |
+
+Outside `src/crawler/`: `BrowserSession` (`src/browser/`) owns one Chrome, its windows, pop-up closing and profile cleanup; `sessionCheck` and `directRequest` (`src/auth/`) hold the session-check rules and the credential-less request.
 
 ### Do not modify `domPath.ts`
 
@@ -329,6 +354,8 @@ Recorder auth resolves `pptrRecording` with `path.resolve(__dirname, …)` from 
 ## Tests
 
 Jest with `ts-jest`, 10s default timeout, roots are `src/`, `tests/`, `types/`. Tests mirror source layout (`tests/crawler/*` for `src/crawler/*`). `tests/setup.ts` replaces `console.warn` and `console.error` with `jest.fn()`, so a test that expects warning output must assert on those mocks rather than on stdout. It also exposes `global.testUtils.createValidConfig()` — use it instead of hand-building config objects — and a custom `toBeValidConfig` matcher (declared in `types/test.d.ts`).
+
+Crawler tests never launch a real browser; follow the existing mocking patterns in `tests/crawler/` and the `CrawlerFactory` injection in `tests/api/scanRegistry.test.ts`. For whole crawls with sessions, windows, restarts and crashes, `tests/browser/fakeBrowser.ts` is a fake Chrome (it emits `targetcreated`/`disconnected` and quits when its last window closes, as headful Chrome does); inject it through `crawler.browserLauncher`, as `tests/crawler/crawler.sessions.test.ts` does.
 
 **Puppeteer and `@puppeteer/replay` are ES modules only** (Puppeteer 25, replay 4). The built CommonJS app loads them with Node's `require()` of ESM, which is why Node 22.12+ is required, but Jest's own module loader cannot. `jest.config.js` therefore maps both to CommonJS stand-ins in `tests/stubs/` with the same value exports (`launch`, `connect`; `createRunner`, `PuppeteerRunnerExtension`). `jest.mock('puppeteer')` mocks the stand-in exactly as it mocked the real package, and anything that reaches an unmocked stand-in throws. If code starts using another value export from either package, add it to the stand-in.
 

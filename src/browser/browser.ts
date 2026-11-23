@@ -1,6 +1,6 @@
 import { launch, Browser as PuppeteerBrowser, LaunchOptions } from 'puppeteer';
 import { BrowserConfig } from '../types/browser';
-import { prepareTlsUserDataDir } from './tlsProfile';
+import { prepareTlsUserDataDir, removeUserDataDir } from './tlsProfile';
 
 export interface BrowserLaunchExtras {
     /** Isolated profile dir with NSS CA imports (from {@link prepareTlsUserDataDir}). */
@@ -8,6 +8,30 @@ export interface BrowserLaunchExtras {
     /** When true, {@link getBrowserConfig} skips `--ignore-certificate-errors` for proxied HTTPS. */
     tlsCaImported?: boolean;
 }
+
+/** A launched browser and the profile directory Sasori made for it, if any. */
+export interface LaunchedBrowser {
+    browser: PuppeteerBrowser;
+    /**
+     * Profile directory Sasori created (only for `browser.tls.extraCaCerts`).
+     * The caller deletes it once the browser has closed. Null when Puppeteer
+     * manages the profile itself, which it deletes on close.
+     */
+    userDataDir: string | null;
+}
+
+/**
+ * Flags that stop Chrome slowing down windows that are not in front.
+ *
+ * Crawl workers are windows of one browser (SCAN-236), and only one window can
+ * be in front. Without these, a covered window's timers and rendering are
+ * throttled, and a worker in it would crawl slower than the one on top.
+ */
+export const NO_BACKGROUND_THROTTLING_ARGS: readonly string[] = [
+    '--disable-background-timer-throttling',
+    '--disable-backgrounding-occluded-windows',
+    '--disable-renderer-backgrounding',
+];
 
 /**
  * The Browser class is responsible for instantiating and
@@ -23,7 +47,7 @@ class Browser {
      */
     static getBrowserConfig(config: BrowserConfig, extras?: BrowserLaunchExtras): LaunchOptions {
         const browserConfig: LaunchOptions = { headless: true };
-        const args: string[] = [];
+        const args: string[] = [...NO_BACKGROUND_THROTTLING_ARGS];
 
         browserConfig.headless = config.headless;
 
@@ -76,6 +100,16 @@ class Browser {
      * @return Promise that resolves to a Puppeteer browser instance
      */
     static async getBrowserInstance(config: BrowserConfig): Promise<PuppeteerBrowser> {
+        return (await this.launchBrowser(config)).browser;
+    }
+
+    /**
+     * Launches a browser and reports the profile directory made for it, so the
+     * caller can delete it after closing the browser.
+     * @param config - Browser configuration object
+     * @return The browser and its Sasori-made profile directory, if any
+     */
+    static async launchBrowser(config: BrowserConfig): Promise<LaunchedBrowser> {
         let extras: BrowserLaunchExtras | undefined;
         const caPaths = config.tls?.extraCaCerts?.filter((p) => p && p.trim().length > 0);
 
@@ -111,8 +145,13 @@ class Browser {
         }
 
         const browserConfig = this.getBrowserConfig(config, extras);
-        const browser = await launch(browserConfig);
-        return browser;
+        try {
+            const browser = await launch(browserConfig);
+            return { browser, userDataDir: extras?.userDataDir ?? null };
+        } catch (e) {
+            removeUserDataDir(extras?.userDataDir);
+            throw e;
+        }
     }
 }
 

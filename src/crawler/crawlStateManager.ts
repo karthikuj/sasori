@@ -451,6 +451,21 @@ export class CrawlStateManager implements CrawlStateManagerInterface {
     }
 
     /**
+     * Puts an action back on the frontier after the browser running it went
+     * away mid-action (SCAN-236). It is marked unvisited, so whichever worker
+     * pops it next runs it.
+     * @param action - The interrupted action.
+     */
+    public requeueAction(action: CrawlAction): void {
+        if (!this.isValidCrawlAction(action)) {
+            return;
+        }
+        this.visitedActions.delete(action.actionId);
+        this.queuedActionIds.add(action.actionId);
+        this.pendingFrontier.push(action);
+    }
+
+    /**
      * Whether discovery should keep an action with this signature.
      *
      * Two reasons to say no: the widget has already been clicked somewhere (the

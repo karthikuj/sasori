@@ -81,7 +81,18 @@ This document lists **analysis-only** improvement ideas for the codebase. It is 
 
 ## Concurrency
 
-- **Multiple browser instances** share one **`CrawlStateManager`** and call **`getNextCrawlAction`** without synchronization (documented in CLAUDE.md; popping from the shared frontier is the only coordination) — risk of **races** (duplicate work, skipped actions, corrupted `visitedActions`). Mitigations: single consumer, locked queue, partitioned managers per worker, or documented single-browser mode.
+- **Workers** (`browser.instances`) share one **`CrawlStateManager`** and call **`getNextCrawlAction`** without synchronization; popping from the shared frontier is the only coordination. Since SCAN-236 the workers are windows of one browser by default (`sessionMode: "shared"`), each session has a **`PauseGate`** that stops its workers between actions, and the model is documented in CLAUDE.md (*Concurrency: sessions, workers, windows*). Still open: the races themselves — duplicate work, skipped actions, `visitedActions` updated between awaits. Mitigations: single consumer, locked queue, or partitioned managers per worker.
+
+---
+
+## Authentication
+
+- ~~**One login per browser**~~ — **Done (SCAN-236):** with `sessionMode: "shared"` (the default) Sasori runs one browser, logs in once, and gives each worker a window; every window shares the cookie jar and storage. `perBrowser` keeps one browser and login per worker, for apps whose login lives only in `sessionStorage`.
+- ~~**Staying logged in**~~ — **Done (SCAN-236):** a session check repeats an API request that depends on the login (status or body markers), or a configured `sessionCheck.url` with `loggedInRegex`. On a logout, every window pauses and one logs in again in place; scheduled re-login and crash recovery restart the browser. Still open: noticing a logout from the crawl's own responses and re-running what ran logged out (SCAN-237).
+- **TOTP two-factor login (SCAN-238).** A recorded login cannot pass a TOTP step: the code typed while recording expires within 30 seconds, so every later replay types a stale one. That excludes every account behind an authenticator app, including Akasuna's admins and `seller1`.
+  - **Idea:** a per-scan `crawler.authentication.totp` block (`secret` in base32, optional `digits`, `period`, `algorithm`), and a `{{totp}}` placeholder in the recording's `change` steps that the authenticator replaces with the current RFC 6238 code at replay time. HMAC from Node's `crypto`; no new dependency.
+  - **Edge cases:** a code with only a few seconds left can expire in flight, so wait for the next period; servers reject a reused code, so two logins in one period (perBrowser mode, or a SCAN-236 re-login) must wait for the next one; the secret is a credential and must never reach logs, errors, the inventory or the crawl graph; codes depend on the host clock (NTP).
+  - **Nara:** a secret field in the crawl config (backend column + UI field), stored like the Basic auth password.
 
 ---
 
@@ -172,8 +183,9 @@ Some “buttons” use **`href="#"`** or **`javascript:void(0)`** and rely on **
 
 1. ~~Index **`stateHash`** (and possibly action keys) for fast lookup.~~ **Done.**
 2. ~~Align **Joi / `ConfigValidator`** so optional crawler fields are not accidentally stripped.~~ **Done (SCAN-89).**
-3. **Document or fix** multi-browser + shared manager semantics.
+3. ~~**Document**~~ or fix multi-browser + shared manager semantics. **Documented (SCAN-236)**; the races remain (see *Concurrency*).
 4. Revisit cost of **`[click]`** / CDP-based listener discovery on large DOMs.
 5. ~~Support **multiple seed URLs**~~ **Done:** (see *Multiple seed URLs* under graph algorithms) — config + manager + replay semantics. **(SCAN-229)**
 6. ~~**robots.txt + sitemap.xml** discovery~~ **Done:** (see subsection under graph algorithms): fetch/parse, merge with `entryPoint`, scope filters, optional `respectRobots`, limits and proxy alignment. **(SCAN-229)**
 7. **Out-of-scope link pruning** (see *Out-of-scope link pruning* under Performance): resolve `href` with **document URL** + **`<base>`**, then **`inContext`** — skip crawl actions for anchors that would navigate out of scope; handle **non-HTTP** `href` schemes and SPA edge cases carefully.
+8. **TOTP two-factor login** (see *Authentication*): generate the code at replay time from a configured secret, via a `{{totp}}` placeholder in the recording. **(SCAN-238)**

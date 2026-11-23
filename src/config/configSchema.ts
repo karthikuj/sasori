@@ -63,11 +63,30 @@ export const recorderAuthSchema = Joi.object<RecorderAuthConfig>({
 }).required();
 
 /**
+ * Session check (SCAN-236). Kept identical in configModel.ts and configSchema.ts.
+ */
+const sessionCheckSchema = Joi.object({
+    enabled: Joi.boolean().optional(),
+    // At least 10 seconds: every check is a request to the target.
+    intervalMs: Joi.number().integer().min(10000).max(86400000).optional(),
+    url: Joi.string().uri({ scheme: ['http', 'https'] }).optional(),
+    // Must compile as a JavaScript RegExp; only meaningful with url.
+    loggedInRegex: Joi.string().min(1).max(1000).custom((value: string) => {
+        new RegExp(value);
+        return value;
+    }, 'regular expression').optional(),
+}).with('loggedInRegex', 'url');
+
+/**
  * Authentication configuration schema
  */
 export const authenticationSchema = Joi.object<AuthenticationConfig>({
     basicAuth: basicAuthSchema,
     recorderAuth: recorderAuthSchema,
+    sessionCheck: sessionCheckSchema.optional(),
+    // 0 turns scheduled re-login off. At least a minute otherwise: each one
+    // restarts the browser.
+    reloginIntervalMs: Joi.alternatives().try(Joi.valid(0), Joi.number().integer().min(60000).max(86400000)).optional(),
 }).required();
 
 /**
@@ -90,6 +109,8 @@ export const browserSchema = Joi.object<BrowserConfig>({
     instances: Joi.number().integer().min(1).max(10).required(),
     slowMo: Joi.number().integer().min(0).max(5000).optional(),
     tls: tlsSchema,
+    // SCAN-236. Declared in both Joi layers; schemaDrift.test.ts enforces it.
+    sessionMode: Joi.string().valid('shared', 'perBrowser').optional(),
 }).required();
 
 /**
