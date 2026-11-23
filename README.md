@@ -452,5 +452,3 @@ the code, please read [CONTRIBUTING.md](CONTRIBUTING.md) first.
 ## License
 
 Sasori is released under the [MIT License](LICENSE).
-</content>
-</invoke>
