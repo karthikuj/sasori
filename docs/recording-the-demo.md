@@ -45,8 +45,15 @@ npm install -g terminalizer
    `resources/sasori.yml` when you stop.
 
    ```bash
-   npx terminalizer record resources/sasori
+   npx terminalizer record resources/sasori -d "$SHELL" -k
    ```
+
+   Pass your own shell with `-d "$SHELL"`. Without it, Terminalizer starts
+   `bash -l`, a login bash that reads `~/.profile` but not your zsh or bash
+   startup files. If Node.js comes from nvm (or anything set up in `~/.zshrc`
+   or `~/.bashrc`), that shell has no `node` and no `sasori` on its `PATH`,
+   and the recording shows `command not found`. `-k` skips Terminalizer's
+   prompt to upload the recording to terminalizer.com.
 
 3. In the recording shell, run a short crawl so the output is visible, then
    leave it running only long enough to show some discovered URLs.
@@ -54,6 +61,10 @@ npm install -g terminalizer
    ```bash
    node dist/bin/index.js start --config ./config/config.json
    ```
+
+   If you installed the command with `make install-app`, `sasori start --config
+   ./config/config.json` does the same. Re-run `make install-app` first, so the
+   banner shows the version you just built.
 
 4. Stop the crawl with Ctrl+C, then type `exit` to end the recording. Terminalizer
    writes `resources/sasori.yml`.
