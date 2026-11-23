@@ -28,7 +28,18 @@ export interface BrowserConfig {
     instances: number;
     slowMo?: number;
     tls?: TlsConfig;
+    /**
+     * How the crawl workers share a login (SCAN-236).
+     *
+     * - `shared` (default): one browser, logged in once, with one window per
+     *   worker. Every window shares the browser's cookies and storage.
+     * - `perBrowser`: one browser per worker, each logging in on its own. For
+     *   apps that keep the login only in `sessionStorage`, which is per window.
+     */
+    sessionMode?: SessionMode;
 }
+
+export type SessionMode = 'shared' | 'perBrowser';
 
 /**
  * Proxy configuration interface

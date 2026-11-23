@@ -185,7 +185,15 @@ Settings for the browser that does the crawling.
 
 - **headless**: run the browser with no window. Default `false`.
 - **maximize**: maximize the browser window. Default `false`.
-- **instances**: how many browsers to run at the same time.
+- **instances**: how many crawl workers run at the same time.
+- **sessionMode**: how the workers share a login. Default `"shared"`.
+  - `"shared"`: one browser, logged in once, with one window per worker. Every
+    window shares the browser's cookies and storage, so every worker is logged
+    in, the way your own Chrome is logged in to a site in every window. It also
+    works on apps that allow only one session per user.
+  - `"perBrowser"`: one browser per worker, each logging in on its own. Use it
+    for an app that keeps its login only in `sessionStorage`, which a browser
+    does not share between windows. Sasori warns when it sees a login there.
 - **proxy**: proxy settings.
   - **enabled**: turn the proxy on.
   - **host**: proxy host. Required when the proxy is on.
@@ -235,6 +243,37 @@ Settings for how the crawl behaves.
   - **recorderAuth**: login with a recorded flow.
     - **enabled**: turn recorder auth on.
     - **pptrRecording**: path to a [Puppeteer recording](#creating-a-puppeteer-recording). Use an absolute path. Required when enabled.
+  - **sessionCheck**: check that the crawl is still logged in, and log in again
+    if it is not. Used with recorder auth. After logging in, Sasori picks one
+    of the app's own API calls (fetch/XHR `GET`s only, never page loads) whose
+    answer changes without the login, and repeats it on a timer. It prefers a
+    call whose **status** changes (401/403, a redirect to the login page); if
+    only the **body** changes, it keeps a few markers only the logged-in
+    answer has, such as your email, and a check without them is a logout. If
+    no API call qualifies, Sasori says so and asks you to set `url` and
+    `loggedInRegex`. Each time, every worker first finishes the action it is
+    on and pauses, and the check is sent from one of their windows. When it
+    answers like a logged-out request, Sasori clears the dead session and
+    logs in again in that one window. The other windows share its cookies, so
+    they are logged in too and nothing is restarted; then every worker
+    carries on. If logging in again that way fails, the browser restarts on a
+    fresh profile. After three failed restarts in a row, the crawl stops with
+    an error.
+    - **enabled**: default `true` when recorder auth is on.
+    - **intervalMs**: time between checks, in milliseconds. Default `120000`.
+      At least `10000`.
+    - **url**: a `GET` URL that only works while logged in. Set it for an app
+      that makes no API calls after login, where Sasori cannot find one itself.
+      Without `loggedInRegex`, Sasori judges it by status or markers as above.
+    - **loggedInRegex**: a regular expression (JavaScript, case-sensitive) that
+      `url`'s response matches only while logged in, for example
+      `Welcome! \w+`. When it stops matching, the crawl is logged out. Use it
+      for pages that answer 200 either way and differ only in their text. It
+      must match right after login, or the check is refused. Needs `url`.
+  - **reloginIntervalMs**: log in again on this schedule, in milliseconds,
+    whether or not the session looks expired. The browser restarts on a fresh
+    profile each time. `0`, the default, turns it off; otherwise at least
+    `60000`.
 
 ### Logging
 

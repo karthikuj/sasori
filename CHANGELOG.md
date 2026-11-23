@@ -5,6 +5,10 @@ All notable changes to this project will be documented in this file.
 ## Unreleased
 
 ### Breaking
+- With `browser.instances` above 1, Sasori now runs one browser, logs in once,
+  and runs each worker in its own window of that browser. It used to launch
+  one browser per worker and log in on each. Set `browser.sessionMode` to
+  `"perBrowser"` to get the old behaviour back. (SCAN-236)
 - Sasori is now written in TypeScript and runs from the compiled `dist/`
   directory. Build with `npm run build` and start it with
   `node dist/bin/index.js`.
@@ -19,6 +23,26 @@ All notable changes to this project will be documented in this file.
   calls. It used to print the CLI help.
 
 ### Added
+- `browser.sessionMode`: `"shared"` (the default: one browser, one login, a
+  window per worker) or `"perBrowser"` (one browser and one login per worker,
+  for apps that keep their login only in `sessionStorage`). Sasori warns when
+  the login seems to be in `sessionStorage` in shared mode. (SCAN-236)
+- Session checks. With recorder auth, Sasori finds a `GET` the app makes after
+  login that fails without the login, and repeats it every
+  `crawler.authentication.sessionCheck.intervalMs` (default 2 minutes). Only
+  API requests are considered, preferring one whose status changes without the
+  login, then one whose body does; when none qualifies Sasori says so and asks
+  for `sessionCheck.url` and `sessionCheck.loggedInRegex`, a pattern the URL's
+  response matches only while logged in. Every
+  worker finishes its action and pauses for each check. On a logout, Sasori
+  clears the dead session and logs in again in one window; the other windows
+  share its cookies, so nothing is restarted, and every worker resumes. If
+  that fails the browser restarts on a fresh profile, and three failed
+  restarts in a row end the crawl with an error. `sessionCheck.url` sets the check by hand, and
+  `sessionCheck.enabled: false` turns it off. (SCAN-236)
+- Scheduled re-login with `crawler.authentication.reloginIntervalMs`. (SCAN-236)
+- A browser that crashes mid-crawl is restarted, and the crawl carries on.
+  The action it was running is run again. (SCAN-236)
 - Several starting URLs. The crawl now starts from the entry point, then from
   `crawler.extraSeeds`. Each one starts its own crawl tree, and trees that reach
   the same page merge. (SCAN-229)
@@ -75,6 +99,13 @@ All notable changes to this project will be documented in this file.
 - Looking up a state by its hash no longer walks the whole graph.
 
 ### Fixed
+- Temporary browser profiles made for `browser.tls.extraCaCerts`
+  (`/tmp/sasori-tls-*`) are deleted when the crawl ends. One was left behind
+  per browser per crawl. (SCAN-236)
+- A page the crawled app opens is still closed, but Sasori's own windows no
+  longer are. (SCAN-236)
+- While one browser runs its login, only that browser may leave scope for the
+  login's identity provider. Before, every browser could. (SCAN-236)
 - `maxActionRetries` was silently removed from configs before the crawler saw
   it, so the default of 3 always applied. A test now checks that both config
   schemas declare the same keys. (SCAN-89)

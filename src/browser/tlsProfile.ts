@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, mkdtempSync } from 'fs';
+import { existsSync, mkdirSync, mkdtempSync, rmSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 import { spawnSync } from 'child_process';
@@ -44,4 +44,23 @@ export function prepareTlsUserDataDir(caPemPaths: string[]): string {
     }
 
     return userDataDir;
+}
+
+/**
+ * Deletes a profile directory made by {@link prepareTlsUserDataDir}.
+ *
+ * Every crawl used to leave one `/tmp/sasori-tls-*` directory per browser
+ * behind, because nothing removed them (SCAN-236). Never throws: a profile that
+ * cannot be deleted must not turn a finished crawl into a failed one.
+ * @param userDataDir - Directory to delete; ignored when empty.
+ */
+export function removeUserDataDir(userDataDir: string | null | undefined): void {
+    if (!userDataDir) {
+        return;
+    }
+    try {
+        rmSync(userDataDir, { recursive: true, force: true });
+    } catch (e) {
+        console.warn(`[sasori] Could not delete browser profile ${userDataDir}: ${e instanceof Error ? e.message : String(e)}`);
+    }
 }
