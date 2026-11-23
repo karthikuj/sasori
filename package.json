@@ -1,6 +1,6 @@
 {
   "name": "sasori-crawl",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "description": "Sasori is a dynamic web crawler powered by Puppeteer, designed for lightning-fast endpoint discovery.",
   "main": "dist/bin/index.js",
   "author": "Karthik UJ",
@@ -9,7 +9,7 @@
     {
       "name": "Karthik UJ",
       "email": "karthikuj2001@gmail.com",
-      "url": "https://www.5up3r541y4n.tech/"
+      "url": "https://karthikuj.github.io/"
     }
   ],
   "repository": {

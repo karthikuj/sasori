@@ -4,6 +4,8 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+## [2.0.0] - 2026-11-24
+
 ### Breaking
 - With `browser.instances` above 1, Sasori now runs one browser, logs in once,
   and runs each worker in its own window of that browser. It used to launch
