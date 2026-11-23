@@ -64,7 +64,7 @@ help: ## Display this help screen
 	@echo ""
 
 check-tools: ## Verify Node.js and npm are on PATH
-	@command -v node >/dev/null 2>&1 && echo "  ✅ node $$(command -v node)" || (echo "  ❌ node not found — install Node.js 18+ (https://nodejs.org/)"; exit 1)
+	@command -v node >/dev/null 2>&1 && echo "  ✅ node $$(command -v node)" || (echo "  ❌ node not found — install Node.js 22.12+ (https://nodejs.org/)"; exit 1)
 	@command -v npm >/dev/null 2>&1 && echo "  ✅ npm $$(command -v npm)" || (echo "  ❌ npm not found (expected with Node.js)"; exit 1)
 
 version: ## Print package version and git metadata

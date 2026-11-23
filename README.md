@@ -83,7 +83,7 @@ no further, so the crawl stays on the target you asked for.
 
 ## Requirements
 
-- Node.js 18 or newer
+- Node.js 22.12 or newer (Puppeteer 25's minimum)
 - A Chromium browser, which Puppeteer installs for you
 - `libnss3-tools` only if you use a proxy CA, see [Proxy and TLS](#proxy-and-tls)
 
