@@ -102,7 +102,7 @@ When the crawl finishes, `urls.txt` holds every in scope URL it reached.
 
 ## Ways to run Sasori
 
-### Install from npm (recommended)
+### Install from npm
 
 ```bash
 npm install -g sasori-crawl
@@ -110,8 +110,52 @@ sasori init
 sasori start --config /path/to/config.json
 ```
 
-### Run from source
+### Install from source as the `sasori` command
 
+Builds this checkout and installs it globally, the same way the npm package
+would be installed:
+
+make install        # install dependencies
+make install-app    # build, pack, and npm install -g the result
+sasori --help
+```
+
+`make install-app` installs a packed copy, not a link to the checkout, so
+rebuilding or switching branches does not change the installed `sasori` until
+you run it again. `make uninstall-app` removes it. If your global npm prefix
+needs root, use a Node version manager, or set a user prefix with
+`npm config set prefix ~/.local` and put `~/.local/bin` on your `PATH`.
+
+### Run from source without installing
+
+Sasori runs from the built output in `dist/`. Every `run-*` target builds first,
+so a change is always picked up:
+
+```bash
+make install                                   # once: install dependencies
+make run-cli CONFIG=path/to/config.json        # one crawl
+make run-crawl CONFIG=path/to/config.json \
+    INVENTORY=inv.json CRAWL_GRAPH=graph.json  # one crawl, plus inventory and crawl graph
+make run                                       # API server on port 3100 (what nara-backend calls)
+make run-api HOST=127.0.0.1 PORT=8080          # API server on another host or port
+```
+
+| Command | What it does |
+| --- | --- |
+| `make install` | Install dependencies (`npm install`). |
+| `make build` | Compile TypeScript into `dist/` and copy `config/` there. |
+| `make run-cli` | Build, then run one crawl with `CONFIG` (default `config/config.json`). |
+| `make run-crawl` | Build, then run one crawl and write `INVENTORY` and `CRAWL_GRAPH`. |
+| `make run` | Build, then start the API server on `PORT` (default `3100`). |
+| `make run-api` | Build, then start the API server on `HOST` and `PORT`. |
+| `make install-app` | Build, then install the `sasori` command globally. |
+| `make uninstall-app` | Remove the global `sasori` command. |
+| `make package-zip` | Zip `dist/` and the manifests for a server that runs `npm ci`. |
+| `make help` | List every target, including tests, lint and benchmarks. |
+
+Without make, the same steps are:
+
+```bash
 ```bash
 git clone https://github.com/karthikuj/sasori.git
 cd sasori
@@ -119,8 +163,6 @@ npm install
 npm run build
 node dist/bin/index.js start --config ./config/config.json
 ```
-
-Sasori runs from the built output in `dist/`, so build first after any change.
 
 ### Start a single crawl
 

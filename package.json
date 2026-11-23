@@ -18,6 +18,13 @@
   "bin": {
     "sasori": "dist/bin/index.js"
   },
+  "files": [
+    "dist/bin",
+    "dist/src",
+    "dist/config",
+    "dist/package.json",
+    "CHANGELOG.md"
+  ],
   "scripts": {
     "build": "tsc",
     "postbuild": "cp -r config dist/",
