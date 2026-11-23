@@ -3,7 +3,7 @@
         "headless": true,
         "maximize": true,
         "proxy": {
-            "enabled": true,
+            "enabled": false,
             "host": "127.0.0.1",
             "port": 3200
         },
@@ -33,8 +33,8 @@
                 "password": "password"
             },
             "recorderAuth": {
-                "enabled": true,
-                "pptrRecording": "/home/sup3r541y4n/Dev/sasori-private/coverage/testfire.pptr.json"
+                "enabled": false,
+                "pptrRecording": ""
             },
             "sessionCheck": {
                 "enabled": true,

@@ -96,7 +96,7 @@ yarg.command({
             type: 'string',
         },
     },
-    handler(argv: any) {
+    async handler(argv: any) {
         try {
             fs.accessSync(argv.config, fs.constants.F_OK);
             console.log(chalk.green(`[INFO] Config file "${argv.config}" exists.`));
@@ -107,6 +107,7 @@ yarg.command({
                 // ConfigValidator.validate throws on error, so if we get here, config is valid
             } catch (error: any) {
                 console.error(chalk.red(`[ERROR] ${error.message}`));
+                process.exitCode = 1;
                 return;
             }
             // Tee console output to the configured rotating log file (SCAN-181).
@@ -144,9 +145,19 @@ yarg.command({
             };
             process.once('SIGINT', () => gracefulStop('SIGINT'));
             process.once('SIGTERM', () => gracefulStop('SIGTERM'));
-            crawler.startCrawling();
+            // A library can leave a promise that fails after the crawl has
+            // moved on: when a login recording's page load fails,
+            // @puppeteer/replay's wait for that navigation is never awaited
+            // and rejects once the browser closes ("Navigating frame was
+            // detached"). Log it instead of letting Node crash the CLI with a
+            // stack trace, as API mode already does.
+            process.on('unhandledRejection', (reason) => {
+                console.warn(chalk.yellow(`[WARN] Ignored a late failure: ${reason instanceof Error ? reason.message : String(reason)}`));
+            });
+            await crawler.startCrawling();
         } catch (err: any) {
-            console.error(chalk.red(`[ERROR] ${err.message}`));
+            console.error(chalk.red(`[ERROR] Crawl failed: ${err?.message ?? err}`));
+            process.exitCode = 1;
         }
     },
 });

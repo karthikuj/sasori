@@ -6,6 +6,7 @@ import chalk from 'chalk';
 import ActionDiscovery from './actionDiscovery';
 import ActionReplay from './actionReplay';
 import BrowserSession, { BrowserLauncher } from '../browser/browserSession';
+import { checkProxyReachable } from '../browser/proxyCheck';
 import CrawlAction from './crawlAction';
 import CrawlInput from './crawlInput';
 import CrawlState from './crawlState';
@@ -1448,6 +1449,12 @@ class Crawler {
     browserLauncher: BrowserLauncher | undefined = undefined;
 
     /**
+     * Checks that the configured proxy accepts connections before any browser
+     * is launched; tests replace it to avoid opening sockets.
+     */
+    proxyCheck: (host: string, port: number) => Promise<void> = checkProxyReachable;
+
+    /**
      * Starts the crawling process.
      */
     async startCrawling(): Promise<void> {
@@ -1481,6 +1488,15 @@ class Crawler {
                 console.log(chalk.yellowBright(
                     `[INFO] Recorder auth is ${recorderAuth ? 'DISABLED' : 'NOT CONFIGURED'} — crawling without a login sequence.`,
                 ));
+            }
+
+            // A proxy that is not running would otherwise surface as
+            // ERR_PROXY_CONNECTION_FAILED on the first page load, which looks
+            // like a login or browser failure. Fail now, naming the proxy.
+            const proxy = this.config.browser.proxy;
+            if (proxy?.enabled && proxy.host && proxy.port) {
+                await this.proxyCheck(proxy.host, proxy.port);
+                console.log(chalk.greenBright(`[INFO] Proxy ${proxy.host}:${proxy.port} is reachable.`));
             }
 
             // One session at a time, NOT all at once. Logging in on every browser

@@ -802,6 +802,36 @@ describe('start and stop', () => {
         expect(h.profiles.every((p) => !existsSync(p))).toBe(true);
     });
 
+    it('fails before launching any browser when the proxy is not reachable', async () => {
+        const config = makeConfig({ instances: 2 });
+        config.browser.proxy = { enabled: true, host: '127.0.0.1', port: 3200 };
+        const h = harness(config, 2);
+        h.crawler.proxyCheck = jest.fn(async () => {
+            throw new Error('Proxy 127.0.0.1:3200 is not reachable (ECONNREFUSED).');
+        });
+        await expect(h.crawler.startCrawling()).rejects.toThrow('Proxy 127.0.0.1:3200 is not reachable');
+        expect(h.crawler.proxyCheck).toHaveBeenCalledWith('127.0.0.1', 3200);
+        expect(h.browsers).toHaveLength(0);
+        expect(authenticate).not.toHaveBeenCalled();
+    });
+
+    it('checks the proxy, then crawls through it, when it is reachable', async () => {
+        const config = makeConfig({ instances: 1 });
+        config.browser.proxy = { enabled: true, host: '127.0.0.1', port: 3200 };
+        const h = harness(config, 2);
+        h.crawler.proxyCheck = jest.fn(async () => undefined);
+        await h.crawler.startCrawling();
+        expect(h.crawler.proxyCheck).toHaveBeenCalledTimes(1);
+        expect(h.performed).toHaveLength(2);
+    });
+
+    it('does not check the proxy when it is disabled', async () => {
+        const h = harness(makeConfig({ instances: 1 }), 1);
+        h.crawler.proxyCheck = jest.fn(async () => undefined);
+        await h.crawler.startCrawling();
+        expect(h.crawler.proxyCheck).not.toHaveBeenCalled();
+    });
+
     it('a stop request ends the crawl without a restart, and closes everything', async () => {
         const h = harness(makeConfig({ instances: 2 }), 6, (n, _page, hh) => {
             if (n === 2) {
