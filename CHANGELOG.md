@@ -4,6 +4,26 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+### Changed
+- `sasori init` now writes a config that runs as it is: the proxy and the login
+  recording are off. It used to enable a proxy at `127.0.0.1:3200` and a login
+  recording at a path on the maintainer's machine, so a fresh `sasori init` then
+  `sasori start` failed for everyone. Turn them on in `browser.proxy` and
+  `crawler.authentication.recorderAuth` when you need them.
+
+### Fixed
+- `sasori start` waits for the crawl and reports a failure as one line,
+  `[ERROR] Crawl failed: …`, with exit code 1. It used to let the error escape,
+  so Node printed a stack trace, and an invalid config exited with code 0.
+- A proxy that is not running is reported before Chrome starts:
+  `Proxy 127.0.0.1:3200 is not reachable (ECONNREFUSED). Start the proxy, or set
+  browser.proxy.enabled to false in the config.` It used to show up as
+  `net::ERR_PROXY_CONNECTION_FAILED` on the login page. This applies to API
+  scans too, which now fail with the same message.
+- A login recording whose first page fails to load no longer crashes the CLI with
+  "Navigating frame was detached". `@puppeteer/replay` leaves that wait
+  unhandled; the CLI now logs it as a warning, as API mode already did.
+
 ## [2.0.0] - 2026-11-24
 
 ### Breaking
