@@ -78,8 +78,8 @@ npm install -g terminalizer
 ## Keep private details out of the recording
 
 The terminal frames capture whatever is on screen, including your shell prompt
-and working directory. The current `sasori.yml` shows a real home path and
-hostname, which we do not want in a public README. Before recording:
+and working directory, and the `config` block records the directory you
+recorded in. None of that belongs in a public README. Before recording:
 
 - Record from a neutral directory, not your home or Desktop.
 - Trim your prompt so it does not show your username and hostname:
@@ -92,15 +92,31 @@ hostname, which we do not want in a public README. Before recording:
   The committed `config/config.json` points at a public demo site, which is a
   safe choice.
 
+If you recorded with your normal prompt anyway, clean `sasori.yml` before
+rendering: replace your `user@host` (it also appears in the invisible
+window-title sequences, `\e]0;user@host: …\a`), your working directory, and
+the absolute path `sasori init` prints, then set `cwd` to a generic path. Then
+check nothing is left, for example `grep -nE "$USER|$(hostname)|$HOME" resources/sasori.yml`.
+
 ## Tune the look
 
-You can edit the `config` block at the top of `sasori.yml` before rendering:
+You can edit the `config` block at the top of `sasori.yml` before rendering.
+A new recording resets that block to Terminalizer's defaults, so copy the
+tuned values from the previous `sasori.yml` (in git) instead of starting over.
+The committed recording uses `cols: 120`, `rows: 29`, `frameDelay: 100`, the
+window title `sasori`, and no box shadow with a 4px margin.
+
 
 - **`cols` and `rows`** set the terminal size. Smaller values make a tighter GIF.
 - **`frameDelay`** controls playback speed. `auto` keeps your real typing pace,
   a fixed value in milliseconds makes it even.
 - **`quality`** ranges from 1 to 100.
 - **`theme`** sets the colors.
+
+zsh pads the line before each prompt to the width of the terminal you
+recorded in. If you recorded in a wider terminal than `cols`, those runs of
+spaces wrap and add a blank line before every prompt: shorten them to
+`cols - 1` spaces.
 
 Re-render after any edit.
 

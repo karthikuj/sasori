@@ -9,7 +9,7 @@ config:
   
   # Specify the current working directory path
   # the default is the current working directory path
-  cwd: /home/sup3r541y4n/Desktop
+  cwd: /home/user/demo
   
   # Export additional ENV variables
   env:
@@ -111,181 +111,207 @@ config:
   
 # Records, feel free to edit them
 records:
-  - delay: 500
-    content: "\r\n"
-  - delay: 351
-    content: "\e]0;sup3r541y4n@5up3r541y4n:~/Desktop\e\\\e]7;file://5up3r541y4n/home/sup3r541y4n/Desktop\e\\\e[?2004h\e]0;sup3r541y4n@5up3r541y4n: ~/Desktop\a\e[01;32msup3r541y4n@5up3r541y4n\e[00m:\e[01;34m~/Desktop\e[00m$ "
-  - delay: 1660
-    content: s
-  - delay: 310
-    content: a
-  - delay: 149
-    content: s
-  - delay: 411
-    content: o
-  - delay: 127
-    content: r
-  - delay: 123
-    content: i
-  - delay: 281
-    content: "\r\n\e[?2004l\r"
-  - delay: 304
-    content: "\e[92m\e[1m\e[22m\e[39m\r\n\e[92m\e[1m                              :.            :   \e[22m\e[39m\r\n\e[92m\e[1m                             .+              =. \e[22m\e[39m\r\n\e[92m\e[1m                             ++.            .-= \e[22m\e[39m\r\n\e[92m\e[1m                            :++==   .  .   :===:\e[22m\e[39m\r\n\e[92m\e[1m                            -+++.   :  :    =++-\e[22m\e[39m\r\n\e[92m\e[1m                              ==    .--.   .-=. \e[22m\e[39m\r\n\e[92m\e[1m                               :+: .-:.-. :=:   \e[22m\e[39m\r\n\e[92m\e[1m                             .-::--:-::::--:::. \e[22m\e[39m\r\n\e[92m\e[1m                            -: .:-..::::..::. :-\e[22m\e[39m\r\n\e[92m\e[1m                            - ::  ..:::: :  :: -\e[22m\e[39m\r\n\e[92m\e[1m                              -  -. :--: .-  -  \e[22m\e[39m\r\n\e[92m\e[1m                              :  -   --.  :. :  \e[22m\e[39m\r\n\e[92m\e[1m                                 :   ..   :     \e[22m\e[39m\r\n\e[92m\e[1m\e[22m\e[39m\r\n\e[92m\e[1m                                   SASORI\e[22m\e[39m\r\n\e[92m\e[1m\e[22m\e[39m\r\n\e[92m\e[1m                            Made by @5up3r541y4n \U0001F525\e[22m\e[39m\r\n\e[92m\e[1m\e[22m\e[39m\r\n\e[92m\e[1m                                   v0.1.0\e[22m\e[39m\r\n\e[92m\e[1m\e[22m\e[39m\r\n\e[92m\e[1m\e[22m\e[39m\r\n"
-  - delay: 9
-    content: "Usage: sasori [command]\r\n\r\nCommands:\r\n  sasori init   Create a configuration file for sasori\r\n  sasori start  Start crawling\r\n\r\nOptions:\r\n  --help     Show help                                                 [boolean]\r\n  --version  Show version number                                       [boolean]\r\n"
-  - delay: 11
-    content: "\e]0;sup3r541y4n@5up3r541y4n:~/Desktop\e\\\e]7;file://5up3r541y4n/home/sup3r541y4n/Desktop\e\\\e[?2004h\e]0;sup3r541y4n@5up3r541y4n: ~/Desktop\a\e[01;32msup3r541y4n@5up3r541y4n\e[00m:\e[01;34m~/Desktop\e[00m$ "
-  - delay: 2149
-    content: s
-  - delay: 94
-    content: a
-  - delay: 108
-    content: s
-  - delay: 523
-    content: o
-  - delay: 161
-    content: r
-  - delay: 93
-    content: i
-  - delay: 156
-    content: ' '
-  - delay: 3549
-    content: i
-  - delay: 183
-    content: 'n'
-  - delay: 143
-    content: i
-  - delay: 105
-    content: t
-  - delay: 223
-    content: "\r\n\e[?2004l\r"
-  - delay: 275
-    content: "\e[92m\e[1m\e[22m\e[39m\r\n\e[92m\e[1m                              :.            :   \e[22m\e[39m\r\n\e[92m\e[1m                             .+              =. \e[22m\e[39m\r\n\e[92m\e[1m                             ++.            .-= \e[22m\e[39m\r\n\e[92m\e[1m                            :++==   .  .   :===:\e[22m\e[39m\r\n\e[92m\e[1m                            -+++.   :  :    =++-\e[22m\e[39m\r\n\e[92m\e[1m                              ==    .--.   .-=. \e[22m\e[39m\r\n\e[92m\e[1m                               :+: .-:.-. :=:   \e[22m\e[39m\r\n\e[92m\e[1m                             .-::--:-::::--:::. \e[22m\e[39m\r\n\e[92m\e[1m                            -: .:-..::::..::. :-\e[22m\e[39m\r\n\e[92m\e[1m                            - ::  ..:::: :  :: -\e[22m\e[39m\r\n\e[92m\e[1m                              -  -. :--: .-  -  \e[22m\e[39m\r\n\e[92m\e[1m                              :  -   --.  :. :  \e[22m\e[39m\r\n\e[92m\e[1m                                 :   ..   :     \e[22m\e[39m\r\n\e[92m\e[1m\e[22m\e[39m\r\n\e[92m\e[1m                                   SASORI\e[22m\e[39m\r\n\e[92m\e[1m\e[22m\e[39m\r\n\e[92m\e[1m                            Made by @5up3r541y4n \U0001F525\e[22m\e[39m\r\n\e[92m\e[1m\e[22m\e[39m\r\n\e[92m\e[1m                                   v0.1.0\e[22m\e[39m\r\n\e[92m\e[1m\e[22m\e[39m\r\n\e[92m\e[1m\e[22m\e[39m\r\n"
-  - delay: 6
-    content: "\e[32m[INFO] Config file created at: /home/sup3r541y4n/Desktop/config.json\e[39m\r\n"
-  - delay: 15
-    content: "\e]0;sup3r541y4n@5up3r541y4n:~/Desktop\e\\\e]7;file://5up3r541y4n/home/sup3r541y4n/Desktop\e\\\e[?2004h\e]0;sup3r541y4n@5up3r541y4n: ~/Desktop\a\e[01;32msup3r541y4n@5up3r541y4n\e[00m:\e[01;34m~/Desktop\e[00m$ "
-  - delay: 1618
-    content: s
-  - delay: 90
-    content: a
-  - delay: 86
-    content: s
-  - delay: 598
-    content: o
-  - delay: 141
-    content: r
-  - delay: 88
-    content: i
-  - delay: 158
-    content: ' '
-  - delay: 1925
-    content: s
-  - delay: 106
-    content: t
-  - delay: 94
-    content: a
-  - delay: 112
-    content: r
-  - delay: 177
-    content: t
-  - delay: 128
-    content: ' '
-  - delay: 480
-    content: '-'
-  - delay: 126
-    content: '-'
-  - delay: 158
-    content: c
-  - delay: 93
-    content: o
-  - delay: 240
-    content: 'n'
-  - delay: 111
-    content: f
-  - delay: 114
-    content: i
-  - delay: 110
-    content: g
-  - delay: 65
-    content: ' '
-  - delay: 391
-    content: .
-  - delay: 174
-    content: /
-  - delay: 144
-    content: c
-  - delay: 153
-    content: o
-  - delay: 142
-    content: 'nfig.json '
-  - delay: 427
-    content: "\r\n\e[?2004l\r"
-  - delay: 297
-    content: "\e[92m\e[1m\e[22m\e[39m\r\n\e[92m\e[1m                              :.            :   \e[22m\e[39m\r\n\e[92m\e[1m                             .+              =. \e[22m\e[39m\r\n\e[92m\e[1m                             ++.            .-= \e[22m\e[39m\r\n\e[92m\e[1m                            :++==   .  .   :===:\e[22m\e[39m\r\n\e[92m\e[1m                            -+++.   :  :    =++-\e[22m\e[39m\r\n\e[92m\e[1m                              ==    .--.   .-=. \e[22m\e[39m\r\n\e[92m\e[1m                               :+: .-:.-. :=:   \e[22m\e[39m\r\n\e[92m\e[1m                             .-::--:-::::--:::. \e[22m\e[39m\r\n\e[92m\e[1m                            -: .:-..::::..::. :-\e[22m\e[39m\r\n\e[92m\e[1m                            - ::  ..:::: :  :: -\e[22m\e[39m\r\n\e[92m\e[1m                              -  -. :--: .-  -  \e[22m\e[39m\r\n\e[92m\e[1m                              :  -   --.  :. :  \e[22m\e[39m\r\n\e[92m\e[1m                                 :   ..   :     \e[22m\e[39m\r\n\e[92m\e[1m\e[22m\e[39m\r\n\e[92m\e[1m                                   SASORI\e[22m\e[39m\r\n\e[92m\e[1m\e[22m\e[39m\r\n\e[92m\e[1m                            Made by @5up3r541y4n \U0001F525\e[22m\e[39m\r\n\e[92m\e[1m\e[22m\e[39m\r\n\e[92m\e[1m                                   v0.1.0\e[22m\e[39m\r\n\e[92m\e[1m\e[22m\e[39m\r\n\e[92m\e[1m\e[22m\e[39m\r\n"
-  - delay: 9
-    content: "\e[32m[INFO] Config file \"./config.json\" exists.\e[39m\r\n"
-  - delay: 24
-    content: "\e[92m[INFO] Initializing browser...\e[39m\r\n"
-  - delay: 549
-    content: "\e[92m[INFO] Browser initialized successfully!\e[39m\r\n\e[92m[INFO] Sasori will now start crawling from https://security-crawl-maze.app/\e[39m\r\n\e[92m[INFO] Max duration is set to 0, sasori will run indefinitely.\e[39m\r\n"
-  - delay: 1071
-    content: "\e[92m[INFO] Setting up scope manager...\e[39m\r\n\e[92m[INFO] Scope manager started successfully!\e[39m\r\n\e[92m[INFO] Creating crawl state manager...\e[39m\r\n"
-  - delay: 7
-    content: "\e[95m[URL] \e[39m\e[32mhttps://security-crawl-maze.app/\e[39m\r\n"
-  - delay: 581
-    content: "\e[95m[URL] \e[39m\e[32mhttps://security-crawl-maze.app/favicon.ico\e[39m\r\n"
-  - delay: 1653
-    content: "\e[95m[URL] \e[39m\e[32mhttps://security-crawl-maze.app/css/\e[39m\r\n"
-  - delay: 416
-    content: "\e[95m[URL] \e[39m\e[32mhttps://security-crawl-maze.app/css/font-face.html\e[39m\r\n"
-  - delay: 318
-    content: "\e[95m[URL] \e[39m\e[32mhttps://security-crawl-maze.app/css/font-face.css\e[39m\r\n"
-  - delay: 732
-    content: "\e[95m[URL] \e[39m\e[32mhttps://security-crawl-maze.app/headers/\e[39m\r\n"
-  - delay: 433
-    content: "\e[95m[URL] \e[39m\e[32mhttps://security-crawl-maze.app/headers/content-location/\e[39m\r\n"
-  - delay: 1045
-    content: "\e[95m[URL] \e[39m\e[32mhttps://security-crawl-maze.app/headers/link/\e[39m\r\n"
-  - delay: 1091
-    content: "\e[95m[URL] \e[39m\e[32mhttps://security-crawl-maze.app/headers/location/\e[39m\r\n"
-  - delay: 300
-    content: "\e[95m[URL] \e[39m\e[32mhttps://security-crawl-maze.app/test/headers/location.found\e[39m\r\n"
-  - delay: 1088
-    content: "\e[95m[URL] \e[39m\e[32mhttps://security-crawl-maze.app/headers/refresh/\e[39m\r\n"
-  - delay: 688
-    content: "\e[95m[URL] \e[39m\e[32mhttps://security-crawl-maze.app/html/\e[39m\r\n"
-  - delay: 419
-    content: "\e[95m[URL] \e[39m\e[32mhttps://security-crawl-maze.app/html/body/\e[39m\r\n"
-  - delay: 452
-    content: "\e[95m[URL] \e[39m\e[32mhttps://security-crawl-maze.app/html/body/a/\e[39m\r\n"
-  - delay: 394
-    content: "\e[95m[URL] \e[39m\e[32mhttps://security-crawl-maze.app/html/body/a/href.html\e[39m\r\n"
-  - delay: 411
-    content: "\e[95m[URL] \e[39m\e[32mhttps://security-crawl-maze.app/test/html/body/a/href.found\e[39m\r\n"
-  - delay: 1702
-    content: "\e[95m[URL] \e[39m\e[32mhttps://security-crawl-maze.app/html/body/a/ping.html\e[39m\r\n"
-  - delay: 1438
-    content: "\e[95m[URL] \e[39m\e[32mhttps://security-crawl-maze.app/html/body/applet/\e[39m\r\n"
-  - delay: 417
-    content: "\e[95m[URL] \e[39m\e[32mhttps://security-crawl-maze.app/html/body/applet/archive.html\e[39m\r\n"
-  - delay: 1720
-    content: "\e[95m[URL] \e[39m\e[32mhttps://security-crawl-maze.app/html/body/applet/codebase.html\e[39m\r\n"
-  - delay: 1380
-    content: "\e[95m[URL] \e[39m\e[32mhttps://security-crawl-maze.app/html/body/audio/\e[39m\r\n"
-  - delay: 420
-    content: "\e[95m[URL] \e[39m\e[32mhttps://security-crawl-maze.app/html/body/audio/source/\e[39m\r\n"
-  - delay: 400
-    content: "\e[95m[URL] \e[39m\e[32mhttps://security-crawl-maze.app/html/body/audio/source/src.html\e[39m\r\n"
-  - delay: 317
-    content: "\e[95m[URL] \e[39m\e[32mhttps://security-crawl-maze.app/test/html/body/audio/source/src.found\e[39m\r\n"
-  - delay: 2058
-    content: "\e[95m[URL] \e[39m\e[32mhttps://security-crawl-maze.app/html/body/audio/source/srcset.html\e[39m\r\n"
-  - delay: 1700
-    content: "\e[95m[URL] \e[39m\e[32mhttps://security-crawl-maze.app/html/body/audio/src.html\e[39m\r\n"
-  - delay: 311
-    content: "\e[95m[URL] \e[39m\e[32mhttps://security-crawl-maze.app/test/html/body/audio/src.found\e[39m\r\n"
-  - delay: 341
-    content: ^C
-  - delay: 12
-    content: "\e]0;sup3r541y4n@5up3r541y4n:~/Desktop\e\\\e]7;file://5up3r541y4n/home/sup3r541y4n/Desktop\e\\\e[?2004h\e]0;sup3r541y4n@5up3r541y4n: ~/Desktop\a\e[01;32msup3r541y4n@5up3r541y4n\e[00m:\e[01;34m~/Desktop\e[00m$ "
+- delay: 830
+  content: "                                                                                                                       \r\r\e]0;user@demo: ~/demo\a"
+- delay: 14
+  content: "\r\e[0m\e[27m\e[24m\e[J\e[32m┌──(\e[1m\e[32m\e[34muser㉿demo\e[0m\e[34m\e[32m)-[\e[1m\e[32m\e[39m~/demo\e[0m\e[32m]\r\n└─\e[1m\e[32m\e[34m$\e[0m\e[34m\e[39m \e[K\e[?1h\e=\e[?2004h"
+- delay: 845
+  content: s
+- delay: 5
+  content: "\b\e[1ms\e[0m\b\e[1ms\e[0m\e[38;2;153;153;153masori\e[39m\b\b\b\b\b"
+- delay: 208
+  content: "\b\e[1ms\e[39m\e[1ma\e[0m\b\b\e[0m\e[4ms\e[0m\e[4ma\e[24m"
+- delay: 174
+  content: "\b\b\e[4ms\e[4ma\e[39m\e[4ms\e[24m"
+- delay: 159
+  content: "\b\e[4ms\e[39m\e[4mo\e[24m"
+- delay: 296
+  content: "\b\e[4mo\e[39m\e[4mr\e[24m"
+- delay: 144
+  content: "\b\e[4mr\e[39m\e[4mi\e[24m\b\b\b\b\b\b\e[24m\e[36ms\e[24m\e[36ma\e[24m\e[36ms\e[24m\e[36mo\e[24m\e[36mr\e[24m\e[36mi\e[39m"
+- delay: 111
+  content: "\b\e[36mi\e[36m \e[39m\b\b\e[36mi\e[39m\e[39m \e[38;2;153;153;153mstart --config ./config.json\e[39m\e[28D"
+- delay: 750
+  content: "\e[39m-\e[39m \e[39m \e[39m \e[39m \e[39m \e[39m \e[39m \e[39m \e[39m \e[39m \e[39m \e[39m \e[39m \e[39m \e[39m \e[39m \e[39m \e[39m \e[39m \e[39m \e[39m \e[39m \e[39m \e[39m \e[39m \e[39m \e[39m \e[27D\b\e[32m-\e[39m\e[38;2;153;153;153m-help\e[39m\b\b\b\b\b"
+- delay: 109
+  content: "\b\e[32m-\e[32m-\e[39m"
+- delay: 304
+  content: "\b\e[32m-\e[32mh\e[39m"
+- delay: 168
+  content: "\b\e[32mh\e[32me\e[39m"
+- delay: 168
+  content: "\b\e[32me\e[32ml\e[39m"
+- delay: 200
+  content: "\b\e[32ml\e[32mp\e[39m"
+- delay: 345
+  content: "\e[?1l\e>\e[?2004l\r\r\n"
+- delay: 436
+  content: "\e[92m\e[1m\e[22m\e[39m\r\n\e[92m\e[1m                   .:-==--:.\e[22m\e[39m\r\n\e[92m\e[1m                :==#####%##*=:\e[22m\e[39m\r\n\e[92m\e[1m              .=#%+++==++*##*++-.\e[22m\e[39m\r\n\e[92m\e[1m              =#%*=-:...:-++*#%%*-\e[22m\e[39m\r\n\e[92m\e[1m             .*%#=-.     .-=+####*:\e[22m\e[39m\r\n\e[92m\e[1m             .*##+-.       .-=***#.\e[22m\e[39m\r\n\e[92m\e[1m              :=*##+-.       +@@%:\e[22m\e[39m\r\n\e[92m\e[1m               :=+*##*=-.  .+%*-\e[22m\e[39m\r\n\e[92m\e[1m                 :-=+**##+-:.\e[22m\e[39m\r\n\e[92m\e[1m                    .:=+*##*-.\e[22m\e[39m\r\n\e[92m\e[1m                       .:-++#*-\e[22m\e[39m\r\n\e[92m\e[1m                          .-##+:\e[22m\e[39m\r\n\e[92m\e[1m                 =#=.      :*#=:\e[22m\e[39m\r\n\e[92m\e[1m                 -##=:.  .-#*=-.\e[22m\e[39m\r\n\e[92m\e[1m                  :=+##****+=-.\e[22m\e[39m\r\n\e[92m\e[1m                    .:---:::.\e[22m\e[39m\r\n\e[92m\e[1m\e[22m\e[39m\r\n\e[92m\e[1m                  S A S O R I\e[22m\e[39m\r\n\e[92m\e[1m\e[22m\e[39m\r\n\e[92m\e[1m             Made by @5up3r541y4n \U0001F525\e[22m\e[39m\r\n\e[92m\e[1m\e[22m\e[39m\r\n\e[92m\e[1m                  v2.0.0\e[22m\e[39m\r\n\e[92m\e[1m\e[22m\e[39m\r\n\e[92m\e[1m\e[22m\e[39m\r\n"
+- delay: 10
+  content: "Usage: sasori [command]\r\n\r\nCommands:\r\n  sasori init   Create a configuration file for sasori\r\n  sasori start  Start crawling\r\n  sasori api    Start REST API server for multiple concurrent scans\r\n\r\nOptions:\r\n  --help     Show help                                                 [boolean]\r\n  --version  Show version number                                       [boolean]\r\n"
+- delay: 8
+  content: "                                                                                                                       \r\r\e]0;user@demo: ~/demo\a\r\n"
+- delay: 11
+  content: "\r\e[0m\e[27m\e[24m\e[J\e[32m┌──(\e[1m\e[32m\e[34muser㉿demo\e[0m\e[34m\e[32m)-[\e[1m\e[32m\e[39m~/demo\e[0m\e[32m]\r\n└─\e[1m\e[32m\e[34m$\e[0m\e[34m\e[39m \e[K\e[?1h\e=\e[?2004h"
+- delay: 1157
+  content: "s\b\e[1ms\e[0m\b\e[1ms\e[0m\e[38;2;153;153;153masori --help\e[39m\e[12D"
+- delay: 228
+  content: "\b\e[1ms\e[39m\e[1ma\e[0m\b\b\e[0m\e[4ms\e[0m\e[4ma\e[24m"
+- delay: 196
+  content: "\b\b\e[4ms\e[4ma\e[39m\e[4ms\e[24m"
+- delay: 264
+  content: "\b\e[4ms\e[39m\e[4mo\e[24m"
+- delay: 192
+  content: "\b\e[4mo\e[39m\e[4mr\e[24m"
+- delay: 128
+  content: "\b\e[4mr\e[39m\e[4mi\e[24m\b\b\b\b\b\b\e[24m\e[36ms\e[24m\e[36ma\e[24m\e[36ms\e[24m\e[36mo\e[24m\e[36mr\e[24m\e[36mi\e[39m"
+- delay: 94
+  content: "\b\e[36mi\e[36m \e[39m\b\b\e[36mi\e[39m\e[39m "
+- delay: 159
+  content: "\e[39mi\e[39m \e[39m \e[39m \e[39m \e[39m \b\b\b\b\b\e[38;2;153;153;153mnit\e[39m\b\b\b"
+- delay: 205
+  content: "\e[39mn"
+- delay: 176
+  content: "\e[39mi"
+- delay: 145
+  content: "\e[39mt"
+- delay: 280
+  content: "\e[?1l\e>\e[?2004l\r\r\n"
+- delay: 432
+  content: "\e[92m\e[1m\e[22m\e[39m\r\n\e[92m\e[1m                   .:-==--:.\e[22m\e[39m\r\n\e[92m\e[1m                :==#####%##*=:\e[22m\e[39m\r\n\e[92m\e[1m              .=#%+++==++*##*++-.\e[22m\e[39m\r\n\e[92m\e[1m              =#%*=-:...:-++*#%%*-\e[22m\e[39m\r\n\e[92m\e[1m             .*%#=-.     .-=+####*:\e[22m\e[39m\r\n\e[92m\e[1m             .*##+-.       .-=***#.\e[22m\e[39m\r\n\e[92m\e[1m              :=*##+-.       +@@%:\e[22m\e[39m\r\n\e[92m\e[1m               :=+*##*=-.  .+%*-\e[22m\e[39m\r\n\e[92m\e[1m                 :-=+**##+-:.\e[22m\e[39m\r\n\e[92m\e[1m                    .:=+*##*-.\e[22m\e[39m\r\n\e[92m\e[1m                       .:-++#*-\e[22m\e[39m\r\n\e[92m\e[1m                          .-##+:\e[22m\e[39m\r\n\e[92m\e[1m                 =#=.      :*#=:\e[22m\e[39m\r\n\e[92m\e[1m                 -##=:.  .-#*=-.\e[22m\e[39m\r\n\e[92m\e[1m                  :=+##****+=-.\e[22m\e[39m\r\n\e[92m\e[1m                    .:---:::.\e[22m\e[39m\r\n\e[92m\e[1m\e[22m\e[39m\r\n\e[92m\e[1m                  S A S O R I\e[22m\e[39m\r\n\e[92m\e[1m\e[22m\e[39m\r\n\e[92m\e[1m             Made by @5up3r541y4n \U0001F525\e[22m\e[39m\r\n\e[92m\e[1m\e[22m\e[39m\r\n\e[92m\e[1m                  v2.0.0\e[22m\e[39m\r\n\e[92m\e[1m\e[22m\e[39m\r\n\e[92m\e[1m\e[22m\e[39m\r\n"
+- delay: 6
+  content: "\e[32m[INFO] Config file created at: /home/user/demo/config.json\e[39m\r\n"
+- delay: 17
+  content: "                                                                                                                       \r\r\e]0;user@demo: ~/demo\a\r\n"
+- delay: 10
+  content: "\r\e[0m\e[27m\e[24m\e[J\e[32m┌──(\e[1m\e[32m\e[34muser㉿demo\e[0m\e[34m\e[32m)-[\e[1m\e[32m\e[39m~/demo\e[0m\e[32m]\r\n└─\e[1m\e[32m\e[34m$\e[0m\e[34m\e[39m \e[K\e[?1h\e=\e[?2004h"
+- delay: 1229
+  content: "s\b\e[1ms\e[0m\b\e[1ms\e[0m\e[38;2;153;153;153masori init\e[39m\e[10D"
+- delay: 227
+  content: "\b\e[1ms\e[39m\e[1ma\e[0m\b\b\e[0m\e[4ms\e[0m\e[4ma\e[24m"
+- delay: 189
+  content: "\b\b\e[4ms\e[4ma\e[39m\e[4ms\e[24m"
+- delay: 184
+  content: "\b\e[4ms\e[39m\e[4mo\e[24m"
+- delay: 2002
+  content: "\b\e[4mo\e[39m\e[4mr\e[24m\e[38;2;153;153;153mr\e[38;2;153;153;153mi\e[38;2;153;153;153m \e[38;2;153;153;153mi\e[38;2;153;153;153mn\e[38;2;153;153;153mi\e[38;2;153;153;153mt\e[39m\b\b\b\b\b\b\b\b\b\b\b\b\e[24ms\e[24ma\e[24ms\e[24mo\e[24mr\e[39mi\e[38;2;153;153;153mr\e[38;2;153;153;153mi\e[38;2;153;153;153m \e[38;2;153;153;153mi\e[38;2;153;153;153mn\e[38;2;153;153;153mi\e[38;2;153;153;153mt\e[39m\b\b\b\b\b\b\b\e[39m \e[39m \e[39m \e[39m \e[39m \e[39m \e[39m \b\b\b\b\b\b\b\b\b\b\b\b\b\e[36ms\e[36ma\e[36ms\e[36mo\e[36mr\e[36mi\e[39m\e[1C\e[38;2;153;153;153minit\e[39m\b\b\b\b"
+- delay: 1879
+  content: "\e[39ms\e[38;2;153;153;153mi\e[38;2;153;153;153mn\e[38;2;153;153;153mi\e[38;2;153;153;153mt\e[39m\b\b\b\b\e[8D\e[39ms\e[39ma\e[39ms\e[39mo\e[39mr\e[39mi\e[2C\e[39mt\e[38;2;153;153;153mi\e[38;2;153;153;153mn\e[38;2;153;153;153mi\e[38;2;153;153;153mt\e[39m\b\b\b\b\e[39ma\e[38;2;153;153;153mi\e[38;2;153;153;153mn\e[38;2;153;153;153mi\e[38;2;153;153;153mt\e[39m\b\b\b\b\e[39mr\e[38;2;153;153;153mi\e[38;2;153;153;153mn\e[38;2;153;153;153mi\e[38;2;153;153;153mt\e[39m\b\b\b\b\e[39mt\e[38;2;153;153;153mi\e[38;2;153;153;153mn\e[38;2;153;153;153mi\e[38;2;153;153;153mt\e[39m\b\b\b\b\e[39m \e[39m \e[39m \e[39m \b\b\b\e[13D\e[36ms\e[36ma\e[36ms\e[36mo\e[36mr\e[36mi\e[39m\e[7C\e[38;2;153;153;153m--config ./config.json\e[39m\e[22D"
+- delay: 541
+  content: "\e[39m-\b\e[32m-\e[39m"
+- delay: 110
+  content: "\b\e[32m-\e[32m-\e[39m"
+- delay: 176
+  content: "\b\e[32m-\e[32mc\e[39m"
+- delay: 120
+  content: "\b\e[32mc\e[32mo\e[39m"
+- delay: 232
+  content: "\b\e[32mo\e[32mn\e[39m"
+- delay: 153
+  content: "\b\e[32mn\e[32mf\e[39m"
+- delay: 152
+  content: "\b\e[32mf\e[32mi\e[39m"
+- delay: 79
+  content: "\b\e[32mi\e[32mg\e[39m"
+- delay: 1001
+  content: "\b\e[32mg\e[32m \e[39m\b\b\e[32mg\e[39m\e[39m "
+- delay: 381
+  content: "\e[39m.\b\e[1m.\e[0m"
+- delay: 191
+  content: "\b\e[1m.\e[39m\e[1m/\e[0m"
+- delay: 168
+  content: "\b\e[1m/\e[39m\e[1mc\e[0m"
+- delay: 151
+  content: "\b\e[1mc\e[39m\e[1mo\e[0m"
+- delay: 260
+  content: "\b\e[1mo\e[39m\e[1mn\e[0m"
+- delay: 148
+  content: "\b\e[1mn\e[39m\e[1mf\e[0m"
+- delay: 192
+  content: "\b\e[1mf\e[39m\e[1mi\e[0m"
+- delay: 209
+  content: "\b\e[1mi\e[39m\e[1mg\e[0m"
+- delay: 3024
+  content: "\b\e[1mg\e[39m\e[1m.\e[0m\e[38;2;153;153;153m.\e[38;2;153;153;153mj\e[38;2;153;153;153ms\e[38;2;153;153;153mo\e[38;2;153;153;153mn\e[39m\b\b\b\b\b\e[31D\e[39ms\e[39ma\e[39ms\e[39mo\e[39mr\e[39mi\e[7C\e[39m-\e[39m-\e[39mc\e[39mo\e[39mn\e[39mf\e[39mi\e[39mg \e[0m.\e[0m/\e[0mc\e[0mo\e[0mn\e[0mf\e[0mi\e[0mg\e[0m.\e[39mj\e[38;2;153;153;153m.\e[38;2;153;153;153mj\e[38;2;153;153;153ms\e[38;2;153;153;153mo\e[38;2;153;153;153mn\e[39m\b\b\b\b\b\e[39ms\e[38;2;153;153;153m.\e[38;2;153;153;153mj\e[38;2;153;153;153ms\e[38;2;153;153;153mo\e[38;2;153;153;153mn\e[39m\b\b\b\b\b\e[39mo\e[38;2;153;153;153m.\e[38;2;153;153;153mj\e[38;2;153;153;153ms\e[38;2;153;153;153mo\e[38;2;153;153;153mn\e[39m\b\b\b\b\b\e[39mn\e[38;2;153;153;153m.\e[38;2;153;153;153mj\e[38;2;153;153;153ms\e[38;2;153;153;153mo\e[38;2;153;153;153mn\e[39m\b\b\b\b\b\e[39m \e[39m \e[39m \e[39m \e[39m \b\b\b\b\b\e[35D\e[36ms\e[36ma\e[36ms\e[36mo\e[36mr\e[36mi\e[39m\e[7C\e[32m-\e[32m-\e[32mc\e[32mo\e[32mn\e[32mf\e[32mi\e[32mg\e[39m \e[1m.\e[1m/\e[1mc\e[1mo\e[1mn\e[1mf\e[1mi\e[1mg\e[1m.\e[1mj\e[1ms\e[1mo\e[1mn\e[0m\e[?1l\e>\e[?2004l\r\r\n"
+- delay: 411
+  content: "\e[92m\e[1m\e[22m\e[39m\r\n\e[92m\e[1m                   .:-==--:.\e[22m\e[39m\r\n\e[92m\e[1m                :==#####%##*=:\e[22m\e[39m\r\n\e[92m\e[1m              .=#%+++==++*##*++-.\e[22m\e[39m\r\n\e[92m\e[1m              =#%*=-:...:-++*#%%*-\e[22m\e[39m\r\n\e[92m\e[1m             .*%#=-.     .-=+####*:\e[22m\e[39m\r\n\e[92m\e[1m             .*##+-.       .-=***#.\e[22m\e[39m\r\n\e[92m\e[1m              :=*##+-.       +@@%:\e[22m\e[39m\r\n\e[92m\e[1m               :=+*##*=-.  .+%*-\e[22m\e[39m\r\n\e[92m\e[1m                 :-=+**##+-:.\e[22m\e[39m\r\n\e[92m\e[1m                    .:=+*##*-.\e[22m\e[39m\r\n\e[92m\e[1m                       .:-++#*-\e[22m\e[39m\r\n\e[92m\e[1m                          .-##+:\e[22m\e[39m\r\n\e[92m\e[1m                 =#=.      :*#=:\e[22m\e[39m\r\n\e[92m\e[1m                 -##=:.  .-#*=-.\e[22m\e[39m\r\n\e[92m\e[1m                  :=+##****+=-.\e[22m\e[39m\r\n\e[92m\e[1m                    .:---:::.\e[22m\e[39m\r\n\e[92m\e[1m\e[22m\e[39m\r\n\e[92m\e[1m                  S A S O R I\e[22m\e[39m\r\n\e[92m\e[1m\e[22m\e[39m\r\n\e[92m\e[1m             Made by @5up3r541y4n \U0001F525\e[22m\e[39m\r\n\e[92m\e[1m\e[22m\e[39m\r\n\e[92m\e[1m                  v2.0.0\e[22m\e[39m\r\n\e[92m\e[1m\e[22m\e[39m\r\n\e[92m\e[1m\e[22m\e[39m\r\n"
+- delay: 7
+  content: "\e[32m[INFO] Config file \"./config.json\" exists.\e[39m\r\n"
+- delay: 23
+  content: "\e[92m[INFO] Initializing browser: one browser, 1 crawl window(s), one login (sessionMode \"shared\").\e[39m\r\n\e[92m[INFO] Max duration is set to 0, sasori will run indefinitely.\e[39m\r\n\e[93m[INFO] Recorder auth is DISABLED — crawling without a login sequence.\e[39m\r\n"
+- delay: 1650
+  content: "\e[92m[INFO] Browser(s) initialized successfully!\e[39m\r\n\e[92m[INFO] Sasori will now start crawling from https://security-crawl-maze.app/\e[39m\r\n\e[92m[INFO] Creating crawl state manager...\e[39m\r\n"
+- delay: 13
+  content: "\e[95m[URL] \e[39m\e[32mhttps://security-crawl-maze.app/\e[39m\r\n"
+- delay: 373
+  content: "\e[95m[URL] \e[39m\e[32mhttps://security-crawl-maze.app/favicon.ico\e[39m\r\n"
+- delay: 3139
+  content: "\e[35m[URL] \e[39m\e[32mhttps://github.com/google/security-crawl-maze\e[39m\r\n"
+- delay: 414
+  content: "\e[95m[URL] \e[39m\e[32mhttps://security-crawl-maze.app/css/\e[39m\r\n"
+- delay: 557
+  content: "\e[95m[URL] \e[39m\e[32mhttps://security-crawl-maze.app/css/font-face.html\e[39m\r\n"
+- delay: 289
+  content: "\e[95m[URL] \e[39m\e[32mhttps://security-crawl-maze.app/css/font-face.css\e[39m\r\n"
+- delay: 871
+  content: "\e[95m[URL] \e[39m\e[32mhttps://security-crawl-maze.app/headers/\e[39m\r\n"
+- delay: 559
+  content: "\e[95m[URL] \e[39m\e[32mhttps://security-crawl-maze.app/headers/content-location/\e[39m\r\n"
+- delay: 696
+  content: "\e[95m[URL] \e[39m\e[32mhttps://security-crawl-maze.app/headers/link/\e[39m\r\n"
+- delay: 699
+  content: "\e[95m[URL] \e[39m\e[32mhttps://security-crawl-maze.app/headers/location/\e[39m\r\n"
+- delay: 300
+  content: "\e[95m[URL] \e[39m\e[32mhttp://security-crawl-maze.app/test/headers/location.found\e[39m\r\n"
+- delay: 5
+  content: "\e[95m[URL] \e[39m\e[32mhttps://security-crawl-maze.app/test/headers/location.found\e[39m\r\n"
+- delay: 857
+  content: "\e[95m[URL] \e[39m\e[32mhttps://security-crawl-maze.app/headers/refresh/\e[39m\r\n"
+- delay: 686
+  content: "\e[95m[URL] \e[39m\e[32mhttps://security-crawl-maze.app/html/\e[39m\r\n"
+- delay: 548
+  content: "\e[95m[URL] \e[39m\e[32mhttps://security-crawl-maze.app/html/body/\e[39m\r\n"
+- delay: 562
+  content: "\e[95m[URL] \e[39m\e[32mhttps://security-crawl-maze.app/html/body/a/\e[39m\r\n"
+- delay: 541
+  content: "\e[95m[URL] \e[39m\e[32mhttps://security-crawl-maze.app/html/body/a/href.html\e[39m\r\n"
+- delay: 545
+  content: "\e[95m[URL] \e[39m\e[32mhttps://security-crawl-maze.app/test/html/body/a/href.found\e[39m\r\n"
+- delay: 1186
+  content: "\e[95m[URL] \e[39m\e[32mhttps://security-crawl-maze.app/html/body/a/ping.html\e[39m\r\n"
+- delay: 1417
+  content: "\e[95m[URL] \e[39m\e[32mhttps://security-crawl-maze.app/html/body/applet/\e[39m\r\n"
+- delay: 1244
+  content: "\e[95m[URL] \e[39m\e[32mhttps://security-crawl-maze.app/html/body/applet/archive.html\e[39m\r\n"
+- delay: 690
+  content: "\e[95m[URL] \e[39m\e[32mhttps://security-crawl-maze.app/html/body/applet/codebase.html\e[39m\r\n"
+- delay: 679
+  content: "\e[95m[URL] \e[39m\e[32mhttps://security-crawl-maze.app/html/body/audio/\e[39m\r\n"
+- delay: 550
+  content: "\e[95m[URL] \e[39m\e[32mhttps://security-crawl-maze.app/html/body/audio/source/\e[39m\r\n"
+- delay: 546
+  content: "\e[95m[URL] \e[39m\e[32mhttps://security-crawl-maze.app/html/body/audio/source/src.html\e[39m\r\n"
+- delay: 305
+  content: "\e[95m[URL] \e[39m\e[32mhttps://security-crawl-maze.app/test/html/body/audio/source/src.found\e[39m\r\n"
+- delay: 706
+  content: "\e[95m[URL] \e[39m\e[32mhttps://security-crawl-maze.app/html/body/audio/source/srcset.html\e[39m\r\n"
+- delay: 698
+  content: "\e[95m[URL] \e[39m\e[32mhttps://security-crawl-maze.app/html/body/audio/src.html\e[39m\r\n"
+- delay: 296
+  content: "\e[95m[URL] \e[39m\e[32mhttps://security-crawl-maze.app/test/html/body/audio/src.found\e[39m\r\n"
+- delay: 687
+  content: "\e[95m[URL] \e[39m\e[32mhttps://security-crawl-maze.app/html/body/background.html\e[39m\r\n"
+- delay: 293
+  content: "\e[95m[URL] \e[39m\e[32mhttps://security-crawl-maze.app/test/html/body/background.found\e[39m\r\n"
+- delay: 657
+  content: "\e[95m[URL] \e[39m\e[32mhttps://security-crawl-maze.app/html/body/blockquote/\e[39m\r\n"
+- delay: 531
+  content: "\e[95m[URL] \e[39m\e[32mhttps://security-crawl-maze.app/html/body/blockquote/cite.html\e[39m\r\n"
+- delay: 406
+  content: "^C\e[33m[INFO] SIGINT received — stopping crawl and writing artifacts...\e[39m\r\n"
+- delay: 28
+  content: "                                                                                                                       \r\r\e]0;user@demo: ~/demo\a\r\n"
+- delay: 13
+  content: "\r\e[0m\e[27m\e[24m\e[J\e[32m┌──(\e[1m\e[32m\e[34muser㉿demo\e[0m\e[34m\e[32m)-[\e[1m\e[32m\e[39m~/demo\e[0m\e[32m]\r\n└─\e[1m\e[32m\e[34m$\e[0m\e[34m\e[39m \e[K\e[?1h\e=\e[?2004h"
+- delay: 302
+  content: "\e[?2004l\r\r\n"
