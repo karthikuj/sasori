@@ -121,6 +121,13 @@ All notable changes to this project will be documented in this file.
 - Looking up a state by its hash no longer walks the whole graph.
 
 ### Fixed
+- Plain-HTTP sites can be crawled again. The Chrome that Puppeteer 25 bundles
+  (157) tries `https://` first for every `http://` page and, when that fails,
+  blocks the page with `net::ERR_BLOCKED_BY_CLIENT`, so any `http://` target off
+  localhost failed to load. Sasori now launches Chrome with those upgrades off
+  (`--disable-features=HttpsUpgrades,HttpsFirstBalancedMode`), so it requests
+  exactly the URL it is given and sends no extra `https://` requests to the
+  target. HTTPS sites are unaffected.
 - The example config (`config/config.json`, what `sasori init` writes) crawls
   `https://security-crawl-maze.app/` instead of `https://demo.testfire.net`, whose
   HTTPS certificate expired on 21 June 2026, so every attempt failed with

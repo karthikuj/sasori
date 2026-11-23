@@ -1,6 +1,6 @@
 import { Browser as PuppeteerBrowser } from 'puppeteer';
 import { launch } from 'puppeteer';
-import Browser, { BrowserLaunchExtras, NO_BACKGROUND_THROTTLING_ARGS } from '../../src/browser/browser';
+import Browser, { BASE_LAUNCH_ARGS, BrowserLaunchExtras, NO_BACKGROUND_THROTTLING_ARGS, NO_HTTPS_UPGRADE_ARGS } from '../../src/browser/browser';
 import { BrowserConfig } from '../../src/types/browser';
 import { prepareTlsUserDataDir, removeUserDataDir } from '../../src/browser/tlsProfile';
 
@@ -56,6 +56,18 @@ describe('Browser', () => {
     });
 
     describe('getBrowserConfig', () => {
+        it('always launches Chrome so it loads http:// URLs as http://, without trying https:// first', () => {
+            for (const config of [
+                { headless: true, instances: 1 },
+                { headless: false, maximize: true, instances: 2, proxy: { enabled: true, host: '127.0.0.1', port: 8080 } },
+            ] as BrowserConfig[]) {
+                const args = Browser.getBrowserConfig(config).args ?? [];
+                expect(args).toEqual(expect.arrayContaining([...NO_HTTPS_UPGRADE_ARGS, ...NO_BACKGROUND_THROTTLING_ARGS]));
+                const disabled = args.filter((a) => a.startsWith('--disable-features='));
+                expect(disabled).toEqual(['--disable-features=HttpsUpgrades,HttpsFirstBalancedMode']);
+            }
+        });
+
         it('should return basic browser configuration', () => {
             const config: BrowserConfig = {
                 headless: true,
@@ -68,7 +80,7 @@ describe('Browser', () => {
 
             expect(result).toEqual({
                 headless: true,
-                args: [...NO_BACKGROUND_THROTTLING_ARGS],
+                args: [...BASE_LAUNCH_ARGS],
             });
         });
 
@@ -84,7 +96,7 @@ describe('Browser', () => {
 
             expect(result).toEqual({
                 headless: false,
-                args: [...NO_BACKGROUND_THROTTLING_ARGS],
+                args: [...BASE_LAUNCH_ARGS],
             });
         });
 
@@ -100,7 +112,7 @@ describe('Browser', () => {
 
             expect(result).toEqual({
                 headless: true,
-                args: [...NO_BACKGROUND_THROTTLING_ARGS, '--start-maximized'],
+                args: [...BASE_LAUNCH_ARGS, '--start-maximized'],
             });
         });
 
@@ -120,7 +132,7 @@ describe('Browser', () => {
 
             expect(result).toEqual({
                 headless: true,
-                args: [...NO_BACKGROUND_THROTTLING_ARGS, 
+                args: [...BASE_LAUNCH_ARGS, 
                     '--proxy-server=127.0.0.1:8080',
                     '--proxy-bypass-list=<-loopback>',
                     '--ignore-certificate-errors',
@@ -165,7 +177,7 @@ describe('Browser', () => {
 
             expect(result).toEqual({
                 headless: true,
-                args: [...NO_BACKGROUND_THROTTLING_ARGS],
+                args: [...BASE_LAUNCH_ARGS],
             });
         });
 
@@ -184,7 +196,7 @@ describe('Browser', () => {
 
             expect(result).toEqual({
                 headless: true,
-                args: [...NO_BACKGROUND_THROTTLING_ARGS],
+                args: [...BASE_LAUNCH_ARGS],
             });
         });
 
@@ -204,7 +216,7 @@ describe('Browser', () => {
 
             expect(result).toEqual({
                 headless: true,
-                args: [...NO_BACKGROUND_THROTTLING_ARGS],
+                args: [...BASE_LAUNCH_ARGS],
             });
         });
 
@@ -221,7 +233,7 @@ describe('Browser', () => {
 
             expect(result).toEqual({
                 headless: true,
-                args: [...NO_BACKGROUND_THROTTLING_ARGS],
+                args: [...BASE_LAUNCH_ARGS],
                 slowMo: 100,
             });
         });
@@ -243,7 +255,7 @@ describe('Browser', () => {
 
             expect(result).toEqual({
                 headless: false,
-                args: [...NO_BACKGROUND_THROTTLING_ARGS, 
+                args: [...BASE_LAUNCH_ARGS, 
                     '--start-maximized',
                     '--proxy-server=192.168.1.1:3128',
                     '--proxy-bypass-list=<-loopback>',
@@ -269,7 +281,7 @@ describe('Browser', () => {
 
             expect(result).toEqual({
                 headless: true,
-                args: [...NO_BACKGROUND_THROTTLING_ARGS, 
+                args: [...BASE_LAUNCH_ARGS, 
                     '--proxy-server=proxy.example.com:9000',
                     '--proxy-bypass-list=<-loopback>',
                     '--ignore-certificate-errors',
@@ -292,7 +304,7 @@ describe('Browser', () => {
             const result = Browser.getBrowserConfig(config, extras);
             expect(result).toEqual({
                 headless: true,
-                args: [...NO_BACKGROUND_THROTTLING_ARGS, '--proxy-server=127.0.0.1:8080', '--proxy-bypass-list=<-loopback>'],
+                args: [...BASE_LAUNCH_ARGS, '--proxy-server=127.0.0.1:8080', '--proxy-bypass-list=<-loopback>'],
             });
         });
     });
@@ -310,7 +322,7 @@ describe('Browser', () => {
 
             expect(mockLaunch).toHaveBeenCalledWith({
                 headless: true,
-                args: [...NO_BACKGROUND_THROTTLING_ARGS],
+                args: [...BASE_LAUNCH_ARGS],
             });
             expect(result).toBe(mockBrowser);
         });
@@ -332,7 +344,7 @@ describe('Browser', () => {
 
             expect(mockLaunch).toHaveBeenCalledWith({
                 headless: false,
-                args: [...NO_BACKGROUND_THROTTLING_ARGS, 
+                args: [...BASE_LAUNCH_ARGS, 
                     '--start-maximized',
                     '--proxy-server=127.0.0.1:8080',
                     '--proxy-bypass-list=<-loopback>',
@@ -399,7 +411,7 @@ describe('Browser', () => {
 
             expect(mockLaunch).toHaveBeenCalledWith({
                 headless: true,
-                args: [...NO_BACKGROUND_THROTTLING_ARGS, 
+                args: [...BASE_LAUNCH_ARGS, 
                     '--start-maximized',
                     '--proxy-server=corporate-proxy.company.com:8080',
                     '--proxy-bypass-list=<-loopback>',
@@ -429,7 +441,7 @@ describe('Browser', () => {
             expect(mockPrepareTls).toHaveBeenCalledWith(['/fake/ca.pem']);
             expect(mockLaunch).toHaveBeenCalledWith({
                 headless: true,
-                args: [...NO_BACKGROUND_THROTTLING_ARGS, '--proxy-server=127.0.0.1:8080', '--proxy-bypass-list=<-loopback>'],
+                args: [...BASE_LAUNCH_ARGS, '--proxy-server=127.0.0.1:8080', '--proxy-bypass-list=<-loopback>'],
                 userDataDir: '/tmp/sasori-mock-tls-profile',
             });
         });
@@ -448,7 +460,7 @@ describe('Browser', () => {
 
             expect(result).toEqual({
                 headless: true,
-                args: [...NO_BACKGROUND_THROTTLING_ARGS],
+                args: [...BASE_LAUNCH_ARGS],
             });
             expect(result.slowMo).toBeUndefined();
         });
@@ -468,7 +480,7 @@ describe('Browser', () => {
 
             expect(result).toEqual({
                 headless: true,
-                args: [...NO_BACKGROUND_THROTTLING_ARGS],
+                args: [...BASE_LAUNCH_ARGS],
             });
         });
 
@@ -488,7 +500,7 @@ describe('Browser', () => {
 
             expect(result).toEqual({
                 headless: true,
-                args: [...NO_BACKGROUND_THROTTLING_ARGS],
+                args: [...BASE_LAUNCH_ARGS],
             });
         });
 
@@ -506,7 +518,7 @@ describe('Browser', () => {
             // slowMo: 0 is falsy, so it won't be added to the config
             expect(result).toEqual({
                 headless: true,
-                args: [...NO_BACKGROUND_THROTTLING_ARGS],
+                args: [...BASE_LAUNCH_ARGS],
             });
         });
     });
@@ -530,7 +542,7 @@ describe('Browser', () => {
             expect(mockLaunch).toHaveBeenCalledTimes(1);
             expect(mockLaunch).toHaveBeenCalledWith({
                 headless: false,
-                args: [...NO_BACKGROUND_THROTTLING_ARGS, 
+                args: [...BASE_LAUNCH_ARGS, 
                     '--start-maximized',
                     '--proxy-server=localhost:8888',
                     '--proxy-bypass-list=<-loopback>',
