@@ -9,6 +9,10 @@ All notable changes to this project will be documented in this file.
   and runs each worker in its own window of that browser. It used to launch
   one browser per worker and log in on each. Set `browser.sessionMode` to
   `"perBrowser"` to get the old behaviour back. (SCAN-236)
+- Sasori now needs **Node.js 22.12 or newer** (`engines` in `package.json`):
+  Puppeteer 25, which the security update below requires, needs it. On
+  22.12 exactly, Node may print an "ExperimentalWarning" about loading an ES
+  module with `require()`; it is harmless.
 - Sasori is now written in TypeScript and runs from the compiled `dist/`
   directory. Build with `npm run build` and start it with
   `node dist/bin/index.js`.
@@ -43,6 +47,10 @@ All notable changes to this project will be documented in this file.
 - Scheduled re-login with `crawler.authentication.reloginIntervalMs`. (SCAN-236)
 - A browser that crashes mid-crawl is restarted, and the crawl carries on.
   The action it was running is run again. (SCAN-236)
+- `make install-app` builds this checkout and installs it as the global
+  `sasori` command, from a packed copy rather than a link; `make
+  uninstall-app` removes it. The README now covers building and running from
+  source with make.
 - Several starting URLs. The crawl now starts from the entry point, then from
   `crawler.extraSeeds`. Each one starts its own crawl tree, and trees that reach
   the same page merge. (SCAN-229)
@@ -81,6 +89,9 @@ All notable changes to this project will be documented in this file.
 - CI runs type-check, tests, build and lint on every push and pull request.
 
 ### Changed
+- The npm package now contains only the built app (`dist/`), the README, the
+  changelog and the licence: 190 KB instead of 5.3 MB. It used to ship the
+  tests, the TypeScript sources and the README images as well.
 - The crawler is split into units that can be tested on their own:
   `DomStripper`, `ActionDiscovery`, `ActionReplay`, `ScopeMatcher`, `UrlSink`
   and `seedDiscovery`.
@@ -106,6 +117,13 @@ All notable changes to this project will be documented in this file.
   longer are. (SCAN-236)
 - While one browser runs its login, only that browser may leave scope for the
   login's identity provider. Before, every browser could. (SCAN-236)
+- All 65 open Dependabot alerts (6 critical, 30 high): Puppeteer 24 to 25 and
+  `@puppeteer/replay` 3 to 4, which drop `extract-zip`, `proxy-agent` and
+  `basic-ftp`; updated `joi`, Express's `body-parser`, `qs`, `path-to-regexp`
+  and `proxy-addr`, `ws`, `ip-address` and `tar-fs`; and development tooling
+  (Jest, typescript-eslint 8, and patched `glob`/`minimatch` pinned through
+  `overrides` where Jest and its coverage plugin still range older ones).
+  `npm audit` reports no vulnerabilities.
 - `maxActionRetries` was silently removed from configs before the crawler saw
   it, so the default of 3 always applied. A test now checks that both config
   schemas declare the same keys. (SCAN-89)

@@ -43,7 +43,7 @@ PORT       ?= 3100
 .PHONY: help check-tools install ci \
         build build-watch clean \
         run run-cli run-api run-crawl \
-        package-zip \
+        package-zip install-app uninstall-app \
         lint type-check format \
         test test-watch test-coverage test-ci \
         bench bench-stripdom bench-crawlmaze bench-crawlmaze-before bench-crawlmaze-after \
@@ -64,7 +64,7 @@ help: ## Display this help screen
 	@echo ""
 
 check-tools: ## Verify Node.js and npm are on PATH
-	@command -v node >/dev/null 2>&1 && echo "  ✅ node $$(command -v node)" || (echo "  ❌ node not found — install Node.js 18+ (https://nodejs.org/)"; exit 1)
+	@command -v node >/dev/null 2>&1 && echo "  ✅ node $$(command -v node)" || (echo "  ❌ node not found — install Node.js 22.12+ (https://nodejs.org/)"; exit 1)
 	@command -v npm >/dev/null 2>&1 && echo "  ✅ npm $$(command -v npm)" || (echo "  ❌ npm not found (expected with Node.js)"; exit 1)
 
 version: ## Print package version and git metadata
@@ -110,6 +110,21 @@ run-crawl: build ## Run a crawl, write inventory + crawl graph: CONFIG=... INVEN
 
 run-api: build ## Start REST API server (override HOST= PORT= on the command line)
 	@$(NODE) $(CLI_ENTRY) api --host "$(HOST)" --port "$(PORT)"
+
+install-app: build ## Install the `sasori` command globally from this checkout (npm install -g of a packed copy)
+	@tmp=$$(mktemp -d) && \
+	echo "Packing $(APP_NAME) into $$tmp ..." && \
+	$(NPM) pack --silent --pack-destination "$$tmp" >/dev/null && \
+	echo "Installing globally (npm prefix: $$($(NPM) prefix -g)) ..." && \
+	$(NPM) install -g "$$tmp"/$(APP_NAME)-*.tgz; \
+	status=$$?; rm -rf "$$tmp"; \
+	if [ $$status -ne 0 ]; then echo "  ❌ npm install -g failed. If the prefix needs root, use a Node version manager or set a user prefix (npm config set prefix ~/.local)."; exit $$status; fi
+	@echo "Installed: $$(command -v sasori || echo 'sasori is not on PATH; add $$(npm prefix -g)/bin')"
+	@echo "Run \`sasori --help\`. Re-run \`make install-app\` after pulling changes; \`make uninstall-app\` removes it."
+
+uninstall-app: check-tools ## Remove the globally installed `sasori` command
+	@$(NPM) uninstall -g $(APP_NAME)
+	@echo "Removed $(APP_NAME)."
 
 package-zip: ## Zip minimal prod bundle for `npm ci` + `npm start` (requires `make build` first)
 	@command -v zip >/dev/null 2>&1 || { echo "  ❌ zip NOT found. Install with: sudo apt install zip"; exit 1; }

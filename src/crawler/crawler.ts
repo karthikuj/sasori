@@ -343,7 +343,8 @@ class Crawler {
         });
 
         page.on('pageerror', (err) => {
-            this.debugLog(`page=${pageIdx} pageerror message=${err.message}`);
+            // Puppeteer 25 types this as unknown: a page can throw anything.
+            this.debugLog(`page=${pageIdx} pageerror message=${errorMessage(err)}`);
         });
     }
 

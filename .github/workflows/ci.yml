@@ -22,7 +22,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           # Kept in step with the engines field in package.json.
-          node-version: '18'
+          node-version: '22'
           cache: npm
 
       # `npm ci` rather than `npm install`: it installs exactly what the lockfile
@@ -58,7 +58,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: '18'
+          node-version: '22'
           cache: npm
       - run: npm ci
       # eslint directly rather than `npm run lint`, which carries --fix: a CI

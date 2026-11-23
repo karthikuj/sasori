@@ -4,11 +4,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Sasori (`sasori-crawl`) is a Puppeteer-based dynamic web crawler for endpoint discovery and security testing. It drives real browsers through a web app — including behind authentication — and emits every in-scope URL it touches, optionally through a proxy such as ZAP or Burp.
 
-**This file is the source of truth for AI assistant rules in this repo.** The rules in `.cursor/rules/` are legacy and are no longer maintained; do not update them. Update this file when CLI commands, config shape, crawl-graph semantics, the auth flow, or major dependencies change.
+**This file is the source of truth for AI assistant rules in this repo.** (The old `.cursor/rules/` files duplicated it and had gone stale, so they were removed.) Update this file when CLI commands, config shape, crawl-graph semantics, the auth flow, or major dependencies change.
 
 ## Commands
 
-TypeScript 5.9 → CommonJS, Node 18+. `makefile` targets are thin wrappers over the npm scripts; either is fine (`make help` lists them).
+TypeScript 5.9 → CommonJS, Node 22.12+ (Puppeteer 25's minimum). `makefile` targets are thin wrappers over the npm scripts; either is fine (`make help` lists them).
 
 ```bash
 npm run build          # prebuild cleans dist/, tsc, postbuild copies config/ → dist/
@@ -50,7 +50,19 @@ node dist/bin/index.js init            # copies packaged config.json into cwd
 make run-cli CONFIG=path/to.json       # builds, then runs
 make run-crawl CONFIG=path/to.json INVENTORY=inv.json
 make run-api HOST=127.0.0.1 PORT=8080
+make install-app                  # build, npm pack, npm install -g the tarball (the `sasori` command)
+make uninstall-app
 ```
+
+`make install-app` installs a packed copy, not `npm link`: a link would point
+at `dist/`, which every build deletes first (`prebuild` cleans it), so the
+installed command would break mid-build. What the package contains is the
+`files` list in `package.json` (`dist/bin`, `dist/src`, `dist/config`,
+`dist/package.json`). `dist/package.json` is easy to forget: `bin/index.ts`
+imports `../package.json` for the version, so tsc emits a copy next to
+`dist/bin`, and a package without it fails on start with
+`Cannot find module '../package.json'`. A new runtime file outside those paths
+must be added to the list, or the installed app will not have it.
 
 ### `npm run lint` is safe to run
 
@@ -60,6 +72,8 @@ It was not always. `.eslintrc.json` used to demand 2-space indentation while the
 - **`no-undef` and `no-unused-vars` off**, superseded by `tsc` and `@typescript-eslint/no-unused-vars`. The base rules do not know TypeScript and reported ~160 false positives for DOM globals used inside `page.evaluate` (`Node`, `Element`, `CSS`) and for ambient types (`NodeJS`, `RequestInit`).
 - **`argsIgnorePattern: "^_"`**, matching the codebase's existing `_argv` / `_next` convention.
 - **`env.jest`** so test globals resolve, and an **`.eslintignore`** covering `dist/`, `release/` and `coverage/` — linting compiled output reported every finding twice.
+
+Since typescript-eslint 8, `indent` comes from `@stylistic/eslint-plugin` (`@stylistic/indent`, same options), because typescript-eslint dropped its formatting rules; and `no-unused-vars` sets `caughtErrors: "none"`, keeping the v7 default rather than flagging every unused `catch (error)`.
 
 `npm run lint` is now idempotent: it modifies nothing on a clean tree. It reports 4 genuine pre-existing errors (three `no-useless-escape` in `domPath.ts`/`domPath.test.ts`, one `no-constant-condition` in `crawlStateManager.ts`) and ~164 `no-explicit-any` warnings. `npm run type-check` remains the correctness gate; lint is now usable alongside it.
 
@@ -342,6 +356,10 @@ Recorder auth resolves `pptrRecording` with `path.resolve(__dirname, …)` from 
 Jest with `ts-jest`, 10s default timeout, roots are `src/`, `tests/`, `types/`. Tests mirror source layout (`tests/crawler/*` for `src/crawler/*`). `tests/setup.ts` replaces `console.warn` and `console.error` with `jest.fn()`, so a test that expects warning output must assert on those mocks rather than on stdout. It also exposes `global.testUtils.createValidConfig()` — use it instead of hand-building config objects — and a custom `toBeValidConfig` matcher (declared in `types/test.d.ts`).
 
 Crawler tests never launch a real browser; follow the existing mocking patterns in `tests/crawler/` and the `CrawlerFactory` injection in `tests/api/scanRegistry.test.ts`. For whole crawls with sessions, windows, restarts and crashes, `tests/browser/fakeBrowser.ts` is a fake Chrome (it emits `targetcreated`/`disconnected` and quits when its last window closes, as headful Chrome does); inject it through `crawler.browserLauncher`, as `tests/crawler/crawler.sessions.test.ts` does.
+
+**Puppeteer and `@puppeteer/replay` are ES modules only** (Puppeteer 25, replay 4). The built CommonJS app loads them with Node's `require()` of ESM, which is why Node 22.12+ is required, but Jest's own module loader cannot. `jest.config.js` therefore maps both to CommonJS stand-ins in `tests/stubs/` with the same value exports (`launch`, `connect`; `createRunner`, `PuppeteerRunnerExtension`). `jest.mock('puppeteer')` mocks the stand-in exactly as it mocked the real package, and anything that reaches an unmocked stand-in throws. If code starts using another value export from either package, add it to the stand-in.
+
+Crawler tests never launch a real browser; follow the existing mocking patterns in `tests/crawler/` and the `CrawlerFactory` injection in `tests/api/scanRegistry.test.ts`.
 
 ## Notes
 
