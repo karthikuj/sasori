@@ -1,8 +1,5 @@
 <p align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="resources/brand/sasori-wordmark-dark.svg">
-    <img src="resources/brand/sasori-wordmark-light.svg" alt="Sasori" width="520" />
-  </picture>
+  <img alt="OWASP Sasori" src="resources/brand/sasori-wordmark-universal.svg" width="480" />
 </p>
 
 <p align="center">

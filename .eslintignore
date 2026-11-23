@@ -5,3 +5,4 @@ dist/
 release/
 coverage/
 node_modules/
+resources/
