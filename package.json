@@ -4,6 +4,7 @@
   "description": "Sasori is a dynamic web crawler powered by Puppeteer, designed for lightning-fast endpoint discovery.",
   "main": "dist/bin/index.js",
   "author": "Karthik UJ",
+  "license": "MIT",
   "contributors": [
     {
       "name": "Karthik UJ",

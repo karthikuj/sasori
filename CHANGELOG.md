@@ -89,6 +89,10 @@ All notable changes to this project will be documented in this file.
 - CI runs type-check, tests, build and lint on every push and pull request.
 
 ### Changed
+- Sasori is licensed under the MIT License, as the README already said. The
+  LICENSE file used to be a proprietary "all rights reserved" licence, which
+  contradicted the README and would not allow an OWASP project.
+  `package.json` now declares `"license": "MIT"`.
 - The npm package now contains only the built app (`dist/`), the README, the
   changelog and the licence: 190 KB instead of 5.3 MB. It used to ship the
   tests, the TypeScript sources and the README images as well.
