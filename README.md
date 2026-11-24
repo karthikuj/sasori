@@ -1,16 +1,16 @@
 <p align="center">
-  <img alt="OWASP Sasori" src="resources/brand/sasori-wordmark-universal.svg" width="480" />
+  <img alt="OWASP Sasori" src="https://raw.githubusercontent.com/karthikuj/sasori/v2.0.0/resources/brand/sasori-wordmark-universal.svg" width="480" />
 </p>
 
 <p align="center">
   <a href="https://www.npmjs.com/package/sasori-crawl"><img src="https://img.shields.io/npm/v/sasori-crawl.svg" alt="npm version" /></a>
   <a href="https://www.npmjs.com/package/sasori-crawl"><img src="https://img.shields.io/npm/dm/sasori-crawl.svg" alt="npm downloads" /></a>
   <img src="https://img.shields.io/node/v/sasori-crawl.svg" alt="node version" />
-  <a href="LICENSE"><img src="https://img.shields.io/npm/l/sasori-crawl.svg" alt="license" /></a>
+  <a href="https://github.com/karthikuj/sasori/blob/master/LICENSE"><img src="https://img.shields.io/npm/l/sasori-crawl.svg" alt="license" /></a>
   <img src="https://img.shields.io/badge/TypeScript-5.9-blue.svg" alt="typescript" />
 </p>
 
-<p align="center"><img src="resources/sasori.gif" alt="Sasori Demo" width="700" /></p>
+<p align="center"><img src="https://raw.githubusercontent.com/karthikuj/sasori/v2.0.0/resources/sasori.gif" alt="Sasori Demo" width="700" /></p>
 
 ## Contents
 
@@ -415,13 +415,13 @@ at the exported file.
 1. Open DevTools in Google Chrome and click the three dots in the top right corner.
 
 <p align="center">
-  <img src="resources/devtools-options.png" alt="DevTools Options">
+  <img src="https://raw.githubusercontent.com/karthikuj/sasori/v2.0.0/resources/devtools-options.png" alt="DevTools Options">
 </p>
 
 2. Go to `More tools` then `Recorder`.
 
 <p align="center">
-  <img src="resources/recorder.png" alt="Recorder">
+  <img src="https://raw.githubusercontent.com/karthikuj/sasori/v2.0.0/resources/recorder.png" alt="Recorder">
 </p>
 
 3. Click `Create a new recording`.
@@ -431,13 +431,13 @@ at the exported file.
 5. Do the login steps, then click `End recording`.
 
 <p align="center">
-  <img src="resources/create-recording.gif" alt="Create Recording">
+  <img src="https://raw.githubusercontent.com/karthikuj/sasori/v2.0.0/resources/create-recording.gif" alt="Create Recording">
 </p>
 
 6. Export the recording by clicking the download arrow and choosing `JSON`.
 
 <p align="center">
-  <img src="resources/export-recording.png" alt="Export Recording">
+  <img src="https://raw.githubusercontent.com/karthikuj/sasori/v2.0.0/resources/export-recording.png" alt="Export Recording">
 </p>
 
 To run a custom script during login, add a step to the flow, set its type to
@@ -451,4 +451,4 @@ the code, please read [CONTRIBUTING.md](CONTRIBUTING.md) first.
 
 ## License
 
-Sasori is released under the [MIT License](LICENSE).
+Sasori is released under the [MIT License](https://github.com/karthikuj/sasori/blob/master/LICENSE).
